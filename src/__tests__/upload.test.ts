@@ -1,11 +1,8 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect } from "vitest";
 import { env, SELF } from "cloudflare:test";
+import { handleUpload } from "../upload";
 
 describe("POST /api/upload", () => {
-  beforeEach(async () => {
-    // Clean KV
-  });
-
   it("accepts valid HTML and returns expected shape", async () => {
     const res = await SELF.fetch("http://localhost/api/upload", {
       method: "POST",
@@ -37,12 +34,22 @@ describe("POST /api/upload", () => {
     expect(record.createdAt).toBeTruthy();
   });
 
-  it("rejects when html exceeds 10 MiB", async () => {
+  it("rejects when html field exceeds 10 MiB", async () => {
     const bigHtml = "x".repeat(10 * 1024 * 1024 + 1);
     const res = await SELF.fetch("http://localhost/api/upload", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ html: bigHtml, filename: "big.html" }),
+    });
+    expect(res.status).toBe(413);
+  });
+
+  it("rejects when total request body exceeds body limit (small html, large metadata)", async () => {
+    const bigFilename = "a".repeat(11 * 1024 * 1024);
+    const res = await SELF.fetch("http://localhost/api/upload", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ html: "<p>small</p>", filename: bigFilename }),
     });
     expect(res.status).toBe(413);
   });
@@ -127,20 +134,60 @@ describe("POST /api/upload", () => {
   });
 });
 
-describe("ID collision handling", () => {
-  it("retries on collision and eventually succeeds or fails", async () => {
-    // Pre-populate several IDs to increase collision chance in test
-    // This is a probabilistic test; the main contract is tested structurally
-    const res = await SELF.fetch("http://localhost/api/upload", {
+describe("ID collision handling (deterministic)", () => {
+  it("retries and succeeds when first IDs collide", async () => {
+    const collidingId = "COLLIDE1";
+    await env.PAGES.put(`page:${collidingId}`, JSON.stringify({
+      html: "<p>existing</p>", password: "x", filename: "old.html", createdAt: "2026-01-01",
+    }));
+
+    let callCount = 0;
+    const deps = {
+      generateId: () => {
+        callCount++;
+        // First two calls return the colliding ID, third returns a fresh one
+        return callCount <= 2 ? collidingId : "FRESHN01";
+      },
+    };
+
+    const request = new Request("http://localhost/api/upload", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ html: "<p>first</p>", filename: "a.html" }),
+      body: JSON.stringify({ html: "<p>new</p>", filename: "new.html" }),
     });
+
+    const res = await handleUpload(request, env, deps);
     expect(res.status).toBe(200);
     const data = await res.json<{ id: string }>();
+    expect(data.id).toBe("FRESHN01");
+    expect(callCount).toBe(3);
 
-    // Verify the ID was stored
-    const stored = await env.PAGES.get(`page:${data.id}`);
-    expect(stored).not.toBeNull();
+    // Original colliding entry is not overwritten
+    const original = JSON.parse((await env.PAGES.get(`page:${collidingId}`, "text"))!);
+    expect(original.html).toBe("<p>existing</p>");
+  });
+
+  it("returns 503 when all retries collide", async () => {
+    const collidingId = "COLLID02";
+    await env.PAGES.put(`page:${collidingId}`, JSON.stringify({
+      html: "<p>existing</p>", password: "x", filename: "old.html", createdAt: "2026-01-01",
+    }));
+
+    const deps = {
+      generateId: () => collidingId,
+    };
+
+    const request = new Request("http://localhost/api/upload", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ html: "<p>new</p>", filename: "new.html" }),
+    });
+
+    const res = await handleUpload(request, env, deps);
+    expect(res.status).toBe(503);
+
+    // Original entry is not overwritten
+    const original = JSON.parse((await env.PAGES.get(`page:${collidingId}`, "text"))!);
+    expect(original.html).toBe("<p>existing</p>");
   });
 });

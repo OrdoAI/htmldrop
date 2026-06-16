@@ -1,7 +1,8 @@
-import { generateId, generatePassword, utf8ByteLength } from "./utils";
+import { generateId as defaultGenerateId, generatePassword, utf8ByteLength } from "./utils";
 import type { PageRecord } from "./auth";
 
-const MAX_BYTES = 10 * 1024 * 1024; // 10 MiB
+const MAX_HTML_BYTES = 10 * 1024 * 1024; // 10 MiB content limit
+const MAX_BODY_BYTES = 11 * 1024 * 1024; // 11 MiB body guard (content + JSON envelope)
 const MAX_RETRIES = 3;
 const TTL_SECONDS = 604800; // 7 days
 
@@ -15,7 +16,17 @@ interface UploadBody {
   filename: unknown;
 }
 
-export async function handleUpload(request: Request, env: Env): Promise<Response> {
+export interface UploadDeps {
+  generateId: () => string;
+}
+
+const defaultDeps: UploadDeps = { generateId: defaultGenerateId };
+
+export async function handleUpload(
+  request: Request,
+  env: Env,
+  deps: UploadDeps = defaultDeps,
+): Promise<Response> {
   if (request.method !== "POST") {
     return new Response("Method Not Allowed", { status: 405 });
   }
@@ -25,9 +36,18 @@ export async function handleUpload(request: Request, env: Env): Promise<Response
     return new Response("Content-Type must be application/json", { status: 415 });
   }
 
+  const rawBody = await request.text();
+  const rawByteLength = utf8ByteLength(rawBody);
+  if (rawByteLength > MAX_BODY_BYTES) {
+    return new Response(
+      `Request body too large: ${rawByteLength} bytes exceeds ${MAX_BODY_BYTES} byte limit`,
+      { status: 413 },
+    );
+  }
+
   let body: UploadBody;
   try {
-    body = await request.json();
+    body = JSON.parse(rawBody);
   } catch {
     return new Response("Invalid JSON", { status: 400 });
   }
@@ -46,18 +66,19 @@ export async function handleUpload(request: Request, env: Env): Promise<Response
     return new Response("Missing or invalid 'filename' field", { status: 400 });
   }
 
-  const byteLength = utf8ByteLength(html);
-  if (byteLength > MAX_BYTES) {
-    return new Response(`File too large: ${byteLength} bytes exceeds ${MAX_BYTES} byte limit`, {
-      status: 413,
-    });
+  const htmlByteLength = utf8ByteLength(html);
+  if (htmlByteLength > MAX_HTML_BYTES) {
+    return new Response(
+      `File too large: ${htmlByteLength} bytes exceeds ${MAX_HTML_BYTES} byte limit`,
+      { status: 413 },
+    );
   }
 
   const password = generatePassword();
 
   let id: string | null = null;
   for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
-    const candidate = generateId();
+    const candidate = deps.generateId();
     const existing = await env.PAGES.get(`page:${candidate}`);
     if (existing === null) {
       id = candidate;
