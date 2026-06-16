@@ -25,6 +25,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 .drop-zone strong{color:#ccc}
 .drop-zone p{color:#666;font-size:.8125rem;margin-top:.5rem}
 input[type=file]{display:none}
+.pick-btns{display:flex;gap:.5rem;justify-content:center;margin-top:1rem}
+.pick-btn{background:#1a1a1a;color:#aaa;border:1px solid #333;border-radius:6px;padding:.4rem .9rem;font-size:.75rem;cursor:pointer;transition:all .15s;font-family:inherit}
+.pick-btn:hover{background:#252525;color:#fff;border-color:#555}
 .result{width:100%;max-width:480px;margin-top:1.5rem;display:none}
 .result.show{display:block}
 .link-box{display:flex;gap:.5rem;align-items:center}
@@ -76,8 +79,13 @@ input[type=file]{display:none}
     <span class="icon">&#128196;</span>
     <strong>Drop file or folder here</strong>
     <p>.html or .md &middot; max 24 MB &middot; images auto-inlined</p>
+    <div class="pick-btns">
+      <button class="pick-btn" id="pickFile">Pick file</button>
+      <button class="pick-btn" id="pickFolder">Pick folder</button>
+    </div>
   </div>
   <input type="file" id="fileInput" multiple>
+  <input type="file" id="folderInput" webkitdirectory multiple>
   <div class="progress" id="progress">Processing&hellip;</div>
   <div class="error-msg" id="errorMsg"></div>
   <div class="md-error" id="mdError">Markdown library failed to load. Only HTML uploads are available.</div>
@@ -297,6 +305,9 @@ input[type=file]{display:none}
   var MAX_SIZE = 24 * 1024 * 1024;
   var dropZone = document.getElementById('dropZone');
   var fileInput = document.getElementById('fileInput');
+  var folderInput = document.getElementById('folderInput');
+  var pickFile = document.getElementById('pickFile');
+  var pickFolder = document.getElementById('pickFolder');
   var progress = document.getElementById('progress');
   var errorMsg = document.getElementById('errorMsg');
   var inlineInfo = document.getElementById('inlineInfo');
@@ -306,7 +317,8 @@ input[type=file]{display:none}
   var copyBtn = document.getElementById('copyBtn');
   var meta = document.getElementById('meta');
 
-  dropZone.addEventListener('click', function() { fileInput.click(); });
+  pickFile.addEventListener('click', function(e) { e.stopPropagation(); fileInput.click(); });
+  pickFolder.addEventListener('click', function(e) { e.stopPropagation(); folderInput.click(); });
   dropZone.addEventListener('dragover', function(e) { e.preventDefault(); dropZone.classList.add('over'); });
   dropZone.addEventListener('dragleave', function() { dropZone.classList.remove('over'); });
   dropZone.addEventListener('drop', async function(e) {
@@ -315,6 +327,7 @@ input[type=file]{display:none}
     if (files.length) handleFiles(files);
   });
   fileInput.addEventListener('change', function() { if (fileInput.files.length) handleFiles(Array.from(fileInput.files)); });
+  folderInput.addEventListener('change', function() { if (folderInput.files.length) handleFiles(Array.from(folderInput.files)); });
 
   copyBtn.addEventListener('click', function() {
     linkInput.select();
@@ -334,15 +347,18 @@ input[type=file]{display:none}
 
   async function handleFiles(files) {
     errorMsg.classList.remove('show'); inlineInfo.classList.remove('show'); warnInfo.classList.remove('show'); result.classList.remove('show');
-    var htmlFile = null, mdFile = null, assetFiles = [];
+    var htmlFiles = [], mdFiles = [], allFiles = [];
     for (var i = 0; i < files.length; i++) {
+      allFiles.push(files[i]);
       var ext = files[i].name.split('.').pop().toLowerCase();
-      if (!htmlFile && (ext === 'html' || ext === 'htm')) htmlFile = files[i];
-      else if (!mdFile && !htmlFile && (ext === 'md' || ext === 'markdown')) mdFile = files[i];
-      else assetFiles.push(files[i]);
+      if (ext === 'html' || ext === 'htm') htmlFiles.push(files[i]);
+      else if (ext === 'md' || ext === 'markdown') mdFiles.push(files[i]);
     }
+    var htmlFile = htmlFiles.find(function(f) { return f.name.toLowerCase() === 'index.html' || f.name.toLowerCase() === 'index.htm'; }) || htmlFiles[0] || null;
+    var mdFile = mdFiles.find(function(f) { return f.name.toLowerCase() === 'readme.md'; }) || mdFiles[0] || null;
     var mainFile = htmlFile || mdFile;
     if (!mainFile) { showError('No .html or .md file found'); return; }
+    var assetFiles = allFiles.filter(function(f) { return f !== mainFile; });
     var ext = mainFile.name.split('.').pop().toLowerCase();
     var isMarkdown = ext === 'md' || ext === 'markdown';
     progress.textContent = 'Processing\\u2026'; progress.classList.add('show');
