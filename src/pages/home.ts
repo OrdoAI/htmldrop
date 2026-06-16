@@ -30,22 +30,25 @@ input[type=file]{display:none}
 .error-msg.show{display:block}
 .md-error{background:#1c1007;border:1px solid #854d0e;border-radius:8px;padding:.75rem 1rem;margin-top:1rem;color:#fbbf24;font-size:.8125rem;display:none}
 .md-error.show{display:block}
+.inline-info{color:#3b82f6;font-size:.8125rem;margin-top:.75rem;display:none}
+.inline-info.show{display:block}
 </style>
 </head>
 <body>
 <h1>HTMLDrop</h1>
-<p class="subtitle">Drop an HTML or Markdown file, get a shareable link</p>
+<p class="subtitle">Drop HTML / Markdown file (or folder with images), get a shareable link</p>
 
 <div class="drop-zone" id="dropZone">
   <span class="icon">&#128196;</span>
-  <strong>Drop file here</strong>
-  <p>.html or .md &middot; max 10 MB</p>
+  <strong>Drop file or folder here</strong>
+  <p>.html or .md &middot; max 24 MB &middot; images auto-inlined</p>
 </div>
-<input type="file" id="fileInput" accept=".html,.htm,.md,.markdown">
+<input type="file" id="fileInput" accept=".html,.htm,.md,.markdown" multiple>
 
-<div class="progress" id="progress">Uploading&hellip;</div>
+<div class="progress" id="progress">Processing&hellip;</div>
 <div class="error-msg" id="errorMsg"></div>
 <div class="md-error" id="mdError">Markdown library failed to load. Only HTML uploads are available.</div>
+<div class="inline-info" id="inlineInfo"></div>
 
 <div class="result" id="result">
   <div class="link-box">
@@ -108,10 +111,162 @@ input[type=file]{display:none}
     return wrapMarkdown(rendered);
   }
 
+  var MIME_MAP = {
+    png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif',
+    svg: 'image/svg+xml', webp: 'image/webp', ico: 'image/x-icon', bmp: 'image/bmp',
+    avif: 'image/avif',
+    css: 'text/css', js: 'text/javascript',
+  };
+
+  function fileToDataUri(file) {
+    return new Promise(function(resolve) {
+      var reader = new FileReader();
+      reader.onload = function() { resolve(reader.result); };
+      reader.readAsDataURL(file);
+    });
+  }
+
+  function isRelativeSrc(src) {
+    if (!src) return false;
+    if (src.startsWith('data:')) return false;
+    if (src.startsWith('http://') || src.startsWith('https://') || src.startsWith('//')) return false;
+    if (src.startsWith('#') || src.startsWith('javascript:')) return false;
+    return true;
+  }
+
+  function normalizePath(src) {
+    var parts = src.split('/');
+    var out = [];
+    for (var i = 0; i < parts.length; i++) {
+      if (parts[i] === '.' || parts[i] === '') continue;
+      if (parts[i] === '..' && out.length) { out.pop(); continue; }
+      out.push(parts[i]);
+    }
+    return out.join('/');
+  }
+
+  async function inlineAssets(html, assetFiles) {
+    var fileMap = {};
+    for (var i = 0; i < assetFiles.length; i++) {
+      var f = assetFiles[i];
+      var relPath = f.webkitRelativePath || f.name;
+      var parts = relPath.split('/');
+      if (parts.length > 1) parts.shift();
+      var normalized = parts.join('/');
+      fileMap[normalized.toLowerCase()] = f;
+      fileMap[parts[parts.length - 1].toLowerCase()] = f;
+    }
+
+    var parser = new DOMParser();
+    var doc = parser.parseFromString(html, 'text/html');
+    var inlined = 0;
+    var missing = [];
+
+    var imgs = doc.querySelectorAll('img[src]');
+    for (var j = 0; j < imgs.length; j++) {
+      var src = imgs[j].getAttribute('src');
+      if (!isRelativeSrc(src)) continue;
+      var key = normalizePath(src).toLowerCase();
+      var file = fileMap[key] || fileMap[key.split('/').pop()];
+      if (file) {
+        imgs[j].setAttribute('src', await fileToDataUri(file));
+        inlined++;
+      } else {
+        missing.push(src);
+      }
+    }
+
+    var links = doc.querySelectorAll('link[rel="stylesheet"][href]');
+    for (var k = 0; k < links.length; k++) {
+      var href = links[k].getAttribute('href');
+      if (!isRelativeSrc(href)) continue;
+      var cssKey = normalizePath(href).toLowerCase();
+      var cssFile = fileMap[cssKey] || fileMap[cssKey.split('/').pop()];
+      if (cssFile) {
+        var cssText = await cssFile.text();
+        var style = doc.createElement('style');
+        style.textContent = cssText;
+        links[k].replaceWith(style);
+        inlined++;
+      }
+    }
+
+    var scripts = doc.querySelectorAll('script[src]');
+    for (var m = 0; m < scripts.length; m++) {
+      var jsSrc = scripts[m].getAttribute('src');
+      if (!isRelativeSrc(jsSrc)) continue;
+      var jsKey = normalizePath(jsSrc).toLowerCase();
+      var jsFile = fileMap[jsKey] || fileMap[jsKey.split('/').pop()];
+      if (jsFile) {
+        var jsText = await jsFile.text();
+        var inline = doc.createElement('script');
+        inline.textContent = jsText;
+        scripts[m].replaceWith(inline);
+        inlined++;
+      }
+    }
+
+    var result = '<!DOCTYPE html>' + doc.documentElement.outerHTML;
+    return { html: result, inlined: inlined, missing: missing };
+  }
+
+  async function collectDropEntries(dataTransfer) {
+    var files = [];
+    var items = dataTransfer.items;
+    if (!items || !items.length) return Array.from(dataTransfer.files);
+
+    var entries = [];
+    for (var i = 0; i < items.length; i++) {
+      var entry = items[i].webkitGetAsEntry && items[i].webkitGetAsEntry();
+      if (entry) entries.push(entry);
+    }
+
+    if (!entries.length) return Array.from(dataTransfer.files);
+
+    async function readDir(dirEntry) {
+      return new Promise(function(resolve) {
+        var reader = dirEntry.createReader();
+        var all = [];
+        (function read() {
+          reader.readEntries(function(batch) {
+            if (!batch.length) return resolve(all);
+            all = all.concat(Array.from(batch));
+            read();
+          });
+        })();
+      });
+    }
+
+    async function walk(entry, path) {
+      if (entry.isFile) {
+        return new Promise(function(resolve) {
+          entry.file(function(f) {
+            Object.defineProperty(f, 'webkitRelativePath', { value: path + f.name });
+            files.push(f);
+            resolve();
+          });
+        });
+      }
+      if (entry.isDirectory) {
+        var children = await readDir(entry);
+        for (var c = 0; c < children.length; c++) {
+          await walk(children[c], path + entry.name + '/');
+        }
+      }
+    }
+
+    for (var e = 0; e < entries.length; e++) {
+      await walk(entries[e], '');
+    }
+    return files;
+  }
+
+  var MAX_SIZE = 24 * 1024 * 1024;
   var dropZone = document.getElementById('dropZone');
   var fileInput = document.getElementById('fileInput');
   var progress = document.getElementById('progress');
   var errorMsg = document.getElementById('errorMsg');
+  var inlineInfo = document.getElementById('inlineInfo');
   var result = document.getElementById('result');
   var linkInput = document.getElementById('linkInput');
   var copyBtn = document.getElementById('copyBtn');
@@ -120,13 +275,16 @@ input[type=file]{display:none}
   dropZone.addEventListener('click', function() { fileInput.click(); });
   dropZone.addEventListener('dragover', function(e) { e.preventDefault(); dropZone.classList.add('over'); });
   dropZone.addEventListener('dragleave', function() { dropZone.classList.remove('over'); });
-  dropZone.addEventListener('drop', function(e) {
+
+  dropZone.addEventListener('drop', async function(e) {
     e.preventDefault();
     dropZone.classList.remove('over');
-    if (e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]);
+    var files = await collectDropEntries(e.dataTransfer);
+    if (files.length) handleFiles(files);
   });
+
   fileInput.addEventListener('change', function() {
-    if (fileInput.files.length) handleFile(fileInput.files[0]);
+    if (fileInput.files.length) handleFiles(Array.from(fileInput.files));
   });
 
   copyBtn.addEventListener('click', function() {
@@ -145,51 +303,85 @@ input[type=file]{display:none}
     setTimeout(function() { dropZone.classList.remove('error'); }, 2000);
   }
 
-  function handleFile(file) {
+  async function handleFiles(files) {
     errorMsg.classList.remove('show');
+    inlineInfo.classList.remove('show');
     result.classList.remove('show');
 
-    var ext = file.name.split('.').pop().toLowerCase();
-    var isMarkdown = ext === 'md' || ext === 'markdown';
-    var isHtml = ext === 'html' || ext === 'htm';
+    var htmlFile = null;
+    var mdFile = null;
+    var assetFiles = [];
 
-    if (!isMarkdown && !isHtml) {
-      showError('Only .html and .md files are supported');
-      return;
-    }
-
-    if (file.size > 10 * 1024 * 1024) {
-      showError('File too large (max 10 MB)');
-      return;
-    }
-
-    var reader = new FileReader();
-    reader.onload = function() {
-      var text = reader.result;
-
-      if (isMarkdown) {
-        if (markedFailed) {
-          showError('Markdown library failed to load. Please upload HTML instead.');
-          return;
-        }
-        if (!markedReady) {
-          showError('Markdown library is still loading. Please try again in a moment.');
-          return;
-        }
-        var converted = convertMarkdown(text);
-        if (!converted) {
-          showError('Markdown conversion failed');
-          return;
-        }
-        upload(converted, file.name);
+    for (var i = 0; i < files.length; i++) {
+      var name = files[i].name.toLowerCase();
+      var ext = name.split('.').pop();
+      if (!htmlFile && (ext === 'html' || ext === 'htm')) {
+        htmlFile = files[i];
+      } else if (!mdFile && (ext === 'md' || ext === 'markdown')) {
+        mdFile = files[i];
       } else {
-        upload(text, file.name);
+        assetFiles.push(files[i]);
       }
-    };
-    reader.readAsText(file);
+    }
+
+    var mainFile = htmlFile || mdFile;
+    if (!mainFile) {
+      showError('No .html or .md file found');
+      return;
+    }
+
+    var ext = mainFile.name.split('.').pop().toLowerCase();
+    var isMarkdown = ext === 'md' || ext === 'markdown';
+
+    progress.textContent = 'Processing…';
+    progress.classList.add('show');
+
+    var text = await mainFile.text();
+
+    if (isMarkdown) {
+      if (markedFailed) {
+        progress.classList.remove('show');
+        showError('Markdown library failed to load. Please upload HTML instead.');
+        return;
+      }
+      if (!markedReady) {
+        progress.classList.remove('show');
+        showError('Markdown library is still loading. Please try again in a moment.');
+        return;
+      }
+      var converted = convertMarkdown(text);
+      if (!converted) {
+        progress.classList.remove('show');
+        showError('Markdown conversion failed');
+        return;
+      }
+      text = converted;
+    }
+
+    if (assetFiles.length > 0) {
+      progress.textContent = 'Inlining assets…';
+      var inlineResult = await inlineAssets(text, assetFiles);
+      text = inlineResult.html;
+      var infoMsg = inlineResult.inlined + ' asset(s) inlined';
+      if (inlineResult.missing.length) {
+        infoMsg += ', ' + inlineResult.missing.length + ' missing: ' + inlineResult.missing.join(', ');
+      }
+      inlineInfo.textContent = infoMsg;
+      inlineInfo.classList.add('show');
+    }
+
+    var byteSize = new Blob([text]).size;
+    if (byteSize > MAX_SIZE) {
+      progress.classList.remove('show');
+      showError('Result too large after inlining: ' + (byteSize / 1024 / 1024).toFixed(1) + ' MB (max 24 MB)');
+      return;
+    }
+
+    upload(text, mainFile.name);
   }
 
   function upload(html, filename) {
+    progress.textContent = 'Uploading…';
     progress.classList.add('show');
     dropZone.style.pointerEvents = 'none';
     dropZone.style.opacity = '0.5';

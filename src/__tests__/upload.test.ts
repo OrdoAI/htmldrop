@@ -34,8 +34,8 @@ describe("POST /api/upload", () => {
     expect(record.createdAt).toBeTruthy();
   });
 
-  it("rejects when html field exceeds 10 MiB", async () => {
-    const bigHtml = "x".repeat(10 * 1024 * 1024 + 1);
+  it("rejects when html field exceeds 24 MiB", async () => {
+    const bigHtml = "x".repeat(24 * 1024 * 1024 + 1);
     const res = await SELF.fetch("http://localhost/api/upload", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -45,7 +45,7 @@ describe("POST /api/upload", () => {
   });
 
   it("rejects when total request body exceeds body limit (small html, large metadata)", async () => {
-    const bigFilename = "a".repeat(11 * 1024 * 1024);
+    const bigFilename = "a".repeat(25 * 1024 * 1024);
     const res = await SELF.fetch("http://localhost/api/upload", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -54,8 +54,8 @@ describe("POST /api/upload", () => {
     expect(res.status).toBe(413);
   });
 
-  it("accepts html at exactly 10 MiB", async () => {
-    const exactHtml = "x".repeat(10 * 1024 * 1024);
+  it("accepts html at exactly 24 MiB", async () => {
+    const exactHtml = "x".repeat(24 * 1024 * 1024);
     const res = await SELF.fetch("http://localhost/api/upload", {
       method: "POST",
       headers: { "Content-Type": "application/json" },

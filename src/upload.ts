@@ -1,8 +1,8 @@
 import { generateId as defaultGenerateId, generatePassword, utf8ByteLength } from "./utils";
 import type { PageRecord } from "./auth";
 
-const MAX_HTML_BYTES = 10 * 1024 * 1024; // 10 MiB content limit
-const MAX_BODY_BYTES = 11 * 1024 * 1024; // 11 MiB body guard (content + JSON envelope)
+const MAX_HTML_BYTES = 24 * 1024 * 1024; // 24 MiB content limit (KV value max is 25 MiB, leave room for JSON wrapper)
+const MAX_BODY_BYTES = 25 * 1024 * 1024; // 25 MiB body guard
 const MAX_RETRIES = 3;
 const TTL_SECONDS = 604800; // 7 days
 
