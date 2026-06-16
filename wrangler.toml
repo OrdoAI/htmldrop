@@ -1,0 +1,10 @@
+name = "htmldrop"
+main = "src/index.ts"
+compatibility_date = "2024-12-01"
+
+[[kv_namespaces]]
+binding = "PAGES"
+id = "PLACEHOLDER_KV_ID"
+
+[vars]
+AUTH_SECRET = "CHANGE_ME_BEFORE_DEPLOY"
