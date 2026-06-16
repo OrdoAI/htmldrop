@@ -28,6 +28,11 @@ input[type=file]{display:none}
 .pick-btns{display:flex;gap:.5rem;justify-content:center;margin-top:1rem}
 .pick-btn{background:#1a1a1a;color:#aaa;border:1px solid #333;border-radius:6px;padding:.4rem .9rem;font-size:.75rem;cursor:pointer;transition:all .15s;font-family:inherit}
 .pick-btn:hover{background:#252525;color:#fff;border-color:#555}
+.file-picker{display:none;width:100%;max-width:480px;margin-top:1rem;background:#111;border:1px solid #333;border-radius:10px;padding:1rem;text-align:center}
+.file-picker.show{display:block}
+.picker-label{color:#888;font-size:.8125rem;margin-bottom:.75rem}
+#fileSelect{width:100%;background:#1a1a1a;color:#e0e0e0;border:1px solid #333;border-radius:6px;padding:.5rem .75rem;font-size:.8125rem;font-family:'SF Mono',SFMono-Regular,Consolas,monospace;margin-bottom:.75rem;appearance:none;-webkit-appearance:none;cursor:pointer}
+#fileSelect option{padding:.25rem}
 .result{width:100%;max-width:480px;margin-top:1.5rem;display:none}
 .result.show{display:block}
 .link-box{display:flex;gap:.5rem;align-items:center}
@@ -89,6 +94,11 @@ input[type=file]{display:none}
   <div class="progress" id="progress">Processing&hellip;</div>
   <div class="error-msg" id="errorMsg"></div>
   <div class="md-error" id="mdError">Markdown library failed to load. Only HTML uploads are available.</div>
+  <div class="file-picker" id="filePicker">
+    <p class="picker-label">Multiple HTML/MD files found. Pick one:</p>
+    <select id="fileSelect"></select>
+    <button class="pick-btn" id="filePickConfirm">Upload this file</button>
+  </div>
   <div class="inline-info" id="inlineInfo"></div>
   <div class="warn-info" id="warnInfo"></div>
 </div>
@@ -345,19 +355,43 @@ input[type=file]{display:none}
     setTimeout(function() { dropZone.classList.remove('error'); }, 2000);
   }
 
+  var pendingAllFiles = null;
+  var filePicker = document.getElementById('filePicker');
+  var fileSelect = document.getElementById('fileSelect');
+  var filePickConfirm = document.getElementById('filePickConfirm');
+
+  filePickConfirm.addEventListener('click', function() {
+    if (!pendingAllFiles) return;
+    var idx = parseInt(fileSelect.value);
+    var chosen = pendingAllFiles.candidates[idx];
+    filePicker.classList.remove('show');
+    processMainFile(chosen, pendingAllFiles.all);
+    pendingAllFiles = null;
+  });
+
   async function handleFiles(files) {
-    errorMsg.classList.remove('show'); inlineInfo.classList.remove('show'); warnInfo.classList.remove('show'); result.classList.remove('show');
-    var htmlFiles = [], mdFiles = [], allFiles = [];
+    errorMsg.classList.remove('show'); inlineInfo.classList.remove('show'); warnInfo.classList.remove('show'); result.classList.remove('show'); filePicker.classList.remove('show');
+    var candidates = [], allFiles = [];
     for (var i = 0; i < files.length; i++) {
       allFiles.push(files[i]);
       var ext = files[i].name.split('.').pop().toLowerCase();
-      if (ext === 'html' || ext === 'htm') htmlFiles.push(files[i]);
-      else if (ext === 'md' || ext === 'markdown') mdFiles.push(files[i]);
+      if (ext === 'html' || ext === 'htm' || ext === 'md' || ext === 'markdown') candidates.push(files[i]);
     }
-    var htmlFile = htmlFiles.find(function(f) { return f.name.toLowerCase() === 'index.html' || f.name.toLowerCase() === 'index.htm'; }) || htmlFiles[0] || null;
-    var mdFile = mdFiles.find(function(f) { return f.name.toLowerCase() === 'readme.md'; }) || mdFiles[0] || null;
-    var mainFile = htmlFile || mdFile;
-    if (!mainFile) { showError('No .html or .md file found'); return; }
+    if (candidates.length === 0) { showError('No .html or .md file found'); return; }
+    if (candidates.length === 1) { processMainFile(candidates[0], allFiles); return; }
+    pendingAllFiles = { candidates: candidates, all: allFiles };
+    fileSelect.innerHTML = '';
+    for (var j = 0; j < candidates.length; j++) {
+      var opt = document.createElement('option');
+      opt.value = j;
+      opt.textContent = candidates[j].fullPath || candidates[j].webkitRelativePath || candidates[j].name;
+      fileSelect.appendChild(opt);
+    }
+    filePicker.classList.add('show');
+    return;
+  }
+
+  async function processMainFile(mainFile, allFiles) {
     var assetFiles = allFiles.filter(function(f) { return f !== mainFile; });
     var ext = mainFile.name.split('.').pop().toLowerCase();
     var isMarkdown = ext === 'md' || ext === 'markdown';
