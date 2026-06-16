@@ -160,13 +160,27 @@ input[type=file]{display:none}
     return srcs;
   }
 
-  async function inlineAssets(html, assetFiles) {
+  async function inlineAssets(html, assetFiles, mainFile) {
     var fileMap = {};
+    var mainDir = '';
+    if (mainFile) {
+      var mp = (mainFile.fullPath || mainFile.webkitRelativePath || mainFile.name);
+      var lastSlash = mp.lastIndexOf('/');
+      if (lastSlash !== -1) mainDir = mp.slice(0, lastSlash + 1);
+    }
     for (var i = 0; i < assetFiles.length; i++) {
       var f = assetFiles[i];
       var relPath = f.fullPath || f.webkitRelativePath || f.name;
       var normalized = normalizePath(relPath).toLowerCase();
       fileMap[normalized] = f;
+      if (mainDir && relPath.toLowerCase().startsWith(mainDir.toLowerCase())) {
+        var relative = relPath.slice(mainDir.length);
+        fileMap[normalizePath(relative).toLowerCase()] = f;
+      }
+      var parts = normalized.split('/');
+      if (parts.length > 1) {
+        fileMap[parts.slice(1).join('/').toLowerCase()] = f;
+      }
       var basename = f.name.toLowerCase();
       if (!fileMap[basename]) fileMap[basename] = f;
     }
@@ -219,7 +233,7 @@ input[type=file]{display:none}
       if (!file) { missing.push(src); return match; }
       var jsText = await file.text();
       inlined++;
-      return '<script>' + jsText + '</script>';
+      return '<scr' + 'ipt>' + jsText + '<\\/scr' + 'ipt>';
     });
 
     return { html: html, inlined: inlined, missing: missing };
@@ -389,7 +403,7 @@ input[type=file]{display:none}
     if (assetFiles.length > 0) {
       progress.textContent = 'Inlining assets…';
       try {
-        var inlineResult = await inlineAssets(text, assetFiles);
+        var inlineResult = await inlineAssets(text, assetFiles, mainFile);
         text = inlineResult.html;
         if (inlineResult.inlined > 0 || inlineResult.missing.length > 0) {
           var infoMsg = inlineResult.inlined + ' asset(s) inlined';
