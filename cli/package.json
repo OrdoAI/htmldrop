@@ -1,5 +1,5 @@
 {
-  "name": "htmldrop",
+  "name": "htmldrop-cli",
   "version": "0.1.0",
   "description": "Upload HTML/MD to baseurl.ai for shareable preview links",
   "bin": {

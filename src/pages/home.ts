@@ -106,20 +106,20 @@ input[type=file]{display:none}
 <div class="panel" id="panel-agents">
   <div class="cli-section">
     <div class="cli-block">
-      <div class="cli-header"><span>One-liner</span><button class="copy-btn" data-copy="npx htmldrop@latest ./report.html">Copy<svg class="cli-icon" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></button></div>
-      <div class="cli-code"><span class="dim">$</span> npx htmldrop@latest ./report.html</div>
+      <div class="cli-header"><span>One-liner</span><button class="copy-btn" data-copy="npx htmldrop-cli@latest ./report.html">Copy<svg class="cli-icon" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></button></div>
+      <div class="cli-code"><span class="dim">$</span> npx htmldrop-cli@latest ./report.html</div>
     </div>
     <div class="cli-block">
-      <div class="cli-header"><span>Example</span><button class="copy-btn" data-copy="npx htmldrop@latest ~/Documents/notes.md">Copy<svg class="cli-icon" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></button></div>
-      <div class="cli-code"><span class="dim">$</span> npx htmldrop@latest ./report.html
+      <div class="cli-header"><span>Example</span><button class="copy-btn" data-copy="npx htmldrop-cli@latest ~/Documents/notes.md">Copy<svg class="cli-icon" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></button></div>
+      <div class="cli-code"><span class="dim">$</span> npx htmldrop-cli@latest ./report.html
 <span class="green">https://baseurl.ai/a3xK9mPq?p=xxxxxxxxxxxxxxxx</span>
   <span class="dim">2 asset(s) inlined</span>
   <span class="dim">id: a3xK9mPq &middot; expires: 2026-06-23</span>
   <span class="dim">(copied to clipboard)</span>
 
 <span class="dim"># supports any path format</span>
-<span class="dim">$</span> npx htmldrop@latest ~/Documents/notes.md
-<span class="dim">$</span> npx htmldrop@latest /absolute/path/to/page.html</div>
+<span class="dim">$</span> npx htmldrop-cli@latest ~/Documents/notes.md
+<span class="dim">$</span> npx htmldrop-cli@latest /absolute/path/to/page.html</div>
     </div>
     <div class="cli-prompt">
       <button class="copy-btn" id="promptBtn" data-copy="Upload this file to HTMLDrop:\nhtmldrop {{filepath}}">Copy starter prompt<svg class="cli-icon" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></button>
