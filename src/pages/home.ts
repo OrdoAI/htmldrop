@@ -7,64 +7,60 @@ export function homePage(): string {
 <title>HTMLDrop</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
-body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#fafafa;color:#111;min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:5rem 2rem 3rem}
-h1{font-size:clamp(2.5rem,6vw,4rem);font-weight:700;color:#000;line-height:1.1;text-align:center;letter-spacing:-.03em}
-.sub{color:#666;font-size:1.05rem;line-height:1.6;text-align:center;margin-top:1.25rem;max-width:420px}
-.tabs{display:flex;align-items:center;gap:0;margin:2.5rem 0 2rem}
-.tab{background:none;border:none;padding:.4rem 0;font-size:.9375rem;color:#999;cursor:pointer;font-family:inherit;font-weight:500;transition:color .15s}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#fafafa;color:#111;min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:6rem 2rem 3rem}
+h1{font-size:clamp(2.5rem,6vw,3.8rem);font-weight:700;color:#000;line-height:1.1;text-align:center;letter-spacing:-.03em}
+.sub{color:#888;font-size:1rem;line-height:1.7;text-align:center;margin-top:1rem;max-width:380px}
+.tabs{display:flex;align-items:center;margin:2.5rem 0 2rem}
+.tab{background:none;border:none;padding:.4rem 0;font-size:.9375rem;color:#bbb;cursor:pointer;font-family:inherit;font-weight:500;transition:color .15s}
+.tab:hover{color:#666}
 .tab.active{color:#000;font-weight:600}
 .tab-div{width:1px;height:1rem;background:#ddd;margin:0 1.25rem}
-.panel{display:none;width:100%;max-width:480px;flex-direction:column;align-items:center}
+.panel{display:none;width:100%;max-width:440px;flex-direction:column;align-items:center}
 .panel.active{display:flex}
-.drop-zone{width:100%;border:2px dashed #ddd;border-radius:14px;padding:2.5rem 2rem;text-align:center;cursor:pointer;transition:all .2s;background:#fff}
-.drop-zone:hover{border-color:#bbb}
-.drop-zone.over{border-color:#000;background:#f5f5f5}
+.drop-zone{width:100%;border:1.5px dashed #d4d4d4;border-radius:16px;padding:2.5rem 2rem 1.5rem;text-align:center;cursor:pointer;transition:all .2s;background:#fff}
+.drop-zone:hover{border-color:#aaa}
+.drop-zone.over{border-color:#000;background:#f8f8f8}
 .drop-zone.error{border-color:#ef4444;background:#fef2f2}
-.drop-zone strong{color:#333;font-size:.9375rem}
-.drop-zone p{color:#999;font-size:.8125rem;margin-top:.4rem}
-.pick-btns{display:flex;gap:.5rem;justify-content:center;margin-top:1rem}
-.pick-btn{background:#fff;color:#666;border:1px solid #e0e0e0;border-radius:8px;padding:.4rem .9rem;font-size:.75rem;cursor:pointer;transition:all .15s;font-family:inherit}
-.pick-btn:hover{border-color:#999;color:#000}
+.drop-zone strong{color:#333;font-size:.9375rem;font-weight:600}
+.drop-zone p{color:#aaa;font-size:.75rem;margin-top:.35rem}
+.pick-btns{display:flex;gap:.5rem;justify-content:center;margin-top:1.25rem}
+.pick-btn{background:#fafafa;color:#888;border:1px solid #e5e5e5;border-radius:8px;padding:.4rem 1rem;font-size:.75rem;cursor:pointer;transition:all .15s;font-family:inherit}
+.pick-btn:hover{border-color:#aaa;color:#333}
 input[type=file]{display:none}
-.or-cli{color:#999;font-size:.8125rem;margin-top:1.5rem;text-align:center}
-.cli-line{display:flex;align-items:center;gap:.5rem;margin-top:.5rem;background:#fff;border:1px solid #e0e0e0;border-radius:10px;padding:.6rem 1rem;font-family:'SF Mono',SFMono-Regular,Consolas,monospace;font-size:.8125rem;color:#333;width:100%;max-width:420px}
-.cli-line code{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.cli-line .dim{color:#999}
-.copy-btn{background:none;border:none;cursor:pointer;color:#999;padding:.2rem;transition:color .15s;display:flex}
-.copy-btn:hover{color:#000}
-.copy-btn.copied{color:#22c55e}
-.copy-icon{width:1rem;height:1rem;stroke:currentColor;stroke-width:2;fill:none}
-.result{width:100%;max-width:480px;margin-top:1.5rem;display:none}
-.result.show{display:block}
-.link-box{display:flex;gap:.5rem;align-items:center;background:#fff;border:1px solid #e0e0e0;border-radius:10px;padding:.6rem 1rem}
+.result{width:100%;max-width:440px;margin-top:1.5rem;display:none}
+.result.show{display:flex;flex-direction:column;align-items:center}
+.link-box{display:flex;gap:.5rem;align-items:center;background:#fff;border:1px solid #e5e5e5;border-radius:12px;padding:.65rem 1rem;width:100%}
 .link-box input{flex:1;background:none;border:none;color:#333;font-size:.8125rem;font-family:'SF Mono',SFMono-Regular,Consolas,monospace;outline:none}
-.meta{color:#999;font-size:.75rem;margin-top:.5rem;text-align:center}
-.progress{display:none;color:#999;font-size:.875rem;margin-top:1rem}
+.meta{color:#aaa;font-size:.7rem;margin-top:.5rem}
+.progress{display:none;color:#aaa;font-size:.8125rem;margin-top:1rem}
 .progress.show{display:block}
-.error-msg{color:#ef4444;font-size:.8125rem;margin-top:1rem;display:none}
+.error-msg{color:#ef4444;font-size:.8125rem;margin-top:1rem;display:none;text-align:center}
 .error-msg.show{display:block}
 .md-error,.inline-info,.warn-info{font-size:.8125rem;margin-top:.75rem;display:none;text-align:center}
 .md-error.show,.inline-info.show,.warn-info.show{display:block}
 .md-error{color:#b45309}
-.inline-info{color:#2563eb}
+.inline-info{color:#666}
 .warn-info{color:#b45309}
-.file-picker{display:none;width:100%;margin-top:1rem;background:#fff;border:1px solid #e0e0e0;border-radius:10px;padding:1rem;text-align:center}
+.file-picker{display:none;width:100%;margin-top:1rem;background:#fff;border:1px solid #e5e5e5;border-radius:12px;padding:1rem;text-align:center}
 .file-picker.show{display:block}
-.picker-label{color:#666;font-size:.8125rem;margin-bottom:.75rem}
-#fileSelect{width:100%;background:#fafafa;color:#333;border:1px solid #e0e0e0;border-radius:6px;padding:.5rem .75rem;font-size:.8125rem;font-family:'SF Mono',SFMono-Regular,Consolas,monospace;margin-bottom:.75rem}
-.agent-section{width:100%;max-width:420px;text-align:center}
-.agent-cmd{background:#fff;border:1px solid #e0e0e0;border-radius:12px;padding:1rem 1.25rem;display:flex;align-items:center;gap:.75rem;font-family:'SF Mono',SFMono-Regular,Consolas,monospace;font-size:.875rem;color:#333;margin-bottom:1rem}
-.agent-cmd code{flex:1;text-align:left;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.agent-hint{color:#999;font-size:.8125rem;line-height:1.6}
-.starter-btn{display:inline-flex;align-items:center;gap:.5rem;background:#fff;border:1px solid #e0e0e0;border-radius:999px;padding:.75rem 1.5rem;font-family:'SF Mono',SFMono-Regular,Consolas,monospace;font-size:.875rem;color:#333;cursor:pointer;transition:all .15s;margin-top:1.5rem}
-.starter-btn:hover{border-color:#999}
-.starter-btn.copied{border-color:#22c55e;color:#22c55e}
-.footer{margin-top:3rem;color:#bbb;font-size:.8125rem}
-.footer a{color:#999;text-decoration:none}
-.footer a:hover{color:#666;text-decoration:underline}
+.picker-label{color:#888;font-size:.8125rem;margin-bottom:.75rem}
+#fileSelect{width:100%;background:#fafafa;color:#333;border:1px solid #e5e5e5;border-radius:8px;padding:.5rem .75rem;font-size:.8125rem;font-family:'SF Mono',SFMono-Regular,Consolas,monospace;margin-bottom:.75rem}
+.agent-section{width:100%;max-width:440px;display:flex;flex-direction:column;align-items:center}
+.agent-cmd{background:#fff;border:1px solid #e5e5e5;border-radius:12px;padding:.85rem 1.25rem;display:flex;align-items:center;gap:.75rem;font-family:'SF Mono',SFMono-Regular,Consolas,monospace;font-size:.875rem;color:#333;width:100%;overflow-x:auto}
+.agent-cmd code{flex-shrink:0;white-space:nowrap}
+.agent-cmd .dim{color:#bbb}
+.copy-btn{background:none;border:none;cursor:pointer;color:#ccc;padding:.25rem;transition:color .15s;display:flex;flex-shrink:0}
+.copy-btn:hover{color:#666}
+.copy-btn.copied{color:#22c55e}
+.copy-icon{width:1rem;height:1rem;stroke:currentColor;stroke-width:2;fill:none}
+.gh{position:fixed;top:1.25rem;right:1.25rem;color:#ccc;transition:color .15s}
+.gh:hover{color:#666}
+.gh svg{width:1.5rem;height:1.5rem}
 </style>
 </head>
 <body>
+
+<a class="gh" href="https://github.com/OrdoAI/htmldrop" title="GitHub"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 .3a12 12 0 00-3.79 23.4c.6.1.82-.26.82-.58v-2.17c-3.34.73-4.04-1.61-4.04-1.61-.55-1.39-1.34-1.76-1.34-1.76-1.09-.75.08-.73.08-.73 1.2.08 1.84 1.24 1.84 1.24 1.07 1.84 2.81 1.31 3.5 1 .1-.78.42-1.31.76-1.61-2.67-.3-5.47-1.33-5.47-5.93 0-1.31.47-2.38 1.24-3.22-.13-.3-.54-1.52.12-3.18 0 0 1-.32 3.3 1.23a11.5 11.5 0 016.02 0c2.28-1.55 3.29-1.23 3.29-1.23.66 1.66.25 2.88.12 3.18.77.84 1.24 1.91 1.24 3.22 0 4.61-2.81 5.63-5.48 5.92.43.37.81 1.1.81 2.22v3.29c0 .32.22.7.82.58A12 12 0 0012 .3"/></svg></a>
 
 <h1>HTMLDrop</h1>
 <p class="sub">Share HTML &amp; Markdown previews with a link.<br>Auto-inlines images. Password-protected. 7-day expiry.</p>
@@ -96,22 +92,15 @@ input[type=file]{display:none}
   <div class="md-error" id="mdError">Markdown library failed to load.</div>
   <div class="inline-info" id="inlineInfo"></div>
   <div class="warn-info" id="warnInfo"></div>
-  <p class="or-cli">or via terminal</p>
-  <div class="cli-line">
-    <span class="dim">$</span>
-    <code>npx htmldrop-cli@latest ./report.html</code>
-    <button class="copy-btn" data-copy="npx htmldrop-cli@latest " title="Copy"><svg class="copy-icon" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></button>
-  </div>
 </div>
 
 <div class="panel" id="panel-agents">
   <div class="agent-section">
     <div class="agent-cmd">
+      <span class="dim">$</span>
       <code>npx skills add OrdoAI/htmldrop --skill htmldrop</code>
       <button class="copy-btn" data-copy="npx skills add OrdoAI/htmldrop --skill htmldrop" title="Copy"><svg class="copy-icon" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></button>
     </div>
-    <p class="agent-hint">Install the skill, then agents can upload HTML/MD<br>to baseurl.ai directly from conversations.</p>
-    <button class="starter-btn" data-copy="Share this file via baseurl.ai:\\nnpx htmldrop-cli@latest {{filepath}}">Copy starter prompt <svg class="copy-icon" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></button>
   </div>
 </div>
 
@@ -122,8 +111,6 @@ input[type=file]{display:none}
   </div>
   <p class="meta" id="meta"></p>
 </div>
-
-<p class="footer"><a href="https://github.com/OrdoAI/htmldrop">GitHub</a></p>
 
 <script id="app">
 (function(){
@@ -142,13 +129,9 @@ input[type=file]{display:none}
   function wrapMd(h){return '<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>'+MD_CSS+'</style></head><body>'+h+'</body></html>';}
   function convertMd(t){if(markedFailed||!markedReady||typeof marked==='undefined')return null;return wrapMd(typeof marked.parse==='function'?marked.parse(t):marked(t));}
 
-  // Tabs
   document.querySelectorAll('.tab').forEach(function(tab){tab.addEventListener('click',function(){document.querySelectorAll('.tab').forEach(function(t){t.classList.remove('active');});document.querySelectorAll('.panel').forEach(function(p){p.classList.remove('active');});tab.classList.add('active');document.getElementById('panel-'+tab.dataset.tab).classList.add('active');});});
+  document.querySelectorAll('[data-copy]').forEach(function(btn){btn.addEventListener('click',function(e){e.stopPropagation();navigator.clipboard.writeText(btn.dataset.copy).then(function(){btn.classList.add('copied');setTimeout(function(){btn.classList.remove('copied');},1500);});});});
 
-  // Copy buttons
-  document.querySelectorAll('[data-copy]').forEach(function(btn){btn.addEventListener('click',function(e){e.stopPropagation();var text=btn.dataset.copy.replace(/\\\\n/g,'\\n');navigator.clipboard.writeText(text).then(function(){btn.classList.add('copied');setTimeout(function(){btn.classList.remove('copied');},1500);});});});
-
-  // Inlining helpers
   function isRel(src){return src&&!src.startsWith('data:')&&!src.startsWith('http://')&&!src.startsWith('https://')&&!src.startsWith('//')&&!src.startsWith('#')&&!src.startsWith('javascript:');}
   function norm(p){var parts=p.split('/'),o=[];for(var i=0;i<parts.length;i++){if(parts[i]==='.'||parts[i]==='')continue;if(parts[i]==='..'&&o.length){o.pop();continue;}o.push(parts[i]);}return o.join('/');}
   function toDataUri(f){return new Promise(function(ok,no){var r=new FileReader();r.onload=function(){ok(r.result);};r.onerror=function(){no(new Error('read failed'));};r.readAsDataURL(f);});}
@@ -182,7 +165,7 @@ input[type=file]{display:none}
   var prog=document.getElementById('progress'),err=document.getElementById('errorMsg');
   var ilInfo=document.getElementById('inlineInfo'),wInfo=document.getElementById('warnInfo');
   var res=document.getElementById('result'),li=document.getElementById('linkInput'),cb=document.getElementById('copyBtn'),mt=document.getElementById('meta');
-  var fp=document.getElementById('filePicker'),fs=document.getElementById('fileSelect'),fpc=document.getElementById('filePickConfirm');
+  var fp=document.getElementById('filePicker'),fsel=document.getElementById('fileSelect'),fpc=document.getElementById('filePickConfirm');
   var pending=null;
 
   pf.addEventListener('click',function(e){e.stopPropagation();fi.click();});
@@ -192,10 +175,8 @@ input[type=file]{display:none}
   dz.addEventListener('drop',async function(e){e.preventDefault();dz.classList.remove('over');var f=await collectDrop(e.dataTransfer);if(f.length)handleFiles(f);});
   fi.addEventListener('change',function(){if(fi.files.length)handleFiles(Array.from(fi.files));});
   fo.addEventListener('change',function(){if(fo.files.length)handleFiles(Array.from(fo.files));});
-
   cb.addEventListener('click',function(){li.select();navigator.clipboard.writeText(li.value).then(function(){cb.classList.add('copied');setTimeout(function(){cb.classList.remove('copied');},1500);});});
-
-  fpc.addEventListener('click',function(){if(!pending)return;var chosen=pending.candidates[parseInt(fs.value)];fp.classList.remove('show');processMain(chosen,pending.all);pending=null;});
+  fpc.addEventListener('click',function(){if(!pending)return;fp.classList.remove('show');processMain(pending.candidates[parseInt(fsel.value)],pending.all);pending=null;});
 
   function showErr(m){err.textContent=m;err.classList.add('show');dz.classList.add('error');setTimeout(function(){dz.classList.remove('error');},2000);}
 
@@ -205,8 +186,8 @@ input[type=file]{display:none}
     for(var i=0;i<files.length;i++){all.push(files[i]);var ext=files[i].name.split('.').pop().toLowerCase();if(ext==='html'||ext==='htm'||ext==='md'||ext==='markdown')cands.push(files[i]);}
     if(!cands.length){showErr('No .html or .md file found');return;}
     if(cands.length===1){processMain(cands[0],all);return;}
-    pending={candidates:cands,all:all};fs.innerHTML='';
-    for(var j=0;j<cands.length;j++){var o=document.createElement('option');o.value=j;o.textContent=cands[j].fullPath||cands[j].webkitRelativePath||cands[j].name;fs.appendChild(o);}
+    pending={candidates:cands,all:all};fsel.innerHTML='';
+    for(var j=0;j<cands.length;j++){var o=document.createElement('option');o.value=j;o.textContent=cands[j].fullPath||cands[j].webkitRelativePath||cands[j].name;fsel.appendChild(o);}
     fp.classList.add('show');
   }
 
