@@ -243,6 +243,21 @@ describe("Homepage", () => {
     expect(res.headers.get("X-Frame-Options")).toBe("DENY");
     expect(res.headers.get("Referrer-Policy")).toBe("no-referrer");
   });
+
+  it("CSP allows marked CDN for markdown conversion", async () => {
+    const res = await SELF.fetch("http://localhost/");
+    const csp = res.headers.get("Content-Security-Policy")!;
+    expect(csp).toContain("https://cdn.jsdelivr.net");
+    expect(csp).toContain("script-src");
+  });
+
+  it("home page includes marked script with SRI", async () => {
+    const res = await SELF.fetch("http://localhost/");
+    const body = await res.text();
+    expect(body).toContain("cdn.jsdelivr.net/npm/marked@");
+    expect(body).toContain("integrity");
+    expect(body).toContain("sha384-");
+  });
 });
 
 describe("Security: password not in preview URL", () => {
