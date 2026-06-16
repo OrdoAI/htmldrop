@@ -32,6 +32,8 @@ input[type=file]{display:none}
 .md-error.show{display:block}
 .inline-info{color:#3b82f6;font-size:.8125rem;margin-top:.75rem;display:none}
 .inline-info.show{display:block}
+.warn-info{color:#fbbf24;font-size:.8125rem;margin-top:.75rem;display:none;background:#1c1007;border:1px solid #854d0e;border-radius:8px;padding:.75rem 1rem}
+.warn-info.show{display:block}
 </style>
 </head>
 <body>
@@ -43,12 +45,13 @@ input[type=file]{display:none}
   <strong>Drop file or folder here</strong>
   <p>.html or .md &middot; max 24 MB &middot; images auto-inlined</p>
 </div>
-<input type="file" id="fileInput" accept=".html,.htm,.md,.markdown" multiple>
+<input type="file" id="fileInput" multiple>
 
 <div class="progress" id="progress">Processing&hellip;</div>
 <div class="error-msg" id="errorMsg"></div>
 <div class="md-error" id="mdError">Markdown library failed to load. Only HTML uploads are available.</div>
 <div class="inline-info" id="inlineInfo"></div>
+<div class="warn-info" id="warnInfo"></div>
 
 <div class="result" id="result">
   <div class="link-box">
@@ -111,21 +114,6 @@ input[type=file]{display:none}
     return wrapMarkdown(rendered);
   }
 
-  var MIME_MAP = {
-    png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif',
-    svg: 'image/svg+xml', webp: 'image/webp', ico: 'image/x-icon', bmp: 'image/bmp',
-    avif: 'image/avif',
-    css: 'text/css', js: 'text/javascript',
-  };
-
-  function fileToDataUri(file) {
-    return new Promise(function(resolve) {
-      var reader = new FileReader();
-      reader.onload = function() { resolve(reader.result); };
-      reader.readAsDataURL(file);
-    });
-  }
-
   function isRelativeSrc(src) {
     if (!src) return false;
     if (src.startsWith('data:')) return false;
@@ -145,69 +133,96 @@ input[type=file]{display:none}
     return out.join('/');
   }
 
+  function fileToDataUri(file) {
+    return new Promise(function(resolve, reject) {
+      var reader = new FileReader();
+      reader.onload = function() { resolve(reader.result); };
+      reader.onerror = function() { reject(new Error('Failed to read ' + file.name)); };
+      reader.readAsDataURL(file);
+    });
+  }
+
+  function findRelativeSrcs(html) {
+    var srcs = [];
+    var imgRe = /(<img\\b[^>]*\\bsrc\\s*=\\s*)(["'])([^"']+)\\2/gi;
+    var m;
+    while ((m = imgRe.exec(html)) !== null) {
+      if (isRelativeSrc(m[3])) srcs.push(m[3]);
+    }
+    var linkRe = /(<link\\b[^>]*\\bhref\\s*=\\s*)(["'])([^"']+)\\2/gi;
+    while ((m = linkRe.exec(html)) !== null) {
+      if (isRelativeSrc(m[3])) srcs.push(m[3]);
+    }
+    var scriptRe = /(<script\\b[^>]*\\bsrc\\s*=\\s*)(["'])([^"']+)\\2/gi;
+    while ((m = scriptRe.exec(html)) !== null) {
+      if (isRelativeSrc(m[3])) srcs.push(m[3]);
+    }
+    return srcs;
+  }
+
   async function inlineAssets(html, assetFiles) {
     var fileMap = {};
     for (var i = 0; i < assetFiles.length; i++) {
       var f = assetFiles[i];
-      var relPath = f.webkitRelativePath || f.name;
-      var parts = relPath.split('/');
-      if (parts.length > 1) parts.shift();
-      var normalized = parts.join('/');
-      fileMap[normalized.toLowerCase()] = f;
-      fileMap[parts[parts.length - 1].toLowerCase()] = f;
+      var relPath = f.fullPath || f.webkitRelativePath || f.name;
+      var normalized = normalizePath(relPath).toLowerCase();
+      fileMap[normalized] = f;
+      var basename = f.name.toLowerCase();
+      if (!fileMap[basename]) fileMap[basename] = f;
     }
 
-    var parser = new DOMParser();
-    var doc = parser.parseFromString(html, 'text/html');
     var inlined = 0;
     var missing = [];
 
-    var imgs = doc.querySelectorAll('img[src]');
-    for (var j = 0; j < imgs.length; j++) {
-      var src = imgs[j].getAttribute('src');
-      if (!isRelativeSrc(src)) continue;
+    async function replaceSrc(match, prefix, quote, src) {
+      if (!isRelativeSrc(src)) return match;
       var key = normalizePath(src).toLowerCase();
       var file = fileMap[key] || fileMap[key.split('/').pop()];
-      if (file) {
-        imgs[j].setAttribute('src', await fileToDataUri(file));
-        inlined++;
-      } else {
+      if (!file) {
         missing.push(src);
+        return match;
       }
+      var dataUri = await fileToDataUri(file);
+      inlined++;
+      return prefix + quote + dataUri + quote;
     }
 
-    var links = doc.querySelectorAll('link[rel="stylesheet"][href]');
-    for (var k = 0; k < links.length; k++) {
-      var href = links[k].getAttribute('href');
-      if (!isRelativeSrc(href)) continue;
-      var cssKey = normalizePath(href).toLowerCase();
-      var cssFile = fileMap[cssKey] || fileMap[cssKey.split('/').pop()];
-      if (cssFile) {
-        var cssText = await cssFile.text();
-        var style = doc.createElement('style');
-        style.textContent = cssText;
-        links[k].replaceWith(style);
-        inlined++;
+    async function replaceAll(text, regex, handler) {
+      var parts = [];
+      var lastIndex = 0;
+      var m;
+      regex.lastIndex = 0;
+      while ((m = regex.exec(text)) !== null) {
+        parts.push(text.slice(lastIndex, m.index));
+        parts.push(handler(m[0], m[1], m[2], m[3]));
+        lastIndex = regex.lastIndex;
       }
+      parts.push(text.slice(lastIndex));
+      var resolved = await Promise.all(parts);
+      return resolved.join('');
     }
 
-    var scripts = doc.querySelectorAll('script[src]');
-    for (var m = 0; m < scripts.length; m++) {
-      var jsSrc = scripts[m].getAttribute('src');
-      if (!isRelativeSrc(jsSrc)) continue;
-      var jsKey = normalizePath(jsSrc).toLowerCase();
-      var jsFile = fileMap[jsKey] || fileMap[jsKey.split('/').pop()];
-      if (jsFile) {
-        var jsText = await jsFile.text();
-        var inline = doc.createElement('script');
-        inline.textContent = jsText;
-        scripts[m].replaceWith(inline);
-        inlined++;
-      }
-    }
+    html = await replaceAll(html, /(<img\\b[^>]*\\bsrc\\s*=\\s*)(["'])([^"']+)\\2/gi, replaceSrc);
+    html = await replaceAll(html, /(<link\\b[^>]*\\bhref\\s*=\\s*)(["'])([^"']+)\\2/gi, async function(match, prefix, quote, href) {
+      if (!isRelativeSrc(href)) return match;
+      var key = normalizePath(href).toLowerCase();
+      var file = fileMap[key] || fileMap[key.split('/').pop()];
+      if (!file) { missing.push(href); return match; }
+      var cssText = await file.text();
+      inlined++;
+      return '<style>' + cssText + '</style>';
+    });
+    html = await replaceAll(html, /(<script\\b[^>]*\\bsrc\\s*=\\s*)(["'])([^"']+)\\2([^>]*>\\s*<\\/script>)/gi, async function(match, prefix, quote, src, suffix) {
+      if (!isRelativeSrc(src)) return match;
+      var key = normalizePath(src).toLowerCase();
+      var file = fileMap[key] || fileMap[key.split('/').pop()];
+      if (!file) { missing.push(src); return match; }
+      var jsText = await file.text();
+      inlined++;
+      return '<script>' + jsText + '</script>';
+    });
 
-    var result = '<!DOCTYPE html>' + doc.documentElement.outerHTML;
-    return { html: result, inlined: inlined, missing: missing };
+    return { html: html, inlined: inlined, missing: missing };
   }
 
   async function collectDropEntries(dataTransfer) {
@@ -241,7 +256,7 @@ input[type=file]{display:none}
       if (entry.isFile) {
         return new Promise(function(resolve) {
           entry.file(function(f) {
-            Object.defineProperty(f, 'webkitRelativePath', { value: path + f.name });
+            Object.defineProperty(f, 'fullPath', { value: path + f.name, writable: true });
             files.push(f);
             resolve();
           });
@@ -267,6 +282,7 @@ input[type=file]{display:none}
   var progress = document.getElementById('progress');
   var errorMsg = document.getElementById('errorMsg');
   var inlineInfo = document.getElementById('inlineInfo');
+  var warnInfo = document.getElementById('warnInfo');
   var result = document.getElementById('result');
   var linkInput = document.getElementById('linkInput');
   var copyBtn = document.getElementById('copyBtn');
@@ -306,6 +322,7 @@ input[type=file]{display:none}
   async function handleFiles(files) {
     errorMsg.classList.remove('show');
     inlineInfo.classList.remove('show');
+    warnInfo.classList.remove('show');
     result.classList.remove('show');
 
     var htmlFile = null;
@@ -317,7 +334,7 @@ input[type=file]{display:none}
       var ext = name.split('.').pop();
       if (!htmlFile && (ext === 'html' || ext === 'htm')) {
         htmlFile = files[i];
-      } else if (!mdFile && (ext === 'md' || ext === 'markdown')) {
+      } else if (!mdFile && !htmlFile && (ext === 'md' || ext === 'markdown')) {
         mdFile = files[i];
       } else {
         assetFiles.push(files[i]);
@@ -326,7 +343,7 @@ input[type=file]{display:none}
 
     var mainFile = htmlFile || mdFile;
     if (!mainFile) {
-      showError('No .html or .md file found');
+      showError('No .html or .md file found in the dropped files');
       return;
     }
 
@@ -358,16 +375,35 @@ input[type=file]{display:none}
       text = converted;
     }
 
+    var relativeSrcs = findRelativeSrcs(text);
+
+    if (relativeSrcs.length > 0 && assetFiles.length === 0) {
+      progress.classList.remove('show');
+      warnInfo.textContent = 'This HTML references ' + relativeSrcs.length + ' local file(s): ' +
+        relativeSrcs.slice(0, 5).join(', ') +
+        (relativeSrcs.length > 5 ? '… and ' + (relativeSrcs.length - 5) + ' more' : '') +
+        '. Drop the folder or select all files together to auto-inline them.';
+      warnInfo.classList.add('show');
+    }
+
     if (assetFiles.length > 0) {
       progress.textContent = 'Inlining assets…';
-      var inlineResult = await inlineAssets(text, assetFiles);
-      text = inlineResult.html;
-      var infoMsg = inlineResult.inlined + ' asset(s) inlined';
-      if (inlineResult.missing.length) {
-        infoMsg += ', ' + inlineResult.missing.length + ' missing: ' + inlineResult.missing.join(', ');
+      try {
+        var inlineResult = await inlineAssets(text, assetFiles);
+        text = inlineResult.html;
+        if (inlineResult.inlined > 0 || inlineResult.missing.length > 0) {
+          var infoMsg = inlineResult.inlined + ' asset(s) inlined';
+          if (inlineResult.missing.length) {
+            infoMsg += ', ' + inlineResult.missing.length + ' not found: ' + inlineResult.missing.join(', ');
+          }
+          inlineInfo.textContent = infoMsg;
+          inlineInfo.classList.add('show');
+        }
+      } catch (err) {
+        progress.classList.remove('show');
+        showError('Asset inlining failed: ' + err.message);
+        return;
       }
-      inlineInfo.textContent = infoMsg;
-      inlineInfo.classList.add('show');
     }
 
     var byteSize = new Blob([text]).size;
