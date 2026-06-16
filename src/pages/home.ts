@@ -7,10 +7,10 @@ export function homePage(): string {
 <title>HTMLDrop</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
-body{font-family:Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#fafafa;color:#171717;min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:clamp(3rem,15vh,10rem) 1.5rem 2rem}
-h1{font-size:1.25rem;font-weight:600;color:#171717;text-align:center;letter-spacing:-.02em}
-.sub{max-width:32rem;margin-top:.5rem;font-size:.9375rem;line-height:1.5;color:#888;text-align:center;text-wrap:balance}
-.tabs{display:flex;align-items:center;margin:2rem 0 1.5rem}
+body{font-family:Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#fafafa;color:#171717;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:2rem 1.5rem 12rem}
+h1{position:fixed;top:1.25rem;left:1.5rem;font-size:.9375rem;font-weight:600;color:#171717;letter-spacing:-.03em}
+.sub{position:fixed;bottom:1.5rem;left:0;width:100%;font-size:.9375rem;line-height:1.5;color:#888;text-align:center;letter-spacing:-.01em}
+.tabs{display:flex;align-items:center;margin:1.75rem 0 1.5rem}
 .tab{background:none;border:none;padding:.4rem 0;font-size:1rem;color:#888;cursor:pointer;font-family:inherit;font-weight:500;transition:color .15s}
 .tab:hover{color:#4d4d4d}
 .tab.active{color:#171717;font-weight:650}
@@ -63,7 +63,7 @@ input[type=file]{display:none}
 .gh{position:fixed;top:1.25rem;right:1.25rem;color:#ccc;transition:color .15s}
 .gh:hover{color:#4d4d4d}
 .gh svg{width:1.5rem;height:1.5rem}
-@media(max-width:480px){body{padding:3.5rem 1rem 2rem}h1{letter-spacing:-.04em}.sub{font-size:1.0625rem;line-height:1.55;max-width:20rem}.tabs{margin:2rem 0 1.25rem}.drop-zone{padding:2rem 1.25rem 1.5rem;border-radius:20px}.agent-cmd{max-width:calc(100vw - 2rem);min-height:3rem;padding:0 .75rem;font-size:.625rem;gap:.4rem}.agent-cmd .copy-icon{width:.875rem;height:.875rem}}
+@media(max-width:480px){body{padding:2rem 1rem 3.5rem}h1{left:1rem}.sub{font-size:.75rem;bottom:1rem}.tabs{margin:2rem 0 1.25rem}.drop-zone{padding:2rem 1.25rem 1.5rem;border-radius:20px}.agent-cmd{max-width:calc(100vw - 2rem);min-height:3rem;padding:0 .75rem;font-size:.625rem;gap:.4rem}.agent-cmd .copy-icon{width:.875rem;height:.875rem}}
 </style>
 </head>
 <body>
