@@ -58,7 +58,7 @@ input[type=file]{display:none}
 <script id="marked-loader">
 (function(){
   var MARKED_VERSION = '15.0.7';
-  var MARKED_SRI = '';
+  var MARKED_SRI = 'sha384-H+hy9ULve6xfxRkWIh/YOtvDdpXgV2fmAGQkIDTxIgZwNoaoBal14Di2YTMR6MzR';
   var markedReady = false;
   var markedFailed = false;
 
