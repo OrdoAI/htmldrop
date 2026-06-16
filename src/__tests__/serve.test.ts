@@ -131,7 +131,7 @@ describe("Cookie-authenticated preview", () => {
     const cookie = getCookieFromHeaders(bootstrap.headers);
 
     // Delete KV entry to simulate expiry
-    await env.PAGES.delete(`page:${page.id}`);
+    await env.BUCKET.delete(`page:${page.id}`);
 
     const res = await SELF.fetch(`http://localhost/${page.id}`, {
       headers: { Cookie: cookie! },

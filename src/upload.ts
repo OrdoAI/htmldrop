@@ -1,13 +1,13 @@
 import { generateId as defaultGenerateId, generatePassword, utf8ByteLength } from "./utils";
 import type { PageRecord } from "./auth";
 
-const MAX_HTML_BYTES = 24 * 1024 * 1024; // 24 MiB content limit (KV value max is 25 MiB, leave room for JSON wrapper)
+const MAX_HTML_BYTES = 24 * 1024 * 1024; // 24 MiB content limit
 const MAX_BODY_BYTES = 25 * 1024 * 1024; // 25 MiB body guard
 const MAX_RETRIES = 3;
 const TTL_SECONDS = 604800; // 7 days
 
 interface Env {
-  PAGES: KVNamespace;
+  BUCKET: R2Bucket;
   AUTH_SECRET: string;
 }
 
@@ -79,7 +79,7 @@ export async function handleUpload(
   let id: string | null = null;
   for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
     const candidate = deps.generateId();
-    const existing = await env.PAGES.get(`page:${candidate}`);
+    const existing = await env.BUCKET.head(`page:${candidate}`);
     if (existing === null) {
       id = candidate;
       break;
@@ -97,9 +97,7 @@ export async function handleUpload(
     createdAt: new Date().toISOString(),
   };
 
-  await env.PAGES.put(`page:${id}`, JSON.stringify(record), {
-    expirationTtl: TTL_SECONDS,
-  });
+  await env.BUCKET.put(`page:${id}`, JSON.stringify(record));
 
   const url = new URL(request.url);
   const expiresAt = new Date(Date.now() + TTL_SECONDS * 1000).toISOString();

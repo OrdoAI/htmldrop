@@ -2,9 +2,9 @@ name = "htmldrop"
 main = "src/index.ts"
 compatibility_date = "2024-12-01"
 
-[[kv_namespaces]]
-binding = "PAGES"
-id = "6087db7d282f4c27a82fe7348168c681"
+[[r2_buckets]]
+binding = "BUCKET"
+bucket_name = "htmldrop-pages"
 
 [[routes]]
 pattern = "baseurl.ai"

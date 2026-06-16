@@ -1,6 +1,7 @@
 import {
   type PageRecord,
   getAuthCookie,
+  getPage,
   mintCookie,
   setAuthCookieHeader,
   validateCookie,
@@ -10,7 +11,7 @@ import { passwordPage } from "./pages/password";
 import { notFoundPage } from "./pages/notfound";
 
 interface Env {
-  PAGES: KVNamespace;
+  BUCKET: R2Bucket;
   AUTH_SECRET: string;
 }
 
@@ -43,9 +44,8 @@ export async function handleServe(
   const url = new URL(request.url);
   const queryPassword = url.searchParams.get("p");
 
-  // Path A: bootstrap via ?p=
   if (queryPassword) {
-    const record = await verifyPassword(env.PAGES, id, queryPassword);
+    const record = await verifyPassword(env.BUCKET, id, queryPassword);
     if (!record) {
       return new Response(passwordPage(id, false), {
         status: 403,
@@ -63,21 +63,18 @@ export async function handleServe(
     });
   }
 
-  // Check auth cookie
   const cookieValue = getAuthCookie(request, id);
   if (cookieValue) {
     const valid = await validateCookie(env.AUTH_SECRET, id, cookieValue);
     if (valid) {
-      const raw = await env.PAGES.get(`page:${id}`, "text");
-      if (!raw) {
+      const record = await getPage(env.BUCKET, id);
+      if (!record) {
         return new Response(notFoundPage(), { status: 404, headers: APP_HEADERS });
       }
-      const record: PageRecord = JSON.parse(raw);
       return new Response(record.html, { status: 200, headers: PREVIEW_HEADERS });
     }
   }
 
-  // No auth — show password form (don't reveal whether ID exists)
   return new Response(passwordPage(id, false), {
     status: 401,
     headers: APP_HEADERS,
@@ -117,7 +114,7 @@ export async function handleAuthForm(
     return new Response("Unsupported Content-Type", { status: 415 });
   }
 
-  const record = await verifyPassword(env.PAGES, id, password);
+  const record = await verifyPassword(env.BUCKET, id, password);
   if (!record) {
     return new Response(passwordPage(id, true), { status: 403, headers: APP_HEADERS });
   }

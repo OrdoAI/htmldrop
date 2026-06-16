@@ -4,7 +4,7 @@ import { homePage } from "./pages/home";
 import { notFoundPage } from "./pages/notfound";
 
 interface Env {
-  PAGES: KVNamespace;
+  BUCKET: R2Bucket;
   AUTH_SECRET: string;
 }
 

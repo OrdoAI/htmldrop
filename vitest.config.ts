@@ -6,7 +6,7 @@ export default defineWorkersConfig({
       workers: {
         wrangler: { configPath: "./wrangler.toml" },
         miniflare: {
-          kvNamespaces: ["PAGES"],
+          r2Buckets: ["BUCKET"],
           bindings: {
             AUTH_SECRET: "test-secret-for-hmac-signing",
           },

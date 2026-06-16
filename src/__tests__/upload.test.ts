@@ -25,9 +25,9 @@ describe("POST /api/upload", () => {
       body: JSON.stringify({ html: "<p>stored</p>", filename: "doc.html" }),
     });
     const data = await res.json<{ id: string; password: string }>();
-    const raw = await env.PAGES.get(`page:${data.id}`, "text");
-    expect(raw).not.toBeNull();
-    const record = JSON.parse(raw!);
+    const obj = await env.BUCKET.get(`page:${data.id}`);
+    expect(obj).not.toBeNull();
+    const record = JSON.parse(await obj!.text());
     expect(record.html).toBe("<p>stored</p>");
     expect(record.password).toBe(data.password);
     expect(record.filename).toBe("doc.html");
@@ -137,7 +137,7 @@ describe("POST /api/upload", () => {
 describe("ID collision handling (deterministic)", () => {
   it("retries and succeeds when first IDs collide", async () => {
     const collidingId = "COLLIDE1";
-    await env.PAGES.put(`page:${collidingId}`, JSON.stringify({
+    await env.BUCKET.put(`page:${collidingId}`, JSON.stringify({
       html: "<p>existing</p>", password: "x", filename: "old.html", createdAt: "2026-01-01",
     }));
 
@@ -163,13 +163,13 @@ describe("ID collision handling (deterministic)", () => {
     expect(callCount).toBe(3);
 
     // Original colliding entry is not overwritten
-    const original = JSON.parse((await env.PAGES.get(`page:${collidingId}`, "text"))!);
+    const original = JSON.parse((await (await env.BUCKET.get(`page:${collidingId}`))!.text()));
     expect(original.html).toBe("<p>existing</p>");
   });
 
   it("returns 503 when all retries collide", async () => {
     const collidingId = "COLLID02";
-    await env.PAGES.put(`page:${collidingId}`, JSON.stringify({
+    await env.BUCKET.put(`page:${collidingId}`, JSON.stringify({
       html: "<p>existing</p>", password: "x", filename: "old.html", createdAt: "2026-01-01",
     }));
 
@@ -187,7 +187,7 @@ describe("ID collision handling (deterministic)", () => {
     expect(res.status).toBe(503);
 
     // Original entry is not overwritten
-    const original = JSON.parse((await env.PAGES.get(`page:${collidingId}`, "text"))!);
+    const original = JSON.parse((await (await env.BUCKET.get(`page:${collidingId}`))!.text()));
     expect(original.html).toBe("<p>existing</p>");
   });
 });

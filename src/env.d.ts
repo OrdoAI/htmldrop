@@ -1,5 +1,5 @@
 interface Env {
-  PAGES: KVNamespace;
+  BUCKET: R2Bucket;
   AUTH_SECRET: string;
 }
 

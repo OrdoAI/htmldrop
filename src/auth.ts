@@ -7,6 +7,8 @@ export interface PageRecord {
   createdAt: string;
 }
 
+const TTL_MS = 7 * 24 * 60 * 60 * 1000;
+
 export function cookieName(id: string): string {
   return `_hd_${id}`;
 }
@@ -32,14 +34,27 @@ export function getAuthCookie(request: Request, id: string): string | null {
   return cookies[cookieName(id)] ?? null;
 }
 
+export async function getPage(
+  bucket: R2Bucket,
+  id: string,
+): Promise<PageRecord | null> {
+  const obj = await bucket.get(`page:${id}`);
+  if (!obj) return null;
+  const record: PageRecord = JSON.parse(await obj.text());
+  if (Date.now() - new Date(record.createdAt).getTime() > TTL_MS) {
+    await bucket.delete(`page:${id}`);
+    return null;
+  }
+  return record;
+}
+
 export async function verifyPassword(
-  kv: KVNamespace,
+  bucket: R2Bucket,
   id: string,
   password: string,
 ): Promise<PageRecord | null> {
-  const raw = await kv.get(`page:${id}`, "text");
-  if (!raw) return null;
-  const record: PageRecord = JSON.parse(raw);
+  const record = await getPage(bucket, id);
+  if (!record) return null;
   if (record.password.length !== password.length) return null;
   let mismatch = 0;
   for (let i = 0; i < record.password.length; i++) {
