@@ -26,6 +26,10 @@ export default {
       return new Response(homePage(), { headers: APP_HEADERS });
     }
 
+    if (path === "/cli/install" && request.method === "GET") {
+      return Response.redirect("https://raw.githubusercontent.com/OrdoAI/htmldrop/main/cli/install.sh", 302);
+    }
+
     if (path === "/api/upload") {
       return handleUpload(request, env);
     }
