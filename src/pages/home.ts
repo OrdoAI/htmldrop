@@ -50,8 +50,10 @@ input[type=file]{display:none}
 .picker-label{color:#888;font-size:.875rem;margin-bottom:.75rem}
 #fileSelect{width:100%;background:#fafafa;color:#171717;border:1px solid #ebebeb;border-radius:8px;padding:.5rem .75rem;font-size:.8125rem;font-family:ui-monospace,SFMono-Regular,'SF Mono',Consolas,monospace;margin-bottom:.75rem}
 .agent-section{width:100%;display:flex;justify-content:center}
-.agent-cmd{max-width:calc(100vw - 3rem);background:#fff;border:1px solid #ebebeb;border-radius:100px;padding:0 1.5rem;min-height:3.5rem;display:inline-flex;align-items:center;gap:.875rem;font-family:ui-monospace,SFMono-Regular,'SF Mono',Consolas,monospace;font-size:.9375rem;color:#171717;box-shadow:0 1px 2px rgba(0,0,0,.06),0 8px 24px rgba(0,0,0,.04);overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch}
-.agent-cmd::-webkit-scrollbar{display:none}
+.agent-cmd{max-width:calc(100vw - 3rem);background:#fff;border:1px solid #ebebeb;border-radius:100px;padding:0 1.5rem;min-height:3.5rem;display:inline-flex;align-items:center;justify-content:center;gap:.875rem;font-family:ui-monospace,SFMono-Regular,'SF Mono',Consolas,monospace;font-size:.9375rem;color:#171717;box-shadow:0 1px 2px rgba(0,0,0,.06),0 8px 24px rgba(0,0,0,.04);overflow:hidden;white-space:nowrap;cursor:pointer;transition:border-color .15s,color .15s,transform .15s}
+.agent-cmd:hover{border-color:#a1a1a1}
+.agent-cmd:active{transform:scale(.98)}
+.agent-cmd.copied{border-color:#0070f3;color:#0070f3}
 .agent-cmd code{white-space:nowrap;line-height:1}
 .agent-cmd .dim{color:#888;flex-shrink:0}
 .copy-btn{background:none;border:none;cursor:pointer;color:#ccc;padding:.25rem;transition:color .15s;display:flex;flex-shrink:0}
@@ -61,7 +63,7 @@ input[type=file]{display:none}
 .gh{position:fixed;top:1.25rem;right:1.25rem;color:#ccc;transition:color .15s}
 .gh:hover{color:#4d4d4d}
 .gh svg{width:1.5rem;height:1.5rem}
-@media(max-width:480px){body{padding:3.5rem 1rem 2rem}h1{letter-spacing:-.04em}.sub{font-size:1.0625rem;line-height:1.55;max-width:20rem}.tabs{margin:2rem 0 1.25rem}.drop-zone{padding:2rem 1.25rem 1.5rem;border-radius:20px}.agent-cmd{min-height:3rem;padding:0 1rem;font-size:.8125rem;gap:.625rem}}
+@media(max-width:480px){body{padding:3.5rem 1rem 2rem}h1{letter-spacing:-.04em}.sub{font-size:1.0625rem;line-height:1.55;max-width:20rem}.tabs{margin:2rem 0 1.25rem}.drop-zone{padding:2rem 1.25rem 1.5rem;border-radius:20px}.agent-cmd{max-width:calc(100vw - 2rem);min-height:3rem;padding:0 .75rem;font-size:.625rem;gap:.4rem}.agent-cmd .copy-icon{width:.875rem;height:.875rem}}
 </style>
 </head>
 <body>
@@ -102,11 +104,11 @@ input[type=file]{display:none}
 
 <div class="panel" id="panel-agents">
   <div class="agent-section">
-    <div class="agent-cmd">
+    <button class="agent-cmd" data-copy="npx skills add OrdoAI/htmldrop --skill htmldrop" title="Copy install command" aria-label="Copy install command: npx skills add OrdoAI/htmldrop --skill htmldrop">
       <span class="dim">$</span>
       <code>npx skills add OrdoAI/htmldrop --skill htmldrop</code>
-      <button class="copy-btn" data-copy="npx skills add OrdoAI/htmldrop --skill htmldrop" title="Copy"><svg class="copy-icon" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></button>
-    </div>
+      <svg class="copy-icon" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+    </button>
   </div>
 </div>
 
