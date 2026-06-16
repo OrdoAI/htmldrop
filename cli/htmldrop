@@ -2,18 +2,21 @@
 set -euo pipefail
 
 ENDPOINT="${HTMLDROP_URL:-https://baseurl.ai}"
+NO_INLINE=false
 
 usage() {
   cat <<'EOF'
 Usage: htmldrop <file>
 
 Upload an HTML or Markdown file and get a shareable link.
+Relative images, CSS, and JS are automatically inlined as base64.
 
   htmldrop ./report.html
   htmldrop ~/Documents/notes.md
   htmldrop file:///Users/me/page.html
 
 Options:
+  --no-inline          Skip asset inlining, upload HTML as-is
   -e, --endpoint URL   Override upload endpoint (default: https://baseurl.ai)
   -h, --help           Show this help
 
@@ -25,11 +28,11 @@ EOF
 
 die() { echo "error: $1" >&2; exit 1; }
 
-# Parse args
 FILE=""
 while [[ $# -gt 0 ]]; do
   case "$1" in
     -h|--help) usage ;;
+    --no-inline) NO_INLINE=true; shift ;;
     -e|--endpoint) ENDPOINT="$2"; shift 2 ;;
     *)
       [[ -z "$FILE" ]] && FILE="$1" || die "unexpected argument: $1"
@@ -39,12 +42,12 @@ done
 
 [[ -n "$FILE" ]] || die "no file specified. Run 'htmldrop --help' for usage."
 
-# Normalize path
 FILE="${FILE#file://}"
 FILE="${FILE/#\~/$HOME}"
 
 [[ -f "$FILE" ]] || die "file not found: $FILE"
 
+FILEDIR="$(cd "$(dirname "$FILE")" && pwd)"
 EXT="${FILE##*.}"
 EXT="${EXT,,}"
 FILENAME="$(basename "$FILE")"
@@ -70,6 +73,86 @@ print('<pre>' + h.escape(text) + '</pre>')
   fi
 
   CONTENT="<!DOCTYPE html><html><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><style>${MD_CSS}</style></head><body>${RENDERED}</body></html>"
+fi
+
+# Inline relative assets
+if [[ "$NO_INLINE" == false ]]; then
+  export FILEDIR
+  CONTENT="$(python3 -c "
+import sys, os, re, base64, mimetypes
+
+html = sys.stdin.read()
+basedir = os.environ['FILEDIR']
+inlined = 0
+missing = []
+
+mimetypes.init()
+
+def is_relative(src):
+    if not src: return False
+    for prefix in ('data:', 'http://', 'https://', '//', '#', 'javascript:'):
+        if src.startswith(prefix): return False
+    return True
+
+def resolve_and_inline(src):
+    global inlined, missing
+    path = os.path.normpath(os.path.join(basedir, src))
+    if not os.path.isfile(path):
+        missing.append(src)
+        return None
+    mime, _ = mimetypes.guess_type(path)
+    if not mime:
+        ext = os.path.splitext(path)[1].lower()
+        mime = {'.svg': 'image/svg+xml', '.webp': 'image/webp', '.avif': 'image/avif', '.ico': 'image/x-icon'}.get(ext, 'application/octet-stream')
+    with open(path, 'rb') as f:
+        data = base64.b64encode(f.read()).decode()
+    inlined += 1
+    return f'data:{mime};base64,{data}'
+
+def replace_img(m):
+    prefix, quote, src = m.group(1), m.group(2), m.group(3)
+    if not is_relative(src): return m.group(0)
+    uri = resolve_and_inline(src)
+    return f'{prefix}{quote}{uri}{quote}' if uri else m.group(0)
+
+def replace_css(m):
+    global inlined
+    prefix, quote, href = m.group(1), m.group(2), m.group(3)
+    if not is_relative(href): return m.group(0)
+    path = os.path.normpath(os.path.join(basedir, href))
+    if not os.path.isfile(path):
+        missing.append(href)
+        return m.group(0)
+    with open(path, 'r') as f:
+        css = f.read()
+    inlined += 1
+    return f'<style>{css}</style>'
+
+def replace_js(m):
+    global inlined
+    prefix, quote, src, suffix = m.group(1), m.group(2), m.group(3), m.group(4)
+    if not is_relative(src): return m.group(0)
+    path = os.path.normpath(os.path.join(basedir, src))
+    if not os.path.isfile(path):
+        missing.append(src)
+        return m.group(0)
+    with open(path, 'r') as f:
+        js = f.read()
+    inlined += 1
+    return f'<script>{js}</script>'
+
+html = re.sub(r'(<img\b[^>]*\bsrc\s*=\s*)([\"\\x27])([^\"\\x27]+)\2', replace_img, html, flags=re.I)
+html = re.sub(r'(<link\b[^>]*\bhref\s*=\s*)([\"\\x27])([^\"\\x27]+)\2', replace_css, html, flags=re.I)
+html = re.sub(r'(<script\b[^>]*\bsrc\s*=\s*)([\"\\x27])([^\"\\x27]+)\2([^>]*>\s*</script>)', replace_js, html, flags=re.I)
+
+if inlined > 0 or missing:
+    parts = []
+    if inlined: parts.append(f'{inlined} asset(s) inlined')
+    if missing: parts.append(f'{len(missing)} not found: {\", \".join(missing[:5])}')
+    print(', '.join(parts), file=sys.stderr)
+
+sys.stdout.write(html)
+" <<< "$CONTENT")" || die "asset inlining failed"
 fi
 
 # Upload
