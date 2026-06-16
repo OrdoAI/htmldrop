@@ -7,55 +7,61 @@ export function homePage(): string {
 <title>HTMLDrop</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
-body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#fafafa;color:#111;min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:6rem 2rem 3rem}
-h1{font-size:clamp(2.5rem,6vw,3.8rem);font-weight:700;color:#000;line-height:1.1;text-align:center;letter-spacing:-.03em}
-.sub{color:#888;font-size:1rem;line-height:1.7;text-align:center;margin-top:1rem;max-width:380px}
-.tabs{display:flex;align-items:center;margin:2.5rem 0 2rem}
-.tab{background:none;border:none;padding:.4rem 0;font-size:.9375rem;color:#bbb;cursor:pointer;font-family:inherit;font-weight:500;transition:color .15s}
-.tab:hover{color:#666}
-.tab.active{color:#000;font-weight:600}
-.tab-div{width:1px;height:1rem;background:#ddd;margin:0 1.25rem}
-.panel{display:none;width:100%;max-width:440px;flex-direction:column;align-items:center}
+body{font-family:Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#fafafa;color:#171717;min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:clamp(3rem,15vh,10rem) 1.5rem 2rem}
+h1{font-size:1.25rem;font-weight:600;color:#171717;text-align:center;letter-spacing:-.02em}
+.sub{max-width:32rem;margin-top:.5rem;font-size:.9375rem;line-height:1.5;color:#888;text-align:center;text-wrap:balance}
+.tabs{display:flex;align-items:center;margin:2rem 0 1.5rem}
+.tab{background:none;border:none;padding:.4rem 0;font-size:1rem;color:#888;cursor:pointer;font-family:inherit;font-weight:500;transition:color .15s}
+.tab:hover{color:#4d4d4d}
+.tab.active{color:#171717;font-weight:650}
+.tab-div{width:1px;height:1rem;background:#ddd;margin:0 1.35rem}
+.panel{display:none;width:100%;max-width:40rem;flex-direction:column;align-items:center}
 .panel.active{display:flex}
-.drop-zone{width:100%;border:1.5px dashed #d4d4d4;border-radius:16px;padding:2.5rem 2rem 1.5rem;text-align:center;cursor:pointer;transition:all .2s;background:#fff}
-.drop-zone:hover{border-color:#aaa}
-.drop-zone.over{border-color:#000;background:#f8f8f8}
-.drop-zone.error{border-color:#ef4444;background:#fef2f2}
-.drop-zone strong{color:#333;font-size:.9375rem;font-weight:600}
-.drop-zone p{color:#aaa;font-size:.75rem;margin-top:.35rem}
-.pick-btns{display:flex;gap:.5rem;justify-content:center;margin-top:1.25rem}
-.pick-btn{background:#fafafa;color:#888;border:1px solid #e5e5e5;border-radius:8px;padding:.4rem 1rem;font-size:.75rem;cursor:pointer;transition:all .15s;font-family:inherit}
-.pick-btn:hover{border-color:#aaa;color:#333}
+.drop-zone{width:100%;border:1px solid #ebebeb;border-radius:24px;padding:3.5rem 2rem 2.5rem;text-align:center;cursor:pointer;transition:all .2s;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.04),0 12px 32px rgba(0,0,0,.035)}
+.drop-zone:hover{border-color:#ccc}
+.drop-zone.over{border-style:dashed;border-color:#171717;background:#f7f7f7}
+.drop-zone.error{border-color:#ee0000;background:#fef2f2}
+.drop-zone strong{color:#171717;font-size:1.125rem;font-weight:600}
+.drop-zone p{color:#888;font-size:.875rem;margin-top:.65rem;line-height:1.5;text-wrap:balance}
+.pick-btns{display:flex;gap:.75rem;justify-content:center;margin-top:1.5rem}
+.pick-btn{color:#171717;background:#fff;border:1px solid #ebebeb;border-radius:100px;padding:.5rem 1.25rem;font-size:.875rem;cursor:pointer;transition:all .15s;font-family:inherit;font-weight:500}
+.pick-btn:hover{border-color:#888;background:#fafafa}
+#pickFile{background:#171717;color:#fff;border-color:#171717}
+#pickFile:hover{background:#333}
+#filePickConfirm{background:#171717;color:#fff;border-color:#171717}
+#filePickConfirm:hover{background:#333}
 input[type=file]{display:none}
-.result{width:100%;max-width:440px;margin-top:1.5rem;display:none}
+.result{width:100%;max-width:34rem;margin-top:1.5rem;display:none}
 .result.show{display:flex;flex-direction:column;align-items:center}
-.link-box{display:flex;gap:.5rem;align-items:center;background:#fff;border:1px solid #e5e5e5;border-radius:12px;padding:.65rem 1rem;width:100%}
-.link-box input{flex:1;background:none;border:none;color:#333;font-size:.8125rem;font-family:'SF Mono',SFMono-Regular,Consolas,monospace;outline:none}
-.meta{color:#aaa;font-size:.7rem;margin-top:.5rem}
-.progress{display:none;color:#aaa;font-size:.8125rem;margin-top:1rem}
+.link-box{display:flex;gap:.5rem;align-items:center;background:#fff;border:1px solid #ebebeb;border-radius:100px;padding:.75rem 1.25rem;width:100%;box-shadow:0 1px 2px rgba(0,0,0,.04)}
+.link-box input{flex:1;background:none;border:none;color:#171717;font-size:.8125rem;font-family:ui-monospace,SFMono-Regular,'SF Mono',Consolas,monospace;outline:none;min-width:0}
+.meta{color:#888;font-size:.75rem;margin-top:.65rem}
+.progress{display:none;color:#888;font-size:.875rem;margin-top:1rem}
 .progress.show{display:block}
-.error-msg{color:#ef4444;font-size:.8125rem;margin-top:1rem;display:none;text-align:center}
+.error-msg{color:#ee0000;font-size:.875rem;margin-top:1rem;display:none;text-align:center}
 .error-msg.show{display:block}
-.md-error,.inline-info,.warn-info{font-size:.8125rem;margin-top:.75rem;display:none;text-align:center}
+.md-error,.inline-info,.warn-info{font-size:.875rem;margin-top:.75rem;display:none;text-align:center}
 .md-error.show,.inline-info.show,.warn-info.show{display:block}
-.md-error{color:#b45309}
-.inline-info{color:#666}
-.warn-info{color:#b45309}
-.file-picker{display:none;width:100%;margin-top:1rem;background:#fff;border:1px solid #e5e5e5;border-radius:12px;padding:1rem;text-align:center}
+.md-error{color:#ab570a}
+.inline-info{color:#4d4d4d}
+.warn-info{color:#ab570a}
+.file-picker{display:none;width:100%;margin-top:1rem;background:#fff;border:1px solid #ebebeb;border-radius:16px;padding:1.25rem;text-align:center;box-shadow:0 1px 2px rgba(0,0,0,.04)}
 .file-picker.show{display:block}
-.picker-label{color:#888;font-size:.8125rem;margin-bottom:.75rem}
-#fileSelect{width:100%;background:#fafafa;color:#333;border:1px solid #e5e5e5;border-radius:8px;padding:.5rem .75rem;font-size:.8125rem;font-family:'SF Mono',SFMono-Regular,Consolas,monospace;margin-bottom:.75rem}
-.agent-section{width:100%;max-width:440px;display:flex;flex-direction:column;align-items:center}
-.agent-cmd{background:#fff;border:1px solid #e5e5e5;border-radius:12px;padding:.85rem 1.25rem;display:flex;align-items:center;gap:.75rem;font-family:'SF Mono',SFMono-Regular,Consolas,monospace;font-size:.875rem;color:#333;width:100%;overflow-x:auto}
-.agent-cmd code{flex-shrink:0;white-space:nowrap}
-.agent-cmd .dim{color:#bbb}
+.picker-label{color:#888;font-size:.875rem;margin-bottom:.75rem}
+#fileSelect{width:100%;background:#fafafa;color:#171717;border:1px solid #ebebeb;border-radius:8px;padding:.5rem .75rem;font-size:.8125rem;font-family:ui-monospace,SFMono-Regular,'SF Mono',Consolas,monospace;margin-bottom:.75rem}
+.agent-section{width:100%;display:flex;justify-content:center}
+.agent-cmd{max-width:calc(100vw - 3rem);background:#fff;border:1px solid #ebebeb;border-radius:100px;padding:0 1.5rem;min-height:3.5rem;display:inline-flex;align-items:center;gap:.875rem;font-family:ui-monospace,SFMono-Regular,'SF Mono',Consolas,monospace;font-size:.9375rem;color:#171717;box-shadow:0 1px 2px rgba(0,0,0,.06),0 8px 24px rgba(0,0,0,.04);overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+.agent-cmd::-webkit-scrollbar{display:none}
+.agent-cmd code{white-space:nowrap;line-height:1}
+.agent-cmd .dim{color:#888;flex-shrink:0}
 .copy-btn{background:none;border:none;cursor:pointer;color:#ccc;padding:.25rem;transition:color .15s;display:flex;flex-shrink:0}
-.copy-btn:hover{color:#666}
-.copy-btn.copied{color:#22c55e}
+.copy-btn:hover{color:#4d4d4d}
+.copy-btn.copied{color:#0070f3}
 .copy-icon{width:1rem;height:1rem;stroke:currentColor;stroke-width:2;fill:none}
 .gh{position:fixed;top:1.25rem;right:1.25rem;color:#ccc;transition:color .15s}
-.gh:hover{color:#666}
+.gh:hover{color:#4d4d4d}
 .gh svg{width:1.5rem;height:1.5rem}
+@media(max-width:480px){body{padding:3.5rem 1rem 2rem}h1{letter-spacing:-.04em}.sub{font-size:1.0625rem;line-height:1.55;max-width:20rem}.tabs{margin:2rem 0 1.25rem}.drop-zone{padding:2rem 1.25rem 1.5rem;border-radius:20px}.agent-cmd{min-height:3rem;padding:0 1rem;font-size:.8125rem;gap:.625rem}}
 </style>
 </head>
 <body>
@@ -63,7 +69,7 @@ input[type=file]{display:none}
 <a class="gh" href="https://github.com/OrdoAI/htmldrop" title="GitHub"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 .3a12 12 0 00-3.79 23.4c.6.1.82-.26.82-.58v-2.17c-3.34.73-4.04-1.61-4.04-1.61-.55-1.39-1.34-1.76-1.34-1.76-1.09-.75.08-.73.08-.73 1.2.08 1.84 1.24 1.84 1.24 1.07 1.84 2.81 1.31 3.5 1 .1-.78.42-1.31.76-1.61-2.67-.3-5.47-1.33-5.47-5.93 0-1.31.47-2.38 1.24-3.22-.13-.3-.54-1.52.12-3.18 0 0 1-.32 3.3 1.23a11.5 11.5 0 016.02 0c2.28-1.55 3.29-1.23 3.29-1.23.66 1.66.25 2.88.12 3.18.77.84 1.24 1.91 1.24 3.22 0 4.61-2.81 5.63-5.48 5.92.43.37.81 1.1.81 2.22v3.29c0 .32.22.7.82.58A12 12 0 0012 .3"/></svg></a>
 
 <h1>HTMLDrop</h1>
-<p class="sub">Share HTML &amp; Markdown previews with a link.<br>Auto-inlines images. Password-protected. 7-day expiry.</p>
+<p class="sub">Drop an HTML or Markdown file, get a private preview link with local images inlined.</p>
 
 <div class="tabs">
   <button class="tab active" data-tab="humans">For humans</button>
