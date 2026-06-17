@@ -5,6 +5,7 @@ interface Env {
 
 declare namespace Cloudflare {
   interface Env {
+    BUCKET: R2Bucket;
     AUTH_SECRET: string;
   }
 }

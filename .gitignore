@@ -3,3 +3,4 @@ dist/
 artifacts/
 .wrangler/
 .dev.vars
+worker-configuration.d.ts
