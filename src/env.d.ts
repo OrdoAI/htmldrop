@@ -3,6 +3,12 @@ interface Env {
   AUTH_SECRET: string;
 }
 
+declare namespace Cloudflare {
+  interface Env {
+    AUTH_SECRET: string;
+  }
+}
+
 declare module "cloudflare:test" {
   interface ProvidedEnv extends Env {}
 }
