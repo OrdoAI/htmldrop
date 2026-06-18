@@ -44,7 +44,7 @@ anyone with that full URL can view the page.
 Run the published CLI through `npx`:
 
 ```bash
-npx --yes htmldrop-cli "<file>"
+npx -y htmldrop-cli "<file>"
 ```
 
 The CLI accepts relative paths, absolute paths, `~/...`, and `file://` URIs.
@@ -53,15 +53,15 @@ Quote the path so spaces are handled correctly.
 Use endpoint overrides only when the user or environment calls for them:
 
 ```bash
-HTMLDROP_URL="https://baseurl.ai" npx --yes htmldrop-cli "<file>"
-npx --yes htmldrop-cli -e "https://baseurl.ai" "<file>"
+HTMLDROP_URL="https://baseurl.ai" npx -y htmldrop-cli "<file>"
+npx -y htmldrop-cli -e "https://baseurl.ai" "<file>"
 ```
 
 Use `--no-inline` only when the user explicitly wants references left as-is or
 when the default inlining makes the upload too large:
 
 ```bash
-npx --yes htmldrop-cli --no-inline "<file>"
+npx -y htmldrop-cli --no-inline "<file>"
 ```
 
 ## Verified CLI Behavior
