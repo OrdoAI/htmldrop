@@ -1,0 +1,94 @@
+# npm setup required before the first successful publish:
+# 1. Open npmjs.com package settings for htmldrop-cli.
+# 2. Add a Trusted Publisher using GitHub Actions.
+# 3. Use organization/user: OrdoAI, repository: htmldrop, workflow filename: publish-cli.yml.
+# 4. Allow npm publish. Leave environment blank unless this workflow starts using one.
+
+name: Publish CLI
+
+"on":
+  push:
+    branches: [main]
+    paths:
+      - "cli/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: publish-cli-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+
+      - name: Use npm 11 for trusted publishing
+        run: npm install -g npm@^11.5.1
+
+      - run: npm ci
+
+      - run: npm run typecheck
+
+      - run: npm test
+
+      - name: Smoke CLI help
+        run: node cli/index.mjs --help
+
+      - name: Verify package contents
+        working-directory: cli
+        run: |
+          pack_json="$(mktemp)"
+          npm pack --dry-run --json > "$pack_json"
+          python3 - "$pack_json" <<'PY'
+          import json
+          import sys
+
+          with open(sys.argv[1]) as f:
+              data = json.load(f)
+
+          files = {f["path"] for item in data for f in item["files"]}
+          required = {"package.json", "index.mjs", "htmldrop", "install.sh"}
+          missing = required - files
+          if missing:
+              raise SystemExit(f"tarball missing: {sorted(missing)}")
+          print(f"tarball OK: {sorted(files)}")
+          PY
+
+      - name: Check CLI version is unpublished
+        run: |
+          package_version="$(node -p "require('./cli/package.json').version")"
+          package_spec="htmldrop-cli@${package_version}"
+          echo "Preparing ${package_spec}"
+
+          set +e
+          view_output="$(npm view "${package_spec}" version --json 2>&1)"
+          view_status="$?"
+          set -e
+
+          if [ "$view_status" -eq 0 ]; then
+            echo "::error::${package_spec} already exists on npm. Bump cli/package.json before publishing."
+            exit 1
+          fi
+
+          if ! printf '%s\n' "$view_output" | grep -Eq 'E404|404 Not Found|No match found for version'; then
+            echo "::error::Could not confirm whether ${package_spec} exists on npm."
+            printf '%s\n' "$view_output"
+            exit 1
+          fi
+
+          echo "${package_spec} is not published yet."
+
+      - name: Publish CLI to npm
+        working-directory: cli
+        run: npm publish --access public
