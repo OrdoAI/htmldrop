@@ -2,6 +2,11 @@ import { handleUpload } from "./upload";
 import { handleServe, handleAuthForm } from "./serve";
 import { homePage } from "./pages/home";
 import { notFoundPage } from "./pages/notfound";
+import {
+  applyTransportSecurity,
+  redirectToHttps,
+  withTransportSecurity,
+} from "./security";
 
 interface Env {
   BUCKET: R2Bucket;
@@ -19,15 +24,24 @@ const APP_HEADERS: HeadersInit = {
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
+    const httpsRedirect = redirectToHttps(request);
+    if (httpsRedirect) return httpsRedirect;
+
     const url = new URL(request.url);
     const path = url.pathname;
 
     if (path === "/" && request.method === "GET") {
-      return new Response(homePage(), { headers: APP_HEADERS });
+      return new Response(homePage(), {
+        headers: withTransportSecurity(APP_HEADERS, request),
+      });
     }
 
     if (path === "/cli/install" && request.method === "GET") {
-      return Response.redirect("https://raw.githubusercontent.com/OrdoAI/htmldrop/main/cli/install.sh", 302);
+      const response = Response.redirect(
+        "https://raw.githubusercontent.com/OrdoAI/htmldrop/main/cli/install.sh",
+        302,
+      );
+      return applyTransportSecurity(response, request);
     }
 
     if (path === "/api/upload") {
@@ -46,6 +60,9 @@ export default {
       return handleServe(request, env, pageMatch[1]);
     }
 
-    return new Response(notFoundPage(), { status: 404, headers: APP_HEADERS });
+    return new Response(notFoundPage(), {
+      status: 404,
+      headers: withTransportSecurity(APP_HEADERS, request),
+    });
   },
 };
