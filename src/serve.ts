@@ -9,6 +9,7 @@ import {
 } from "./auth";
 import { passwordPage } from "./pages/password";
 import { notFoundPage } from "./pages/notfound";
+import { withTransportSecurity } from "./security";
 
 interface Env {
   BUCKET: R2Bucket;
@@ -38,7 +39,10 @@ export async function handleServe(
   id: string,
 ): Promise<Response> {
   if (!env.AUTH_SECRET) {
-    return new Response("Server misconfigured: missing AUTH_SECRET", { status: 500 });
+    return new Response("Server misconfigured: missing AUTH_SECRET", {
+      status: 500,
+      headers: withTransportSecurity({}, request),
+    });
   }
 
   const url = new URL(request.url);
@@ -49,17 +53,17 @@ export async function handleServe(
     if (!record) {
       return new Response(passwordPage(id, false), {
         status: 403,
-        headers: APP_HEADERS,
+        headers: withTransportSecurity(APP_HEADERS, request),
       });
     }
     const token = await mintCookie(env.AUTH_SECRET, id);
     return new Response(null, {
       status: 303,
-      headers: {
+      headers: withTransportSecurity({
         Location: `/${id}`,
         "Set-Cookie": setAuthCookieHeader(id, token),
         "Referrer-Policy": "no-referrer",
-      },
+      }, request),
     });
   }
 
@@ -69,15 +73,21 @@ export async function handleServe(
     if (valid) {
       const record = await getPage(env.BUCKET, id);
       if (!record) {
-        return new Response(notFoundPage(), { status: 404, headers: APP_HEADERS });
+        return new Response(notFoundPage(), {
+          status: 404,
+          headers: withTransportSecurity(APP_HEADERS, request),
+        });
       }
-      return new Response(record.html, { status: 200, headers: PREVIEW_HEADERS });
+      return new Response(record.html, {
+        status: 200,
+        headers: withTransportSecurity(PREVIEW_HEADERS, request),
+      });
     }
   }
 
   return new Response(passwordPage(id, false), {
     status: 401,
-    headers: APP_HEADERS,
+    headers: withTransportSecurity(APP_HEADERS, request),
   });
 }
 
@@ -87,11 +97,17 @@ export async function handleAuthForm(
   id: string,
 ): Promise<Response> {
   if (request.method !== "POST") {
-    return new Response("Method Not Allowed", { status: 405 });
+    return new Response("Method Not Allowed", {
+      status: 405,
+      headers: withTransportSecurity({}, request),
+    });
   }
 
   if (!env.AUTH_SECRET) {
-    return new Response("Server misconfigured: missing AUTH_SECRET", { status: 500 });
+    return new Response("Server misconfigured: missing AUTH_SECRET", {
+      status: 500,
+      headers: withTransportSecurity({}, request),
+    });
   }
 
   let password: string;
@@ -101,31 +117,43 @@ export async function handleAuthForm(
     const formData = await request.formData();
     const pw = formData.get("password");
     if (typeof pw !== "string" || pw.length === 0) {
-      return new Response(passwordPage(id, true), { status: 400, headers: APP_HEADERS });
+      return new Response(passwordPage(id, true), {
+        status: 400,
+        headers: withTransportSecurity(APP_HEADERS, request),
+      });
     }
     password = pw;
   } else if (contentType.includes("application/json")) {
     const body = await request.json<{ password?: string }>();
     if (typeof body?.password !== "string" || body.password.length === 0) {
-      return new Response(passwordPage(id, true), { status: 400, headers: APP_HEADERS });
+      return new Response(passwordPage(id, true), {
+        status: 400,
+        headers: withTransportSecurity(APP_HEADERS, request),
+      });
     }
     password = body.password;
   } else {
-    return new Response("Unsupported Content-Type", { status: 415 });
+    return new Response("Unsupported Content-Type", {
+      status: 415,
+      headers: withTransportSecurity({}, request),
+    });
   }
 
   const record = await verifyPassword(env.BUCKET, id, password);
   if (!record) {
-    return new Response(passwordPage(id, true), { status: 403, headers: APP_HEADERS });
+    return new Response(passwordPage(id, true), {
+      status: 403,
+      headers: withTransportSecurity(APP_HEADERS, request),
+    });
   }
 
   const token = await mintCookie(env.AUTH_SECRET, id);
   return new Response(null, {
     status: 303,
-    headers: {
+    headers: withTransportSecurity({
       Location: `/${id}`,
       "Set-Cookie": setAuthCookieHeader(id, token),
       "Referrer-Policy": "no-referrer",
-    },
+    }, request),
   });
 }
