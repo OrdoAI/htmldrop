@@ -54,9 +54,9 @@ export default {
       return handleAuthForm(request, env, authMatch[1]);
     }
 
-    // GET /:id
+    // GET/HEAD /:id
     const pageMatch = path.match(/^\/([A-Za-z0-9]{1,16})$/);
-    if (pageMatch && request.method === "GET") {
+    if (pageMatch && (request.method === "GET" || request.method === "HEAD")) {
       return handleServe(request, env, pageMatch[1]);
     }
 

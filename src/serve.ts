@@ -33,13 +33,17 @@ const APP_HEADERS: HeadersInit = {
     "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'",
 };
 
+function responseBody(request: Request, body: BodyInit): BodyInit | null {
+  return request.method === "HEAD" ? null : body;
+}
+
 export async function handleServe(
   request: Request,
   env: Env,
   id: string,
 ): Promise<Response> {
   if (!env.AUTH_SECRET) {
-    return new Response("Server misconfigured: missing AUTH_SECRET", {
+    return new Response(responseBody(request, "Server misconfigured: missing AUTH_SECRET"), {
       status: 500,
       headers: withTransportSecurity({}, request),
     });
@@ -51,7 +55,7 @@ export async function handleServe(
   if (queryPassword) {
     const record = await verifyPassword(env.BUCKET, id, queryPassword);
     if (!record) {
-      return new Response(passwordPage(id, false), {
+      return new Response(responseBody(request, passwordPage(id, false)), {
         status: 403,
         headers: withTransportSecurity(APP_HEADERS, request),
       });
@@ -73,19 +77,19 @@ export async function handleServe(
     if (valid) {
       const record = await getPage(env.BUCKET, id);
       if (!record) {
-        return new Response(notFoundPage(), {
+        return new Response(responseBody(request, notFoundPage()), {
           status: 404,
           headers: withTransportSecurity(APP_HEADERS, request),
         });
       }
-      return new Response(record.html, {
+      return new Response(responseBody(request, record.html), {
         status: 200,
         headers: withTransportSecurity(PREVIEW_HEADERS, request),
       });
     }
   }
 
-  return new Response(passwordPage(id, false), {
+  return new Response(responseBody(request, passwordPage(id, false)), {
     status: 401,
     headers: withTransportSecurity(APP_HEADERS, request),
   });

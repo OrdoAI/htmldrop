@@ -157,6 +157,54 @@ describe("Password form (no auth)", () => {
   });
 });
 
+describe("HEAD /:id", () => {
+  it("returns password status and headers without a body", async () => {
+    const page = await createPage();
+    const res = await SELF.fetch(`https://baseurl.ai/${page.id}`, {
+      method: "HEAD",
+    });
+
+    expect(res.status).toBe(401);
+    expect(res.headers.get("Content-Type")).toBe("text/html; charset=utf-8");
+    expect(res.headers.get("Strict-Transport-Security")).toBeTruthy();
+    expect(await res.text()).toBe("");
+  });
+
+  it("returns preview status and headers for valid cookies without a body", async () => {
+    const page = await createPage("<h1>Head Preview</h1>");
+    const bootstrap = await SELF.fetch(`http://localhost/${page.id}?p=${page.password}`, {
+      redirect: "manual",
+    });
+    const cookie = getCookieFromHeaders(bootstrap.headers);
+    expect(cookie).not.toBeNull();
+
+    const res = await SELF.fetch(`https://baseurl.ai/${page.id}`, {
+      method: "HEAD",
+      headers: { Cookie: cookie! },
+    });
+
+    expect(res.status).toBe(200);
+    expect(res.headers.get("Content-Type")).toBe("text/html; charset=utf-8");
+    expect(res.headers.get("Content-Security-Policy")).toBe("sandbox allow-scripts");
+    expect(res.headers.get("Strict-Transport-Security")).toBeTruthy();
+    expect(await res.text()).toBe("");
+  });
+
+  it("bootstraps auth with a clean redirect without a body", async () => {
+    const page = await createPage();
+    const res = await SELF.fetch(`https://baseurl.ai/${page.id}?p=${page.password}`, {
+      method: "HEAD",
+      redirect: "manual",
+    });
+
+    expect(res.status).toBe(303);
+    expect(res.headers.get("Location")).toBe(`/${page.id}`);
+    expect(res.headers.get("Set-Cookie")).toContain(`_hd_${page.id}=`);
+    expect(res.headers.get("Strict-Transport-Security")).toBeTruthy();
+    expect(await res.text()).toBe("");
+  });
+});
+
 describe("POST /:id/auth", () => {
   it("authenticates with correct password via form", async () => {
     const page = await createPage();
