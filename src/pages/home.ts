@@ -144,6 +144,41 @@ input[type=file]{display:none}
   function isRel(src){return src&&!src.startsWith('data:')&&!src.startsWith('http://')&&!src.startsWith('https://')&&!src.startsWith('//')&&!src.startsWith('#')&&!src.startsWith('javascript:');}
   function norm(p){var parts=p.split('/'),o=[];for(var i=0;i<parts.length;i++){if(parts[i]==='.'||parts[i]==='')continue;if(parts[i]==='..'&&o.length){o.pop();continue;}o.push(parts[i]);}return o.join('/');}
   function toDataUri(f){return new Promise(function(ok,no){var r=new FileReader();r.onload=function(){ok(r.result);};r.onerror=function(){no(new Error('read failed'));};r.readAsDataURL(f);});}
+  function mimeOf(f){
+    var t=(f.type||'').toLowerCase();
+    if(t)return t;
+    var e=f.name.split('.').pop().toLowerCase();
+    return{png:'image/png',jpg:'image/jpeg',jpeg:'image/jpeg',webp:'image/webp',svg:'image/svg+xml',gif:'image/gif',avif:'image/avif',ico:'image/x-icon',bmp:'image/bmp'}[e]||'application/octet-stream';
+  }
+  function loadImg(u){
+    return new Promise(function(ok,no){
+      var i=new Image();
+      i.onload=function(){ok(i);};
+      i.onerror=function(){no(new Error('image decode failed'));};
+      i.src=u;
+    });
+  }
+  function canvasBlob(c,t,q){
+    return new Promise(function(ok){
+      c.toBlob(function(b){ok(b);},t,q);
+    });
+  }
+  async function imageDataUri(f){
+    var original=await toDataUri(f),mime=mimeOf(f);
+    if(['image/png','image/jpeg','image/webp'].indexOf(mime)===-1||f.size<4096)return original;
+    var u=URL.createObjectURL(f);
+    try{
+      var i=await loadImg(u),c=document.createElement('canvas');
+      c.width=i.naturalWidth||i.width;
+      c.height=i.naturalHeight||i.height;
+      c.getContext('2d').drawImage(i,0,0,c.width,c.height);
+      var b=await canvasBlob(c,'image/webp',.82);
+      if(b&&b.type==='image/webp'&&b.size>0&&b.size<f.size)return await toDataUri(b);
+    }catch(e){}finally{
+      URL.revokeObjectURL(u);
+    }
+    return original;
+  }
   function findRels(html){var s=[],m,re=/(<img\\b[^>]*\\bsrc\\s*=\\s*)(["'])([^"']+)\\2/gi;while((m=re.exec(html))!==null)if(isRel(m[3]))s.push(m[3]);re=/(<link\\b[^>]*\\bhref\\s*=\\s*)(["'])([^"']+)\\2/gi;while((m=re.exec(html))!==null)if(isRel(m[3]))s.push(m[3]);return s;}
 
   async function inlineAssets(html,assets,main){
@@ -151,7 +186,7 @@ input[type=file]{display:none}
     if(main){var mp=main.fullPath||main.webkitRelativePath||main.name;var ls=mp.lastIndexOf('/');if(ls!==-1)md=mp.slice(0,ls+1);}
     for(var i=0;i<assets.length;i++){var f=assets[i];var rp=f.fullPath||f.webkitRelativePath||f.name;var n=norm(rp).toLowerCase();fm[n]=f;if(md&&rp.toLowerCase().startsWith(md.toLowerCase()))fm[norm(rp.slice(md.length)).toLowerCase()]=f;var pts=n.split('/');if(pts.length>1)fm[pts.slice(1).join('/')]=f;var bn=f.name.toLowerCase();if(!fm[bn])fm[bn]=f;}
     var inl=0,miss=[];
-    async function rep(m,pre,q,src){if(!isRel(src))return m;var k=norm(src).toLowerCase();var f=fm[k]||fm[k.split('/').pop()];if(!f){miss.push(src);return m;}inl++;return pre+q+(await toDataUri(f))+q;}
+    async function rep(m,pre,q,src){if(!isRel(src))return m;var k=norm(src).toLowerCase();var f=fm[k]||fm[k.split('/').pop()];if(!f){miss.push(src);return m;}inl++;return pre+q+(await imageDataUri(f))+q;}
     async function ra(t,re,fn){var p=[],li=0,m;re.lastIndex=0;while((m=re.exec(t))!==null){p.push(t.slice(li,m.index));p.push(fn(m[0],m[1],m[2],m[3],m[4]));li=re.lastIndex;}p.push(t.slice(li));return(await Promise.all(p)).join('');}
     html=await ra(html,/(<img\\b[^>]*\\bsrc\\s*=\\s*)(["'])([^"']+)\\2/gi,rep);
     html=await ra(html,/(<link\\b[^>]*\\bhref\\s*=\\s*)(["'])([^"']+)\\2/gi,async function(m,pre,q,href){if(!isRel(href))return m;var k=norm(href).toLowerCase();var f=fm[k]||fm[k.split('/').pop()];if(!f){miss.push(href);return m;}inl++;return '<style>'+(await f.text())+'</style>';});

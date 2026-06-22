@@ -38,9 +38,13 @@ jobs:
 
       - run: npm ci
 
+      - run: npm ci --prefix cli
+
       - run: npm run typecheck
 
       - run: npm test
+
+      - run: npm run test:cli
 
       - name: Smoke CLI help
         run: node cli/index.mjs --help
@@ -58,7 +62,7 @@ jobs:
               data = json.load(f)
 
           files = {f["path"] for item in data for f in item["files"]}
-          required = {"package.json", "index.mjs", "htmldrop", "install.sh"}
+          required = {"package.json", "index.mjs", "compress.mjs", "htmldrop", "install.sh"}
           missing = required - files
           if missing:
               raise SystemExit(f"tarball missing: {sorted(missing)}")

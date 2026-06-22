@@ -49,7 +49,7 @@ FILE="${FILE/#\~/$HOME}"
 
 FILEDIR="$(cd "$(dirname "$FILE")" && pwd)"
 EXT="${FILE##*.}"
-EXT="${EXT,,}"
+EXT="$(printf '%s' "$EXT" | tr '[:upper:]' '[:lower:]')"
 FILENAME="$(basename "$FILE")"
 CONTENT="$(cat "$FILE")"
 
@@ -79,12 +79,13 @@ fi
 if [[ "$NO_INLINE" == false ]]; then
   export FILEDIR
   CONTENT="$(python3 -c "
-import sys, os, re, base64, mimetypes
+import sys, os, re, base64, mimetypes, shutil, subprocess, tempfile
 
 html = sys.stdin.read()
 basedir = os.environ['FILEDIR']
 inlined = 0
 missing = []
+cwebp = shutil.which('cwebp')
 
 mimetypes.init()
 
@@ -93,6 +94,30 @@ def is_relative(src):
     for prefix in ('data:', 'http://', 'https://', '//', '#', 'javascript:'):
         if src.startswith(prefix): return False
     return True
+
+def maybe_compress(path, mime, raw):
+    if mime not in ('image/png', 'image/jpeg') or not cwebp or len(raw) < 4096:
+        return raw, mime
+    out_path = None
+    try:
+        fd, out_path = tempfile.mkstemp(suffix='.webp')
+        os.close(fd)
+        result = subprocess.run([cwebp, '-quiet', '-q', '82', path, '-o', out_path], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        if result.returncode != 0 or not os.path.isfile(out_path):
+            return raw, mime
+        with open(out_path, 'rb') as f:
+            webp = f.read()
+        if webp and len(webp) < len(raw):
+            return webp, 'image/webp'
+    except Exception:
+        return raw, mime
+    finally:
+        if out_path:
+            try:
+                os.unlink(out_path)
+            except OSError:
+                pass
+    return raw, mime
 
 def resolve_and_inline(src):
     global inlined, missing
@@ -105,7 +130,9 @@ def resolve_and_inline(src):
         ext = os.path.splitext(path)[1].lower()
         mime = {'.svg': 'image/svg+xml', '.webp': 'image/webp', '.avif': 'image/avif', '.ico': 'image/x-icon'}.get(ext, 'application/octet-stream')
     with open(path, 'rb') as f:
-        data = base64.b64encode(f.read()).decode()
+        raw = f.read()
+    raw, mime = maybe_compress(path, mime, raw)
+    data = base64.b64encode(raw).decode()
     inlined += 1
     return f'data:{mime};base64,{data}'
 
@@ -156,11 +183,15 @@ sys.stdout.write(html)
 fi
 
 # Upload
-PAYLOAD="$(jq -n --arg html "$CONTENT" --arg filename "$FILENAME" '{html: $html, filename: $filename}')"
+HTML_TMP="$(mktemp)"
+PAYLOAD_TMP="$(mktemp)"
+trap 'rm -f "$HTML_TMP" "$PAYLOAD_TMP"' EXIT
+printf '%s' "$CONTENT" > "$HTML_TMP"
+jq -n --rawfile html "$HTML_TMP" --arg filename "$FILENAME" '{html: $html, filename: $filename}' > "$PAYLOAD_TMP"
 
 RESPONSE="$(curl -sf -X POST "${ENDPOINT}/api/upload" \
   -H "Content-Type: application/json" \
-  -d "$PAYLOAD")" || die "upload failed"
+  --data-binary "@${PAYLOAD_TMP}")" || die "upload failed"
 
 URL="$(echo "$RESPONSE" | jq -r '.url')"
 ID="$(echo "$RESPONSE" | jq -r '.id')"

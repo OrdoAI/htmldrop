@@ -7,9 +7,18 @@
   },
   "files": [
     "index.mjs",
+    "compress.mjs",
     "htmldrop",
     "install.sh"
   ],
+  "scripts": {
+    "test": "node __tests__/compress.test.mjs && node __tests__/cli-e2e.test.mjs"
+  },
+  "dependencies": {
+    "@jsquash/webp": "1.5.0",
+    "jpeg-js": "0.4.4",
+    "pngjs": "7.0.0"
+  },
   "type": "module",
   "engines": {
     "node": ">=18"
