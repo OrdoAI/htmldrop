@@ -1,6 +1,7 @@
 node_modules/
 dist/
 artifacts/
+.claude/
 .wrangler/
 .dev.vars
 worker-configuration.d.ts
