@@ -4,6 +4,7 @@ import { resolve, dirname, extname, basename, join, normalize } from "path";
 import { execSync } from "child_process";
 
 const ENDPOINT = process.env.HTMLDROP_URL || "https://baseurl.ai";
+let compressorPromise;
 
 function die(msg) {
   process.stderr.write(`error: ${msg}\n`);
@@ -47,19 +48,44 @@ function isRelative(src) {
   return true;
 }
 
-function inlineAssets(html, baseDir) {
+async function compressImage(data, mime) {
+  try {
+    compressorPromise ||= import("./compress.mjs");
+    const compressor = await compressorPromise;
+    return await compressor.compressImage(data, mime);
+  } catch {
+    return { buffer: data, mime };
+  }
+}
+
+async function replaceAsync(input, regex, replacer) {
+  const parts = [];
+  let lastIndex = 0;
+  let match;
+  regex.lastIndex = 0;
+  while ((match = regex.exec(input)) !== null) {
+    parts.push(input.slice(lastIndex, match.index));
+    parts.push(replacer(...match));
+    lastIndex = regex.lastIndex;
+  }
+  parts.push(input.slice(lastIndex));
+  return (await Promise.all(parts)).join("");
+}
+
+async function inlineAssets(html, baseDir) {
   let inlined = 0;
   const missing = [];
 
-  function inlineSrc(match, prefix, quote, src) {
+  async function inlineSrc(match, prefix, quote, src) {
     if (!isRelative(src)) return match;
     const absPath = normalize(join(baseDir, src));
     if (!existsSync(absPath)) { missing.push(src); return match; }
     const ext = extname(absPath).toLowerCase();
     const mime = MIME_MAP[ext] || "application/octet-stream";
-    const data = readFileSync(absPath).toString("base64");
+    const result = await compressImage(readFileSync(absPath), mime);
+    const data = result.buffer.toString("base64");
     inlined++;
-    return `${prefix}${quote}data:${mime};base64,${data}${quote}`;
+    return `${prefix}${quote}data:${result.mime};base64,${data}${quote}`;
   }
 
   function inlineCss(match, prefix, quote, href) {
@@ -80,7 +106,7 @@ function inlineAssets(html, baseDir) {
     return `<script>${js}</script>`;
   }
 
-  html = html.replace(/(<img\b[^>]*\bsrc\s*=\s*)(["'])([^"']+)\2/gi, inlineSrc);
+  html = await replaceAsync(html, /(<img\b[^>]*\bsrc\s*=\s*)(["'])([^"']+)\2/gi, inlineSrc);
   html = html.replace(/(<link\b[^>]*\bhref\s*=\s*)(["'])([^"']+)\2/gi, inlineCss);
   html = html.replace(/(<script\b[^>]*\bsrc\s*=\s*)(["'])([^"']+)\2([^>]*>\s*<\/script>)/gi, inlineJs);
 
@@ -138,7 +164,7 @@ if (ext === ".md" || ext === ".markdown") {
 }
 
 if (!noInline) {
-  content = inlineAssets(content, fileDir);
+  content = await inlineAssets(content, fileDir);
 }
 
 const payload = JSON.stringify({ html: content, filename });

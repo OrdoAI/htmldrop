@@ -16,9 +16,13 @@ jobs:
 
       - run: npm ci
 
+      - run: npm ci --prefix cli
+
       - run: npm run typecheck
 
       - run: npm test
+
+      - run: npm run test:cli
 
       - run: npx wrangler deploy
         env:
