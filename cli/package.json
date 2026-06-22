@@ -1,6 +1,6 @@
 {
   "name": "htmldrop-cli",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Upload HTML/MD to baseurl.ai for shareable preview links",
   "bin": {
     "htmldrop": "index.mjs"
