@@ -2,6 +2,7 @@
 import { readFileSync, existsSync } from "fs";
 import { resolve, dirname, extname, basename, join, normalize } from "path";
 import { execSync } from "child_process";
+import { parseArgs } from "node:util";
 import { buildMarkdownPage, injectToolbarIntoHtml } from "./markdown-page.mjs";
 import { NodeHtmlMarkdown } from "node-html-markdown";
 
@@ -14,23 +15,23 @@ function die(msg) {
 }
 
 function usage() {
-  console.log(`Usage: htmldrop <file>
+  console.log(`Usage: htmldrop [create] <file>
+       htmldrop update <url> <file>
 
 Upload an HTML or Markdown file and get a shareable link.
 Relative images, CSS, and JS are automatically inlined as base64.
 
-  htmldrop ./report.html
-  htmldrop ~/Documents/notes.md
-  htmldrop /absolute/path/to/page.html
-  htmldrop file:///Users/me/report.html
+  htmldrop ./report.html                 create a new preview
+  htmldrop create ~/Documents/notes.md   create, explicit
+  htmldrop update <url> ./report.html    overwrite an existing preview
+
+<url> is the full password-bearing link from a previous upload; the
+overwritten preview keeps that same URL.
 
 Options:
   --no-inline          Skip asset inlining, upload HTML as-is
-  -e, --endpoint URL   Override upload endpoint (default: https://baseurl.ai)
-  -h, --help           Show this help
-
-Environment:
-  HTMLDROP_URL         Override upload endpoint`);
+  -V, --version        Print version and exit
+  -h, --help           Show this help`);
   process.exit(0);
 }
 
@@ -128,24 +129,57 @@ function convertMarkdown(text) {
   }
 }
 
-// Parse args
-let file = "";
-let noInline = false;
-let endpoint = ENDPOINT;
-const args = process.argv.slice(2);
-
-for (let i = 0; i < args.length; i++) {
-  switch (args[i]) {
-    case "-h": case "--help": usage(); break;
-    case "--no-inline": noInline = true; break;
-    case "-e": case "--endpoint": endpoint = args[++i]; break;
-    default:
-      if (file) die(`unexpected argument: ${args[i]}`);
-      file = args[i];
-  }
+// Parse args. Stdlib parseArgs gives POSIX/GNU behaviour for free: --opt=value,
+// the `--` terminator, options anywhere among operands, and errors on unknown
+// options. The upload endpoint is env-only (HTMLDROP_URL) for dev/test — by
+// design it is not a user-facing flag.
+let parsed;
+try {
+  parsed = parseArgs({
+    allowPositionals: true,
+    options: {
+      "no-inline": { type: "boolean", default: false },
+      version: { type: "boolean", short: "V" },
+      help: { type: "boolean", short: "h" },
+    },
+  });
+} catch (err) {
+  die(err.message);
 }
 
-if (!file) die("no file specified. Run 'htmldrop --help' for usage.");
+if (parsed.values.help) usage();
+if (parsed.values.version) {
+  const { version } = JSON.parse(readFileSync(new URL("./package.json", import.meta.url), "utf-8"));
+  console.log(`htmldrop-cli ${version}`);
+  process.exit(0);
+}
+
+const { values, positionals } = parsed;
+
+// Subcommands: `create <file>` (default) and `update <url> <file>`. A bare
+// `htmldrop <file>` is the create shorthand. `create`/`update` are reserved as
+// the first operand; a file actually named that needs an explicit verb or path.
+let mode = "create";
+let operands = positionals;
+if (positionals[0] === "create" || positionals[0] === "update") {
+  mode = positionals[0];
+  operands = positionals.slice(1);
+}
+
+let file;
+let updateUrl = "";
+if (mode === "update") {
+  if (operands.length < 2) die("usage: htmldrop update <url> <file>");
+  if (operands.length > 2) die(`unexpected argument: ${operands[2]}`);
+  [updateUrl, file] = operands;
+} else {
+  if (operands.length === 0) die("no file specified. Run 'htmldrop --help' for usage.");
+  if (operands.length > 1) die(`unexpected argument: ${operands[1]}`);
+  file = operands[0];
+}
+
+const noInline = values["no-inline"];
+const endpoint = ENDPOINT;
 
 file = file.replace(/^file:\/\//, "");
 if (file.startsWith("~")) file = file.replace("~", process.env.HOME);
@@ -173,7 +207,27 @@ if (!noInline) {
   content = await inlineAssets(content, fileDir);
 }
 
-const payload = JSON.stringify({ html: content, filename });
+// update mode: overwrite the page behind an existing password-bearing link.
+// The link itself is the capability, so id + password are parsed locally.
+let updateCreds = null;
+if (updateUrl) {
+  let link;
+  try {
+    link = new URL(updateUrl);
+  } catch {
+    die(`invalid update URL: ${updateUrl}`);
+  }
+  const id = link.pathname.split("/").filter(Boolean).pop();
+  const password = link.searchParams.get("p");
+  if (!id || !password) {
+    die("update URL must look like https://baseurl.ai/<id>?p=<password>");
+  }
+  updateCreds = { id, password };
+}
+
+const payload = JSON.stringify(
+  updateCreds ? { html: content, filename, ...updateCreds } : { html: content, filename },
+);
 
 const res = await fetch(`${endpoint}/api/upload`, {
   method: "POST",
@@ -190,7 +244,8 @@ const data = await res.json();
 console.log(data.url);
 
 if (process.stdout.isTTY) {
-  process.stderr.write(`  id: ${data.id} · expires: ${data.expiresAt.split("T")[0]}\n`);
+  const note = updateCreds ? " · updated in place" : "";
+  process.stderr.write(`  id: ${data.id} · expires: ${data.expiresAt.split("T")[0]}${note}\n`);
   try {
     execSync("pbcopy", { input: data.url });
     process.stderr.write("  (copied to clipboard)\n");

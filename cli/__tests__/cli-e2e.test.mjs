@@ -40,10 +40,10 @@ function withServer(handler) {
   });
 }
 
-function runCli(args, endpoint) {
+function runCli(args, endpoint, cwd = root.pathname) {
   return new Promise((resolve, reject) => {
     const child = spawn(process.execPath, [cliPath.pathname, ...args], {
-      cwd: root.pathname,
+      cwd,
       env: { ...process.env, HTMLDROP_URL: endpoint },
       stdio: ["ignore", "pipe", "pipe"],
     });
@@ -100,6 +100,182 @@ test("--no-inline leaves local references untouched", async () => {
       const payload = JSON.parse(requests[0].body);
       assert.ok(payload.html.includes('src="sample-synthetic.png"'));
       assert.ok(!payload.html.includes("data:image/"));
+    });
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("update <url> <file> parses id and password from the link and sends them", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "htmldrop-cli-update-"));
+  try {
+    const pagePath = join(dir, "page.html");
+    writeFileSync(pagePath, "<!doctype html><h1>hi</h1>");
+    await withServer(async (endpoint, requests) => {
+      const result = await runCli(["update", "http://preview.test/myid?p=mypass", pagePath], endpoint);
+      assert.equal(result.code, 0, result.stderr);
+      assert.equal(requests.length, 1);
+      const payload = JSON.parse(requests[0].body);
+      assert.equal(payload.id, "myid");
+      assert.equal(payload.password, "mypass");
+      assert.ok(result.stdout.includes("http://preview.test/abc?p=secret"));
+    });
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("update with a malformed or incomplete link fails locally without uploading", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "htmldrop-cli-update-bad-"));
+  try {
+    const pagePath = join(dir, "page.html");
+    writeFileSync(pagePath, "<!doctype html><h1>hi</h1>");
+    await withServer(async (endpoint, requests) => {
+      const bad = await runCli(["update", "not-a-valid-url", pagePath], endpoint);
+      assert.notEqual(bad.code, 0);
+      const noPassword = await runCli(["update", "http://preview.test/myid", pagePath], endpoint);
+      assert.notEqual(noPassword.code, 0);
+      assert.equal(requests.length, 0, "no upload should be attempted for a bad update URL");
+    });
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("--version prints the package version and does not upload", async () => {
+  const pkg = JSON.parse(readFileSync(new URL("../package.json", import.meta.url)));
+  const result = await runCli(["--version"], "http://127.0.0.1:1");
+  assert.equal(result.code, 0, result.stderr);
+  assert.ok(result.stdout.includes(pkg.version), `expected version ${pkg.version} in stdout: ${result.stdout}`);
+});
+
+test("removed/unknown flags (-e, --endpoint, --update, --bogus) fail before upload", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "htmldrop-cli-unknown-"));
+  try {
+    const pagePath = join(dir, "page.html");
+    writeFileSync(pagePath, "<!doctype html><h1>hi</h1>");
+    await withServer(async (endpoint, requests) => {
+      for (const args of [
+        ["--bogus", pagePath],
+        ["-e", endpoint, pagePath],
+        ["--endpoint", endpoint, pagePath],
+        ["--update", "http://preview.test/x?p=y", pagePath],
+        ["--update=http://preview.test/x?p=y", pagePath],
+      ]) {
+        const r = await runCli(args, endpoint);
+        assert.notEqual(r.code, 0, `expected failure for: ${args.join(" ")}`);
+      }
+      assert.equal(requests.length, 0, "no upload should be attempted for unknown options");
+    });
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("create <file> explicit verb uploads without update credentials", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "htmldrop-cli-create-"));
+  try {
+    const pagePath = join(dir, "page.html");
+    writeFileSync(pagePath, "<!doctype html><h1>hi</h1>");
+    await withServer(async (endpoint, requests) => {
+      const result = await runCli(["create", pagePath], endpoint);
+      assert.equal(result.code, 0, result.stderr);
+      assert.equal(requests.length, 1);
+      const payload = JSON.parse(requests[0].body);
+      assert.equal(payload.id, undefined);
+      assert.equal(payload.password, undefined);
+    });
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("-- lets a filename beginning with - through", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "htmldrop-cli-dash-"));
+  try {
+    writeFileSync(join(dir, "-dash.html"), "<!doctype html><h1>hi</h1>");
+    await withServer(async (endpoint, requests) => {
+      const ok = await runCli(["--", "-dash.html"], endpoint, dir);
+      assert.equal(ok.code, 0, ok.stderr);
+      assert.equal(requests.length, 1);
+    });
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("more than one input file fails before upload", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "htmldrop-cli-two-"));
+  try {
+    const a = join(dir, "a.html");
+    const b = join(dir, "b.html");
+    writeFileSync(a, "<!doctype html><h1>a</h1>");
+    writeFileSync(b, "<!doctype html><h1>b</h1>");
+    await withServer(async (endpoint, requests) => {
+      const r = await runCli([a, b], endpoint);
+      assert.notEqual(r.code, 0);
+      assert.equal(requests.length, 0);
+    });
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("create with no file and update with wrong operand counts fail before upload", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "htmldrop-cli-arity-"));
+  try {
+    const pagePath = join(dir, "page.html");
+    writeFileSync(pagePath, "<!doctype html><h1>hi</h1>");
+    await withServer(async (endpoint, requests) => {
+      const cases = [
+        ["create"],                                                 // create, no file
+        ["update", "http://preview.test/id?p=pw"],                  // update, missing file
+        ["update", "http://preview.test/id?p=pw", pagePath, "x"],   // update, extra operand
+      ];
+      for (const args of cases) {
+        const r = await runCli(args, endpoint);
+        assert.notEqual(r.code, 0, `expected failure for: ${args.join(" ")}`);
+      }
+      assert.equal(requests.length, 0);
+    });
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("--no-inline works before and after the update verb", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "htmldrop-cli-perm-"));
+  try {
+    const pagePath = join(dir, "page.html");
+    writeFileSync(pagePath, "<!doctype html><h1>hi</h1>");
+    await withServer(async (endpoint, requests) => {
+      for (const args of [
+        ["update", "http://preview.test/permid?p=permpw", pagePath, "--no-inline"],
+        ["--no-inline", "update", "http://preview.test/permid?p=permpw", pagePath],
+      ]) {
+        const r = await runCli(args, endpoint);
+        assert.equal(r.code, 0, r.stderr);
+      }
+      assert.equal(requests.length, 2);
+      for (const req of requests) {
+        const payload = JSON.parse(req.body);
+        assert.equal(payload.id, "permid");
+        assert.equal(payload.password, "permpw");
+      }
+    });
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("a file literally named update is reachable via explicit create", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "htmldrop-cli-reserved-"));
+  try {
+    writeFileSync(join(dir, "update"), "<!doctype html><h1>hi</h1>");
+    await withServer(async (endpoint, requests) => {
+      const r = await runCli(["create", "update"], endpoint, dir);
+      assert.equal(r.code, 0, r.stderr);
+      assert.equal(requests.length, 1);
     });
   } finally {
     rmSync(dir, { recursive: true, force: true });

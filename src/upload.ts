@@ -1,5 +1,5 @@
 import { generateId as defaultGenerateId, generatePassword, utf8ByteLength } from "./utils";
-import type { PageRecord } from "./auth";
+import { type PageRecord, verifyPassword } from "./auth";
 import { publicOrigin, withTransportSecurity } from "./security";
 
 const MAX_HTML_BYTES = 24 * 1024 * 1024; // 24 MiB content limit
@@ -15,6 +15,8 @@ interface Env {
 interface UploadBody {
   html: unknown;
   filename: unknown;
+  id?: unknown;
+  password?: unknown;
 }
 
 export interface UploadDeps {
@@ -65,7 +67,7 @@ export async function handleUpload(
     return textResponse("Invalid body", { status: 400 }, request);
   }
 
-  const { html, filename } = body;
+  const { html, filename, id: updateId, password: updatePassword } = body;
 
   if (typeof html !== "string" || html.length === 0) {
     return textResponse("Missing or invalid 'html' field", { status: 400 }, request);
@@ -82,6 +84,39 @@ export async function handleUpload(
       { status: 413 },
       request,
     );
+  }
+
+  // Update path: a holder of the existing id + password overwrites that page in
+  // place, keeping the same URL. Anything other than both-present-and-valid is
+  // rejected; a rejected update never touches the stored record.
+  if (updateId !== undefined || updatePassword !== undefined) {
+    if (typeof updateId !== "string" || typeof updatePassword !== "string") {
+      return textResponse(
+        "Both 'id' and 'password' are required to update an existing preview",
+        { status: 400 },
+        request,
+      );
+    }
+    const existing = await verifyPassword(env.BUCKET, updateId, updatePassword);
+    if (!existing) {
+      return textResponse("Invalid id or password", { status: 403 }, request);
+    }
+    const updated: PageRecord = {
+      html,
+      password: existing.password,
+      filename,
+      createdAt: new Date().toISOString(), // refresh the 7-day expiry on update
+    };
+    await env.BUCKET.put(`page:${updateId}`, JSON.stringify(updated));
+    const updatedExpiresAt = new Date(Date.now() + TTL_SECONDS * 1000).toISOString();
+    return Response.json({
+      url: `${publicOrigin(request)}/${updateId}?p=${existing.password}`,
+      id: updateId,
+      password: existing.password,
+      expiresAt: updatedExpiresAt,
+    }, {
+      headers: withTransportSecurity({}, request),
+    });
   }
 
   const password = generatePassword();
