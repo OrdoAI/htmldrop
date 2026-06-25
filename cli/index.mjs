@@ -2,6 +2,8 @@
 import { readFileSync, existsSync } from "fs";
 import { resolve, dirname, extname, basename, join, normalize } from "path";
 import { execSync } from "child_process";
+import { buildMarkdownPage, injectToolbarIntoHtml } from "./markdown-page.mjs";
+import { NodeHtmlMarkdown } from "node-html-markdown";
 
 const ENDPOINT = process.env.HTMLDROP_URL || "https://baseurl.ai";
 let compressorPromise;
@@ -37,8 +39,6 @@ const MIME_MAP = {
   ".gif": "image/gif", ".svg": "image/svg+xml", ".webp": "image/webp",
   ".avif": "image/avif", ".ico": "image/x-icon", ".bmp": "image/bmp",
 };
-
-const MD_CSS = `body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;max-width:48rem;margin:0 auto;padding:2rem;line-height:1.6;color:#24292e}h1,h2,h3,h4,h5,h6{margin-top:1.5em;margin-bottom:.5em;font-weight:600}h1{font-size:2em;border-bottom:1px solid #eee;padding-bottom:.3em}h2{font-size:1.5em;border-bottom:1px solid #eee;padding-bottom:.3em}code{background:#f6f8fa;padding:.2em .4em;border-radius:3px;font-size:85%}pre{background:#f6f8fa;padding:1em;border-radius:6px;overflow-x:auto}pre code{background:none;padding:0}blockquote{border-left:4px solid #dfe2e5;padding:0 1em;color:#6a737d;margin:1em 0}table{border-collapse:collapse;width:100%}th,td{border:1px solid #dfe2e5;padding:.5em .75em}th{background:#f6f8fa}img{max-width:100%}a{color:#0366d6}ul,ol{padding-left:2em}hr{border:none;border-top:1px solid #eee;margin:1.5em 0}`;
 
 function isRelative(src) {
   if (!src) return false;
@@ -122,7 +122,7 @@ async function inlineAssets(html, baseDir) {
 function convertMarkdown(text) {
   try {
     const rendered = execSync("npx -y marked --gfm", { input: text, encoding: "utf-8", stdio: ["pipe", "pipe", "pipe"] });
-    return `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>${MD_CSS}</style></head><body>${rendered}</body></html>`;
+    return buildMarkdownPage(rendered, text);
   } catch {
     die("markdown conversion failed. Install marked: npm i -g marked");
   }
@@ -161,6 +161,12 @@ let content = readFileSync(file, "utf-8");
 
 if (ext === ".md" || ext === ".markdown") {
   content = convertMarkdown(content);
+} else {
+  // HTML upload: derive a (lossy) markdown source from the original HTML so the
+  // in-page "Copy for LLM" button works on HTML too, then inject a floating
+  // toolbar that won't disturb the user's own layout.
+  const md = NodeHtmlMarkdown.translate(content);
+  content = injectToolbarIntoHtml(content, md);
 }
 
 if (!noInline) {
