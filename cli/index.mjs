@@ -26,6 +26,8 @@ Relative images, CSS, and JS are automatically inlined as base64.
 
 Options:
   --no-inline          Skip asset inlining, upload HTML as-is
+  --update URL         Overwrite an existing preview, keeping the same URL.
+                       Pass the full password-bearing link you got before.
   -e, --endpoint URL   Override upload endpoint (default: https://baseurl.ai)
   -h, --help           Show this help
 
@@ -131,6 +133,7 @@ function convertMarkdown(text) {
 // Parse args
 let file = "";
 let noInline = false;
+let updateUrl = "";
 let endpoint = ENDPOINT;
 const args = process.argv.slice(2);
 
@@ -138,6 +141,7 @@ for (let i = 0; i < args.length; i++) {
   switch (args[i]) {
     case "-h": case "--help": usage(); break;
     case "--no-inline": noInline = true; break;
+    case "--update": updateUrl = args[++i]; break;
     case "-e": case "--endpoint": endpoint = args[++i]; break;
     default:
       if (file) die(`unexpected argument: ${args[i]}`);
@@ -173,7 +177,27 @@ if (!noInline) {
   content = await inlineAssets(content, fileDir);
 }
 
-const payload = JSON.stringify({ html: content, filename });
+// --update: overwrite the page behind an existing password-bearing link. The
+// link itself is the capability, so id + password are parsed from it locally.
+let updateCreds = null;
+if (updateUrl) {
+  let parsed;
+  try {
+    parsed = new URL(updateUrl);
+  } catch {
+    die(`invalid --update URL: ${updateUrl}`);
+  }
+  const id = parsed.pathname.split("/").filter(Boolean).pop();
+  const password = parsed.searchParams.get("p");
+  if (!id || !password) {
+    die("--update URL must look like https://baseurl.ai/<id>?p=<password>");
+  }
+  updateCreds = { id, password };
+}
+
+const payload = JSON.stringify(
+  updateCreds ? { html: content, filename, ...updateCreds } : { html: content, filename },
+);
 
 const res = await fetch(`${endpoint}/api/upload`, {
   method: "POST",
@@ -190,7 +214,8 @@ const data = await res.json();
 console.log(data.url);
 
 if (process.stdout.isTTY) {
-  process.stderr.write(`  id: ${data.id} · expires: ${data.expiresAt.split("T")[0]}\n`);
+  const note = updateCreds ? " · updated in place" : "";
+  process.stderr.write(`  id: ${data.id} · expires: ${data.expiresAt.split("T")[0]}${note}\n`);
   try {
     execSync("pbcopy", { input: data.url });
     process.stderr.write("  (copied to clipboard)\n");

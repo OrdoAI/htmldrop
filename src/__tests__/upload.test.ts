@@ -116,7 +116,7 @@ describe("POST /api/upload", () => {
     expect(res.status).toBe(415);
   });
 
-  it("client cannot override password or id", async () => {
+  it("cannot squat a chosen id: id+password for an unknown page is rejected and creates nothing", async () => {
     const res = await SELF.fetch("http://localhost/api/upload", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -127,10 +127,77 @@ describe("POST /api/upload", () => {
         id: "myid1234",
       }),
     });
+    expect(res.status).toBe(403);
+    const obj = await env.BUCKET.get("page:myid1234");
+    expect(obj).toBeNull();
+  });
+});
+
+describe("POST /api/upload (update existing)", () => {
+  it("overwrites html and filename in place, keeping id and password and resetting expiry", async () => {
+    const id = "UPD00001";
+    const password = "updatepass000001";
+    const oldCreatedAt = new Date(Date.now() - 60_000).toISOString();
+    await env.BUCKET.put(`page:${id}`, JSON.stringify({
+      html: "<p>old</p>", password, filename: "old.html", createdAt: oldCreatedAt,
+    }));
+
+    const res = await SELF.fetch("http://localhost/api/upload", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ html: "<p>new</p>", filename: "new.html", id, password }),
+    });
+
     expect(res.status).toBe(200);
-    const data = await res.json<{ id: string; password: string }>();
-    expect(data.id).not.toBe("myid1234");
-    expect(data.password).not.toBe("my-chosen-password");
+    const data = await res.json<{ id: string; password: string; url: string; expiresAt: string }>();
+    expect(data.id).toBe(id);
+    expect(data.password).toBe(password);
+    expect(data.url).toContain(`/${id}?p=${password}`);
+
+    const record = JSON.parse(await (await env.BUCKET.get(`page:${id}`))!.text());
+    expect(record.html).toBe("<p>new</p>");
+    expect(record.filename).toBe("new.html");
+    expect(record.password).toBe(password);
+
+    const oldExpires = new Date(oldCreatedAt).getTime() + 7 * 24 * 60 * 60 * 1000;
+    expect(new Date(data.expiresAt).getTime()).toBeGreaterThan(oldExpires);
+  });
+
+  it("rejects a wrong password with 403 and leaves the record intact", async () => {
+    const id = "UPD00002";
+    await env.BUCKET.put(`page:${id}`, JSON.stringify({
+      html: "<p>keep</p>", password: "correctpass00001", filename: "keep.html",
+      createdAt: new Date().toISOString(),
+    }));
+
+    const res = await SELF.fetch("http://localhost/api/upload", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ html: "<p>hacked</p>", filename: "h.html", id, password: "wrongpass0000001" }),
+    });
+
+    expect(res.status).toBe(403);
+    const record = JSON.parse(await (await env.BUCKET.get(`page:${id}`))!.text());
+    expect(record.html).toBe("<p>keep</p>");
+    expect(record.filename).toBe("keep.html");
+  });
+
+  it("rejects update with id but no password (400)", async () => {
+    const res = await SELF.fetch("http://localhost/api/upload", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ html: "<p>x</p>", filename: "x.html", id: "SOMEID01" }),
+    });
+    expect(res.status).toBe(400);
+  });
+
+  it("rejects update with password but no id (400)", async () => {
+    const res = await SELF.fetch("http://localhost/api/upload", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ html: "<p>x</p>", filename: "x.html", password: "somepass00000001" }),
+    });
+    expect(res.status).toBe(400);
   });
 });
 

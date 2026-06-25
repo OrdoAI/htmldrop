@@ -64,6 +64,33 @@ when the default inlining makes the upload too large:
 npx -y htmldrop-cli --no-inline "<file>"
 ```
 
+To overwrite an existing preview while keeping the same URL, pass the full
+password-bearing URL back to the CLI:
+
+```bash
+npx -y htmldrop-cli --update "https://baseurl.ai/<id>?p=<password>" "<file>"
+```
+
+Before running any `--update` command, complete one blocking confirmation gate
+unless the same user request already names the exact target URL, includes its
+password, names the local file, and explicitly says to overwrite, update, or
+replace that URL.
+
+- Use the harness's blocking question tool: Claude Code `AskUserQuestion`,
+  Codex `request_user_input`, or the equivalent blocking ask in another
+  harness.
+- Show the target URL, the local file that will replace it, and this statement:
+  "This irreversibly overwrites the existing HTMLDrop preview at that URL."
+- If the target URL is missing `?p=<password>` or the password is otherwise not
+  available, ask for the password in that same blocking interaction instead of
+  asking once for the password and again for confirmation.
+- Run `--update` only after an explicit yes and a non-empty password. If the
+  answer is no, unclear, lacks a needed password, or no blocking ask is
+  available, do not update; offer a fresh upload that creates a new URL instead.
+
+`--update` is a destructive overwrite: anyone with the full URL can view the
+page, and anyone using that same full URL to update can replace its content.
+
 ## Verified CLI Behavior
 
 - Markdown files (`.md`, `.markdown`) are rendered to GitHub-flavored HTML
@@ -78,6 +105,8 @@ npx -y htmldrop-cli --no-inline "<file>"
 - The upload response contains a URL shaped like
   `https://baseurl.ai/<id>?p=<password>`. Links expire after 7 days according to
   the service response.
+- `--update <url>` sends the `id` and password from that URL with the new
+  content, returns the same URL, and refreshes the 7-day expiry.
 - In non-interactive shells the CLI prints the URL on stdout. In an interactive
   TTY it also prints `id`, an expiry date, and a clipboard note when `pbcopy`
   succeeds.
@@ -87,6 +116,8 @@ npx -y htmldrop-cli --no-inline "<file>"
 Read both stdout and stderr from the command.
 
 - The first stdout line is the shareable URL. Give that URL to the user.
+- If you used `--update`, say the existing preview was overwritten at the same
+  URL.
 - Mention the 7-day expiry policy. If the CLI printed an exact expiry date,
   relay that date. If it did not print one, do not invent an exact timestamp.
 - Say the link is self-authenticating because the password is already in the
@@ -121,6 +152,9 @@ be missing those images or styles.
 - `File too large` or HTTP `413`: the final HTML payload exceeded the service
   limit. Try `--no-inline`, reduce embedded assets, split the report, or create
   a smaller summary page.
+- `--update` with a malformed URL, missing `?p=...`, or HTTP `403`: re-check
+  that the user provided the original full HTMLDrop URL. Do not try to recover
+  the password from a clean preview URL.
 - `upload failed`: report the exact status and stderr. Do not claim a URL was
   created unless stdout contains one.
 - Asset warnings: if the preview needs to be portable, resolve missing local

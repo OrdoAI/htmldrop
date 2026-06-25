@@ -105,3 +105,39 @@ test("--no-inline leaves local references untouched", async () => {
     rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test("--update parses id and password from the link and sends them in the payload", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "htmldrop-cli-update-"));
+  try {
+    const pagePath = join(dir, "page.html");
+    writeFileSync(pagePath, "<!doctype html><h1>hi</h1>");
+    await withServer(async (endpoint, requests) => {
+      const result = await runCli(["--update", "http://preview.test/myid?p=mypass", pagePath], endpoint);
+      assert.equal(result.code, 0, result.stderr);
+      assert.equal(requests.length, 1);
+      const payload = JSON.parse(requests[0].body);
+      assert.equal(payload.id, "myid");
+      assert.equal(payload.password, "mypass");
+      assert.ok(result.stdout.includes("http://preview.test/abc?p=secret"));
+    });
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("--update with a malformed or incomplete link fails locally without uploading", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "htmldrop-cli-update-bad-"));
+  try {
+    const pagePath = join(dir, "page.html");
+    writeFileSync(pagePath, "<!doctype html><h1>hi</h1>");
+    await withServer(async (endpoint, requests) => {
+      const bad = await runCli(["--update", "not-a-valid-url", pagePath], endpoint);
+      assert.notEqual(bad.code, 0);
+      const noPassword = await runCli(["--update", "http://preview.test/myid", pagePath], endpoint);
+      assert.notEqual(noPassword.code, 0);
+      assert.equal(requests.length, 0, "no upload should be attempted for a bad --update URL");
+    });
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
