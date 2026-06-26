@@ -17,6 +17,7 @@ function die(msg) {
 function usage() {
   console.log(`Usage: htmldrop [create] <file>
        htmldrop update <url> <file>
+       htmldrop comments <url>
 
 Upload an HTML or Markdown file and get a shareable link.
 Relative images, CSS, and JS are automatically inlined as base64.
@@ -24,15 +25,35 @@ Relative images, CSS, and JS are automatically inlined as base64.
   htmldrop ./report.html                 create a new preview
   htmldrop create ~/Documents/notes.md   create, explicit
   htmldrop update <url> ./report.html    overwrite an existing preview
+  htmldrop comments <url>                fetch the preview's comments as JSON
 
 <url> is the full password-bearing link from a previous upload; the
 overwritten preview keeps that same URL.
 
 Options:
-  --no-inline          Skip asset inlining, upload HTML as-is
-  -V, --version        Print version and exit
-  -h, --help           Show this help`);
+  --no-inline               Skip asset inlining, upload HTML as-is
+  --comment-anchors <file>  (update) JSON array of {cid, anchor} remaps applied
+                            to existing comments after the document changes
+  -V, --version             Print version and exit
+  -h, --help                Show this help`);
   process.exit(0);
+}
+
+// Parse the full password-bearing preview link into id + password. Used by both
+// `update` and `comments`. Dies locally (no network) on a malformed link.
+function parsePreviewUrl(raw) {
+  let link;
+  try {
+    link = new URL(raw);
+  } catch {
+    die(`invalid URL: ${raw}`);
+  }
+  const id = link.pathname.split("/").filter(Boolean).pop();
+  const password = link.searchParams.get("p");
+  if (!id || !password) {
+    die("URL must look like https://baseurl.ai/<id>?p=<password>");
+  }
+  return { id, password };
 }
 
 const MIME_MAP = {
@@ -227,6 +248,7 @@ try {
     allowPositionals: true,
     options: {
       "no-inline": { type: "boolean", default: false },
+      "comment-anchors": { type: "string" },
       version: { type: "boolean", short: "V" },
       help: { type: "boolean", short: "h" },
     },
@@ -253,9 +275,46 @@ const { values, positionals } = parsed;
 // the first operand; a file actually named that needs an explicit verb or path.
 let mode = "create";
 let operands = positionals;
-if (positionals[0] === "create" || positionals[0] === "update") {
+if (positionals[0] === "create" || positionals[0] === "update" || positionals[0] === "comments") {
   mode = positionals[0];
   operands = positionals.slice(1);
+}
+
+if (values["comment-anchors"] && mode !== "update") {
+  die("--comment-anchors is only valid with 'update'");
+}
+
+// comments: read-only export of a preview's comments (id + password parsed from
+// the link), printed as JSON. Used before a re-upload to compute anchor remaps.
+if (mode === "comments") {
+  if (operands.length < 1) die("usage: htmldrop comments <url>");
+  if (operands.length > 1) die(`unexpected argument: ${operands[1]}`);
+  const { id, password } = parsePreviewUrl(operands[0]);
+  const res = await fetch(`${ENDPOINT}/${id}/comments?p=${encodeURIComponent(password)}`, {
+    headers: { Accept: "application/json" },
+  });
+  if (!res.ok) die(`fetch comments failed (${res.status}): ${await res.text()}`);
+  const data = await res.json();
+  process.stdout.write(`${JSON.stringify(data.comments ?? [], null, 2)}\n`);
+  process.exit(0);
+}
+
+// Optional anchor remaps for the update path. Validated locally (file exists,
+// valid JSON array) before any network so an agent mistake fails fast.
+let commentAnchors = null;
+if (mode === "update" && values["comment-anchors"]) {
+  let anchorsPath = values["comment-anchors"];
+  if (anchorsPath.startsWith("~")) anchorsPath = anchorsPath.replace("~", process.env.HOME);
+  anchorsPath = resolve(anchorsPath);
+  if (!existsSync(anchorsPath)) die(`comment-anchors file not found: ${anchorsPath}`);
+  try {
+    commentAnchors = JSON.parse(readFileSync(anchorsPath, "utf-8"));
+  } catch {
+    die("invalid JSON in --comment-anchors file");
+  }
+  if (!Array.isArray(commentAnchors)) {
+    die("--comment-anchors must be a JSON array of {cid, anchor}");
+  }
 }
 
 let file;
@@ -303,23 +362,14 @@ if (!noInline) {
 // The link itself is the capability, so id + password are parsed locally.
 let updateCreds = null;
 if (updateUrl) {
-  let link;
-  try {
-    link = new URL(updateUrl);
-  } catch {
-    die(`invalid update URL: ${updateUrl}`);
-  }
-  const id = link.pathname.split("/").filter(Boolean).pop();
-  const password = link.searchParams.get("p");
-  if (!id || !password) {
-    die("update URL must look like https://baseurl.ai/<id>?p=<password>");
-  }
-  updateCreds = { id, password };
+  updateCreds = parsePreviewUrl(updateUrl);
 }
 
-const payload = JSON.stringify(
-  updateCreds ? { html: content, filename, ...updateCreds } : { html: content, filename },
-);
+const body = updateCreds
+  ? { html: content, filename, ...updateCreds }
+  : { html: content, filename };
+if (commentAnchors) body.commentAnchors = commentAnchors;
+const payload = JSON.stringify(body);
 
 const res = await fetch(`${endpoint}/api/upload`, {
   method: "POST",

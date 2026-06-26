@@ -1,6 +1,6 @@
 {
   "name": "htmldrop-cli",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "Upload HTML/MD to baseurl.ai for shareable preview links",
   "bin": {
     "htmldrop": "index.mjs"
@@ -14,7 +14,7 @@
     "install.sh"
   ],
   "scripts": {
-    "test": "node __tests__/compress.test.mjs && node __tests__/cli-e2e.test.mjs && node __tests__/markdown.test.mjs"
+    "test": "node __tests__/compress.test.mjs && node __tests__/cli-e2e.test.mjs && node __tests__/markdown.test.mjs && node __tests__/comments.test.mjs"
   },
   "dependencies": {
     "@jsquash/webp": "1.5.0",

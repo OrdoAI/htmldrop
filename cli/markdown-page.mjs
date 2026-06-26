@@ -41,9 +41,13 @@ const TOOLBAR_JS = `(function(){
   var md=new TextDecoder().decode(Uint8Array.from(atob(src.textContent),function(c){return c.charCodeAt(0)}));
   var lbl=btn.querySelector('.hdmd-lbl');
   function set(cls,text){btn.classList.remove('hdmd-busy','hdmd-done');if(cls)btn.classList.add(cls);if(lbl)lbl.textContent=text;}
-  function fallback(){
+  // The comment widget (when present) appends a plain-text Comments section so
+  // the copy reaches the LLM with the review threads. Absent on uncommented or
+  // older pages, where the copy stays unchanged.
+  function payload(){var out=md;try{if(window.htmldropCopyComments)out=window.htmldropCopyComments(md);}catch(e){}return out;}
+  function fallback(text){
     var ta=document.createElement('textarea');
-    ta.value=md;ta.style.position='fixed';ta.style.top='0';ta.style.opacity='0';
+    ta.value=text;ta.style.position='fixed';ta.style.top='0';ta.style.opacity='0';
     document.body.appendChild(ta);ta.focus();ta.select();
     var ok=false;try{ok=document.execCommand('copy');}catch(e){}
     ta.remove();return ok;
@@ -52,6 +56,7 @@ const TOOLBAR_JS = `(function(){
   btn.addEventListener('click',function(){
     if(busy)return;busy=true;
     set('hdmd-busy','Copying...');
+    var out=payload();
     var finish=function(ok){
       setTimeout(function(){
         set(ok?'hdmd-done':null,ok?'Copied!':'Copy failed');
@@ -59,8 +64,8 @@ const TOOLBAR_JS = `(function(){
       },350);
     };
     if(navigator.clipboard&&navigator.clipboard.writeText){
-      navigator.clipboard.writeText(md).then(function(){finish(true);},function(){finish(fallback());});
-    }else{finish(fallback());}
+      navigator.clipboard.writeText(out).then(function(){finish(true);},function(){finish(fallback(out));});
+    }else{finish(fallback(out));}
   });
 })();`;
 
