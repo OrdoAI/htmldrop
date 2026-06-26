@@ -1,5 +1,5 @@
 import { createServer } from "node:http";
-import { mkdtempSync, writeFileSync, readFileSync, rmSync, copyFileSync } from "node:fs";
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync, copyFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
 import { spawn } from "node:child_process";
@@ -40,11 +40,11 @@ function withServer(handler) {
   });
 }
 
-function runCli(args, endpoint, cwd = root.pathname) {
+function runCli(args, endpoint, cwd = root.pathname, extraEnv = {}) {
   return new Promise((resolve, reject) => {
     const child = spawn(process.execPath, [cliPath.pathname, ...args], {
       cwd,
-      env: { ...process.env, HTMLDROP_URL: endpoint },
+      env: { ...process.env, HTMLDROP_URL: endpoint, ...extraEnv },
       stdio: ["ignore", "pipe", "pipe"],
     });
     let stdout = "";
@@ -274,6 +274,301 @@ test("a file literally named update is reachable via explicit create", async () 
     writeFileSync(join(dir, "update"), "<!doctype html><h1>hi</h1>");
     await withServer(async (endpoint, requests) => {
       const r = await runCli(["create", "update"], endpoint, dir);
+      assert.equal(r.code, 0, r.stderr);
+      assert.equal(requests.length, 1);
+    });
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+// --- skill freshness check (HTMLDROP_EXPECTED_TREE = baked tree sha,
+//     HTMLDROP_SKILL_LOCK = path to a .skill-lock.json; both dev/test seams) ---
+
+function writeLock(dir, entry) {
+  const lockPath = join(dir, ".skill-lock.json");
+  writeFileSync(lockPath, JSON.stringify(entry));
+  return lockPath;
+}
+
+test("a stale skill (lock tree sha != baked) hard-errors with the update hint", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "htmldrop-cli-stale-"));
+  try {
+    const pagePath = join(dir, "page.html");
+    writeFileSync(pagePath, "<!doctype html><h1>hi</h1>");
+    const lock = writeLock(dir, { skills: { htmldrop: { skillFolderHash: "0000000000000000000000000000000000000000" } } });
+    await withServer(async (endpoint, requests) => {
+      const r = await runCli([pagePath], endpoint, root.pathname, {
+        HTMLDROP_EXPECTED_TREE: "1111111111111111111111111111111111111111",
+        HTMLDROP_SKILL_LOCK: lock,
+      });
+      assert.notEqual(r.code, 0);
+      assert.match(r.stderr, /npx skills update htmldrop/);
+      assert.equal(requests.length, 0, "a stale skill must not upload");
+    });
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("a current skill (lock tree sha == baked) uploads normally", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "htmldrop-cli-fresh-"));
+  try {
+    const pagePath = join(dir, "page.html");
+    writeFileSync(pagePath, "<!doctype html><h1>hi</h1>");
+    const sha = "abc123abc123abc123abc123abc123abc123abc1";
+    const lock = writeLock(dir, { skills: { htmldrop: { skillFolderHash: sha } } });
+    await withServer(async (endpoint, requests) => {
+      const r = await runCli([pagePath], endpoint, root.pathname, {
+        HTMLDROP_EXPECTED_TREE: sha,
+        HTMLDROP_SKILL_LOCK: lock,
+      });
+      assert.equal(r.code, 0, r.stderr);
+      assert.equal(requests.length, 1);
+    });
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("freshness is skipped when htmldrop is absent from the lock", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "htmldrop-cli-nolock-"));
+  try {
+    const pagePath = join(dir, "page.html");
+    writeFileSync(pagePath, "<!doctype html><h1>hi</h1>");
+    const lock = writeLock(dir, { skills: { somethingelse: { skillFolderHash: "x" } } });
+    await withServer(async (endpoint, requests) => {
+      const r = await runCli([pagePath], endpoint, root.pathname, {
+        HTMLDROP_EXPECTED_TREE: "1111111111111111111111111111111111111111",
+        HTMLDROP_SKILL_LOCK: lock,
+      });
+      assert.equal(r.code, 0, r.stderr);
+      assert.equal(requests.length, 1);
+    });
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("freshness is skipped when there is no baked tree (dev / direct users)", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "htmldrop-cli-nobaked-"));
+  try {
+    const pagePath = join(dir, "page.html");
+    writeFileSync(pagePath, "<!doctype html><h1>hi</h1>");
+    // a mismatching lock is present, but no HTMLDROP_EXPECTED_TREE and no
+    // skill-tree.json in dev -> the check is a no-op, upload proceeds.
+    const lock = writeLock(dir, { skills: { htmldrop: { skillFolderHash: "0000000000000000000000000000000000000000" } } });
+    await withServer(async (endpoint, requests) => {
+      const r = await runCli([pagePath], endpoint, root.pathname, { HTMLDROP_SKILL_LOCK: lock });
+      assert.equal(r.code, 0, r.stderr);
+      assert.equal(requests.length, 1);
+    });
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("malformed or missing lock files skip the check", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "htmldrop-cli-badlock-"));
+  try {
+    const pagePath = join(dir, "page.html");
+    writeFileSync(pagePath, "<!doctype html><h1>hi</h1>");
+    const malformed = join(dir, "bad.json");
+    writeFileSync(malformed, "{ not json");
+    const missing = join(dir, "nope.json");
+    await withServer(async (endpoint, requests) => {
+      for (const lock of [malformed, missing]) {
+        const r = await runCli([pagePath], endpoint, root.pathname, {
+          HTMLDROP_EXPECTED_TREE: "1111111111111111111111111111111111111111",
+          HTMLDROP_SKILL_LOCK: lock,
+        });
+        assert.equal(r.code, 0, `${lock} should skip: ${r.stderr}`);
+      }
+      assert.equal(requests.length, 2);
+    });
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("divergent global locks are ambiguous and skip the check", async () => {
+  const home = mkdtempSync(join(tmpdir(), "htmldrop-cli-home-"));
+  try {
+    const pagePath = join(home, "page.html");
+    writeFileSync(pagePath, "<!doctype html><h1>hi</h1>");
+    mkdirSync(join(home, ".agents"), { recursive: true });
+    mkdirSync(join(home, ".claude/skills"), { recursive: true });
+    writeFileSync(join(home, ".agents/.skill-lock.json"), JSON.stringify({ skills: { htmldrop: { skillFolderHash: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" } } }));
+    writeFileSync(join(home, ".claude/skills/.skill-lock.json"), JSON.stringify({ skills: { htmldrop: { skillFolderHash: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb" } } }));
+    await withServer(async (endpoint, requests) => {
+      // cwd=home has no project lock; the two global locks disagree -> skip
+      const r = await runCli([pagePath], endpoint, home, {
+        HOME: home,
+        HTMLDROP_EXPECTED_TREE: "cccccccccccccccccccccccccccccccccccccccc",
+      });
+      assert.equal(r.code, 0, r.stderr);
+      assert.equal(requests.length, 1);
+    });
+  } finally {
+    rmSync(home, { recursive: true, force: true });
+  }
+});
+
+test("--help and --version exit 0 and print 0.2.1 even when the skill is stale", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "htmldrop-cli-helpver-"));
+  try {
+    const lock = writeLock(dir, { skills: { htmldrop: { skillFolderHash: "0000000000000000000000000000000000000000" } } });
+    const env = {
+      HTMLDROP_EXPECTED_TREE: "1111111111111111111111111111111111111111",
+      HTMLDROP_SKILL_LOCK: lock,
+    };
+    const h = await runCli(["--help"], "http://127.0.0.1:1", root.pathname, env);
+    assert.equal(h.code, 0, h.stderr);
+    const v = await runCli(["--version"], "http://127.0.0.1:1", root.pathname, env);
+    assert.equal(v.code, 0, v.stderr);
+    assert.ok(v.stdout.includes("0.2.1"), `expected 0.2.1 in: ${v.stdout}`);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("a confirmed stale skill is reported before a missing input file", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "htmldrop-cli-order-"));
+  try {
+    const lock = writeLock(dir, { skills: { htmldrop: { skillFolderHash: "0000000000000000000000000000000000000000" } } });
+    const r = await runCli([join(dir, "does-not-exist.html")], "http://127.0.0.1:1", root.pathname, {
+      HTMLDROP_EXPECTED_TREE: "1111111111111111111111111111111111111111",
+      HTMLDROP_SKILL_LOCK: lock,
+    });
+    assert.notEqual(r.code, 0);
+    assert.match(r.stderr, /npx skills update htmldrop/);
+    assert.doesNotMatch(r.stderr, /file not found/);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("a removed flag errors at parse time, before the freshness check runs", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "htmldrop-cli-parsefirst-"));
+  try {
+    const pagePath = join(dir, "page.html");
+    writeFileSync(pagePath, "<!doctype html><h1>hi</h1>");
+    const lock = writeLock(dir, { skills: { htmldrop: { skillFolderHash: "0000000000000000000000000000000000000000" } } });
+    const r = await runCli(["--update", "http://x/y?p=z", pagePath], "http://127.0.0.1:1", root.pathname, {
+      HTMLDROP_EXPECTED_TREE: "1111111111111111111111111111111111111111",
+      HTMLDROP_SKILL_LOCK: lock,
+    });
+    assert.notEqual(r.code, 0);
+    assert.doesNotMatch(r.stderr, /npx skills update htmldrop/, "a parse error must precede the freshness check");
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("a stale project skill (computedHash != baked) hard-errors with the update hint", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "htmldrop-cli-projstale-"));
+  try {
+    const pagePath = join(dir, "page.html");
+    writeFileSync(pagePath, "<!doctype html><h1>hi</h1>");
+    const lock = writeLock(dir, { skills: { htmldrop: { computedHash: "0000000000000000000000000000000000000000000000000000000000000000" } } });
+    await withServer(async (endpoint, requests) => {
+      const r = await runCli([pagePath], endpoint, root.pathname, {
+        HTMLDROP_EXPECTED_COMPUTED: "1111111111111111111111111111111111111111111111111111111111111111",
+        HTMLDROP_SKILL_LOCK: lock,
+      });
+      assert.notEqual(r.code, 0);
+      assert.match(r.stderr, /npx skills update htmldrop/);
+      assert.equal(requests.length, 0);
+    });
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("a current project skill (computedHash == baked) uploads normally", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "htmldrop-cli-projfresh-"));
+  try {
+    const pagePath = join(dir, "page.html");
+    writeFileSync(pagePath, "<!doctype html><h1>hi</h1>");
+    const ch = "deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef0";
+    const lock = writeLock(dir, { skills: { htmldrop: { computedHash: ch } } });
+    await withServer(async (endpoint, requests) => {
+      const r = await runCli([pagePath], endpoint, root.pathname, {
+        HTMLDROP_EXPECTED_COMPUTED: ch,
+        HTMLDROP_SKILL_LOCK: lock,
+      });
+      assert.equal(r.code, 0, r.stderr);
+      assert.equal(requests.length, 1);
+    });
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("a project install takes priority over a fresh global one", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "htmldrop-cli-prio-"));
+  try {
+    const pagePath = join(dir, "page.html");
+    writeFileSync(pagePath, "<!doctype html><h1>hi</h1>");
+    // project lock in cwd: stale computedHash
+    writeFileSync(join(dir, "skills-lock.json"), JSON.stringify({ skills: { htmldrop: { computedHash: "0000000000000000000000000000000000000000000000000000000000000000" } } }));
+    // global lock under HOME: fresh skillFolderHash (should be ignored)
+    mkdirSync(join(dir, ".agents"), { recursive: true });
+    const freshGlobal = "fresh00000000000000000000000000000fresh0";
+    writeFileSync(join(dir, ".agents/.skill-lock.json"), JSON.stringify({ skills: { htmldrop: { skillFolderHash: freshGlobal } } }));
+    await withServer(async (endpoint, requests) => {
+      const r = await runCli([pagePath], endpoint, dir, {
+        HOME: dir,
+        HTMLDROP_EXPECTED_TREE: freshGlobal, // global would be fresh
+        HTMLDROP_EXPECTED_COMPUTED: "1111111111111111111111111111111111111111111111111111111111111111", // project lock differs -> stale
+      });
+      assert.notEqual(r.code, 0, "the stale project install must win over a fresh global");
+      assert.match(r.stderr, /npx skills update htmldrop/);
+      assert.equal(requests.length, 0);
+    });
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("a project entry without a comparable computedHash skips (no global fallback)", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "htmldrop-cli-projnocomp-"));
+  try {
+    const pagePath = join(dir, "page.html");
+    writeFileSync(pagePath, "<!doctype html><h1>hi</h1>");
+    // project entry present but no computedHash
+    writeFileSync(join(dir, "skills-lock.json"), JSON.stringify({ skills: { htmldrop: { source: "OrdoAI/htmldrop" } } }));
+    // global lock is stale -> would error if (wrongly) consulted
+    mkdirSync(join(dir, ".agents"), { recursive: true });
+    writeFileSync(join(dir, ".agents/.skill-lock.json"), JSON.stringify({ skills: { htmldrop: { skillFolderHash: "0000000000000000000000000000000000000000" } } }));
+    await withServer(async (endpoint, requests) => {
+      const r = await runCli([pagePath], endpoint, dir, {
+        HOME: dir,
+        HTMLDROP_EXPECTED_TREE: "1111111111111111111111111111111111111111",
+        HTMLDROP_EXPECTED_COMPUTED: "2222222222222222222222222222222222222222222222222222222222222222",
+      });
+      assert.equal(r.code, 0, r.stderr);
+      assert.equal(requests.length, 1);
+    });
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("a project entry whose baked computedHash is missing skips (no global fallback)", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "htmldrop-cli-projnobaked-"));
+  try {
+    const pagePath = join(dir, "page.html");
+    writeFileSync(pagePath, "<!doctype html><h1>hi</h1>");
+    writeFileSync(join(dir, "skills-lock.json"), JSON.stringify({ skills: { htmldrop: { computedHash: "abcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcab00" } } }));
+    mkdirSync(join(dir, ".agents"), { recursive: true });
+    writeFileSync(join(dir, ".agents/.skill-lock.json"), JSON.stringify({ skills: { htmldrop: { skillFolderHash: "0000000000000000000000000000000000000000" } } }));
+    await withServer(async (endpoint, requests) => {
+      // global stale, but no baked computedHash for the project entry -> skip
+      const r = await runCli([pagePath], endpoint, dir, {
+        HOME: dir,
+        HTMLDROP_EXPECTED_TREE: "1111111111111111111111111111111111111111",
+      });
       assert.equal(r.code, 0, r.stderr);
       assert.equal(requests.length, 1);
     });

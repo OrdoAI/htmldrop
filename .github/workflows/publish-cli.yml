@@ -11,6 +11,7 @@ name: Publish CLI
     branches: [main]
     paths:
       - "cli/**"
+      - "skills/htmldrop/**"
   workflow_dispatch:
 
 permissions:
@@ -40,6 +41,30 @@ jobs:
 
       - run: npm ci --prefix cli
 
+      # Bake the hashes `npx skills` records for the current skill so the CLI can
+      # compare any installed skill lock against the published skill:
+      #   - skillFolderHash: git tree sha of skills/htmldrop (global installs)
+      #   - computedHash: captured from a throwaway project install (project installs)
+      # If the computedHash capture fails it is omitted, and project-lock checks
+      # are simply skipped at runtime (never a false "outdated").
+      - name: Bake skill reference hashes into the CLI
+        run: |
+          tree="$(git rev-parse HEAD:skills/htmldrop)"
+          computed=""
+          tmp="$(mktemp -d)"
+          if ( cd "$tmp" && npx -y skills add OrdoAI/htmldrop --skill htmldrop -y ) >/dev/null 2>&1; then
+            computed="$(python3 -c "import json;print(json.load(open('$tmp/skills-lock.json'))['skills']['htmldrop'].get('computedHash',''))" 2>/dev/null || true)"
+          fi
+          rm -rf "$tmp"
+          python3 - "$tree" "$computed" > cli/skill-tree.json <<'PY'
+          import json, sys
+          out = {"skillFolderHash": sys.argv[1]}
+          if sys.argv[2]:
+              out["computedHash"] = sys.argv[2]
+          print(json.dumps(out))
+          PY
+          echo "baked: $(cat cli/skill-tree.json)"
+
       - run: npm run typecheck
 
       - run: npm test
@@ -62,7 +87,7 @@ jobs:
               data = json.load(f)
 
           files = {f["path"] for item in data for f in item["files"]}
-          required = {"package.json", "index.mjs", "compress.mjs", "htmldrop", "install.sh"}
+          required = {"package.json", "index.mjs", "compress.mjs", "skill-tree.json", "htmldrop", "install.sh"}
           missing = required - files
           if missing:
               raise SystemExit(f"tarball missing: {sorted(missing)}")

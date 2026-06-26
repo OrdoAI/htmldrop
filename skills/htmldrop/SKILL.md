@@ -173,6 +173,8 @@ be missing those images or styles.
   the password from a clean preview URL.
 - Old `--update <url> <file>` examples fail on the 0.2 CLI. Rewrite them as
   `update <url> <file>`.
+- If the CLI says the installed htmldrop skill is outdated, run
+  `npx skills update htmldrop`, then retry.
 - `upload failed`: report the exact status and stderr. Do not claim a URL was
   created unless stdout contains one.
 - Asset warnings: if the preview needs to be portable, resolve missing local
