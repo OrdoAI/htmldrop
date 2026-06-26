@@ -5,3 +5,4 @@ artifacts/
 .wrangler/
 .dev.vars
 worker-configuration.d.ts
+cli/skill-tree.json
