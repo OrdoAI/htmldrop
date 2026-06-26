@@ -2,7 +2,8 @@
 
 HTMLDrop is a small Cloudflare Worker for sharing temporary HTML or Markdown
 previews. Upload a file, get a password-bearing URL, and send that URL to the
-people who need to view it.
+people who need to view it. Existing previews can be updated in place, keeping
+the same URL.
 
 The hosted service runs at `https://baseurl.ai`.
 
@@ -12,7 +13,9 @@ Run the published CLI with `npx`:
 
 ```bash
 npx -y htmldrop-cli ./report.html
+npx -y htmldrop-cli create ./report.html
 npx -y htmldrop-cli ./notes.md
+npx -y htmldrop-cli update "https://baseurl.ai/<id>?p=<password>" ./report.html
 ```
 
 The CLI accepts relative paths, absolute paths, `~/...`, and `file://` URIs.
@@ -20,13 +23,19 @@ Markdown files are converted to HTML before upload. Relative images, CSS, and
 JavaScript files are inlined by default. PNG and JPEG assets are re-encoded to
 same-dimension WebP when that reduces the upload payload.
 
+The bare form and `create` make a new preview. `update <url> <file>` overwrites
+an existing preview while keeping the same password-bearing URL.
+
 Useful options:
 
 ```bash
 npx -y htmldrop-cli --no-inline ./page.html
-npx -y htmldrop-cli -e https://baseurl.ai ./page.html
-HTMLDROP_URL=https://baseurl.ai npx -y htmldrop-cli ./page.html
+npx -y htmldrop-cli --version
 ```
+
+When a preview is updated in place, visitors with an old tab open see a refresh
+notice. Refreshing or revisiting the URL revalidates with the Worker and loads
+the latest version.
 
 ## Local Development
 
@@ -69,9 +78,9 @@ npm run test:browser-compression
 ## Project Layout
 
 - `src/index.ts` is the Worker entrypoint and route dispatcher.
-- `src/upload.ts` handles uploads and preview URL generation.
-- `src/serve.ts` serves password-protected previews.
-- `src/auth.ts` and `src/security.ts` contain auth and transport security logic.
+- `src/upload.ts` handles uploads, in-place updates, and preview URL generation.
+- `src/serve.ts` serves password-protected previews and update notices.
+- `src/auth.ts` and `src/security.ts` contain auth, version, and transport security logic.
 - `src/pages/` contains server-rendered HTML pages.
 - `src/__tests__/` contains Vitest tests using the Cloudflare Workers test pool.
 - `cli/` contains the npm CLI package and CLI-specific tests.
