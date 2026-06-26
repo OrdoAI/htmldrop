@@ -145,7 +145,7 @@ describe("Transport security", () => {
       headers: { Cookie: cookie! },
     });
     expect(preview.status).toBe(200);
-    expect(await preview.text()).toBe("<h1>HSTS preview</h1>");
+    expect(await preview.text()).toContain("<h1>HSTS preview</h1>");
     expect(preview.headers.get("Strict-Transport-Security")).toBeTruthy();
   });
 });

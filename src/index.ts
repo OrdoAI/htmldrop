@@ -1,5 +1,5 @@
 import { handleUpload } from "./upload";
-import { handleServe, handleAuthForm } from "./serve";
+import { handleServe, handleAuthForm, handleVersion } from "./serve";
 import { homePage } from "./pages/home";
 import { notFoundPage } from "./pages/notfound";
 import {
@@ -52,6 +52,12 @@ export default {
     const authMatch = path.match(/^\/([A-Za-z0-9]{1,16})\/auth$/);
     if (authMatch) {
       return handleAuthForm(request, env, authMatch[1]);
+    }
+
+    // GET /:id/v — version probe for the in-preview update notice
+    const versionMatch = path.match(/^\/([A-Za-z0-9]{1,16})\/v$/);
+    if (versionMatch && request.method === "GET") {
+      return handleVersion(request, env, versionMatch[1]);
     }
 
     // GET/HEAD /:id
