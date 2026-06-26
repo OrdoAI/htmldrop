@@ -5,9 +5,35 @@ export interface PageRecord {
   password: string;
   filename: string;
   createdAt: string;
+  // Random, regenerated on every write so it changes even for two updates in
+  // the same millisecond. Optional for records written before this field.
+  version?: string;
 }
 
 const TTL_MS = 7 * 24 * 60 * 60 * 1000;
+
+// Opaque, version-probe-only token minted into authenticated preview HTML so the
+// sandboxed page (which cannot send the auth cookie) can poll for a new version.
+// A distinct HMAC namespace from the auth cookie: this is JS-visible and must
+// never double as a content credential.
+const NOTICE_NS = "update-notice:v1";
+
+export async function mintNoticeToken(
+  secret: string,
+  id: string,
+  password: string,
+): Promise<string> {
+  return hmacSign(secret, `${NOTICE_NS}:${id}:${password}`);
+}
+
+export async function verifyNoticeToken(
+  secret: string,
+  id: string,
+  password: string,
+  token: string,
+): Promise<boolean> {
+  return hmacVerify(secret, `${NOTICE_NS}:${id}:${password}`, token);
+}
 
 export function cookieName(id: string): string {
   return `_hd_${id}`;
@@ -32,6 +58,12 @@ export function setAuthCookieHeader(id: string, token: string): string {
 export function getAuthCookie(request: Request, id: string): string | null {
   const cookies = parseCookies(request.headers.get("Cookie"));
   return cookies[cookieName(id)] ?? null;
+}
+
+// Version validator for ETag / probe. Falls back to createdAt for records
+// written before the `version` field existed.
+export function recordVersion(record: PageRecord): string {
+  return record.version ?? record.createdAt;
 }
 
 export async function getPage(

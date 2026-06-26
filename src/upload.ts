@@ -106,6 +106,7 @@ export async function handleUpload(
       password: existing.password,
       filename,
       createdAt: new Date().toISOString(), // refresh the 7-day expiry on update
+      version: crypto.randomUUID(), // changes on every overwrite for cache + probe
     };
     await env.BUCKET.put(`page:${updateId}`, JSON.stringify(updated));
     const updatedExpiresAt = new Date(Date.now() + TTL_SECONDS * 1000).toISOString();
@@ -140,6 +141,7 @@ export async function handleUpload(
     password,
     filename,
     createdAt: new Date().toISOString(),
+    version: crypto.randomUUID(),
   };
 
   await env.BUCKET.put(`page:${id}`, JSON.stringify(record));
