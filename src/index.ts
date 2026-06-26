@@ -1,5 +1,6 @@
 import { handleUpload } from "./upload";
 import { handleServe, handleAuthForm, handleVersion } from "./serve";
+import { handleComments, handleCommentMutate } from "./comments";
 import { homePage } from "./pages/home";
 import { notFoundPage } from "./pages/notfound";
 import {
@@ -58,6 +59,18 @@ export default {
     const versionMatch = path.match(/^\/([A-Za-z0-9]{1,16})\/v$/);
     if (versionMatch && request.method === "GET") {
       return handleVersion(request, env, versionMatch[1]);
+    }
+
+    // /:id/comments — list (GET) or create (POST) comments for a preview
+    const commentsMatch = path.match(/^\/([A-Za-z0-9]{1,16})\/comments$/);
+    if (commentsMatch) {
+      return handleComments(request, env, commentsMatch[1]);
+    }
+
+    // /:id/comments/:cid — resolve/reopen a root comment thread (POST)
+    const mutateMatch = path.match(/^\/([A-Za-z0-9]{1,16})\/comments\/([A-Za-z0-9-]{1,64})$/);
+    if (mutateMatch) {
+      return handleCommentMutate(request, env, mutateMatch[1], mutateMatch[2]);
     }
 
     // GET/HEAD /:id

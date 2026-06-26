@@ -35,6 +35,31 @@ export async function verifyNoticeToken(
   return hmacVerify(secret, `${NOTICE_NS}:${id}:${password}`, token);
 }
 
+// Comment capability token. A distinct namespace from the notice token: a
+// notice token must not read or write comments, and a comment token must not
+// work on `/:id/v`. Like the notice token it is JS-visible (minted into the
+// sandboxed preview so the opaque-origin widget can reach the comment API) and
+// bound to id+password, so it stays valid across in-place re-uploads (which
+// keep the same password) but never doubles as the password itself.
+const COMMENT_NS = "comments:v1";
+
+export async function mintCommentToken(
+  secret: string,
+  id: string,
+  password: string,
+): Promise<string> {
+  return hmacSign(secret, `${COMMENT_NS}:${id}:${password}`);
+}
+
+export async function verifyCommentToken(
+  secret: string,
+  id: string,
+  password: string,
+  token: string,
+): Promise<boolean> {
+  return hmacVerify(secret, `${COMMENT_NS}:${id}:${password}`, token);
+}
+
 export function cookieName(id: string): string {
   return `_hd_${id}`;
 }

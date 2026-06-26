@@ -1,5 +1,6 @@
 import { generateId as defaultGenerateId, generatePassword, utf8ByteLength } from "./utils";
 import { type PageRecord, verifyPassword } from "./auth";
+import { applyAnchorRemaps, validateAnchorRemaps } from "./comments";
 import { publicOrigin, withTransportSecurity } from "./security";
 
 const MAX_HTML_BYTES = 24 * 1024 * 1024; // 24 MiB content limit
@@ -17,6 +18,8 @@ interface UploadBody {
   filename: unknown;
   id?: unknown;
   password?: unknown;
+  // Optional agent-assisted anchor migration on the update path.
+  commentAnchors?: unknown;
 }
 
 export interface UploadDeps {
@@ -101,6 +104,12 @@ export async function handleUpload(
     if (!existing) {
       return textResponse("Invalid id or password", { status: 403 }, request);
     }
+    // Validate the optional anchor remaps before any write, so a malformed
+    // remap leaves both the page record and every comment record unchanged.
+    const remap = validateAnchorRemaps(body.commentAnchors);
+    if ("error" in remap) {
+      return textResponse(`Invalid commentAnchors: ${remap.error}`, { status: 400 }, request);
+    }
     const updated: PageRecord = {
       html,
       password: existing.password,
@@ -109,6 +118,9 @@ export async function handleUpload(
       version: crypto.randomUUID(), // changes on every overwrite for cache + probe
     };
     await env.BUCKET.put(`page:${updateId}`, JSON.stringify(updated));
+    // Agent-assisted migration: the document structure changed, so patch the
+    // surviving root comments to their remapped quotes (or explicit orphan).
+    await applyAnchorRemaps(env.BUCKET, updateId, remap.remaps);
     const updatedExpiresAt = new Date(Date.now() + TTL_SECONDS * 1000).toISOString();
     return Response.json({
       url: `${publicOrigin(request)}/${updateId}?p=${existing.password}`,

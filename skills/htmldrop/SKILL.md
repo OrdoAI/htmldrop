@@ -102,6 +102,55 @@ page, and anyone using that same full URL to update can replace its content.
 Old `--update <url> <file>` instructions are obsolete. Use
 `update <url> <file>` instead.
 
+## Migrating Comments on Update
+
+A preview can carry reviewer comments anchored to quoted text. When you
+overwrite a preview whose document you edited, the quoted text may have moved or
+changed, so the anchors should be migrated. The viewer falls back to re-finding
+each quote at render time, but only an agent that edited the document knows
+where a reworded passage went, so the agent owns the semantic remap. The CLI
+only transports it; remapping is never automatic or guaranteed.
+
+Do this only when overwriting a preview that has comments, and still complete
+the destructive-update confirmation gate above.
+
+1. Fetch the current comments before editing:
+
+   ```bash
+   npx -y htmldrop-cli comments "https://baseurl.ai/<id>?p=<password>"
+   ```
+
+   This prints a JSON array. Each root comment has `cid`, `anchor`
+   (`{ "exact", "prefix", "suffix" }` or `null`), `author`, `text`, `resolved`;
+   replies carry `parentId`.
+
+2. For each root comment, find the corresponding passage in the new local file
+   and build a fresh anchor: `exact` is the new quoted text, `prefix`/`suffix`
+   are the text immediately before/after it (a few words each).
+
+3. Write a JSON array of remaps to a file, for example `anchors.json`:
+
+   ```json
+   [
+     { "cid": "<cid>", "anchor": { "exact": "new quote", "prefix": "...", "suffix": "..." } },
+     { "cid": "<cid-gone>", "anchor": null }
+   ]
+   ```
+
+   Use `"anchor": null` to mark a comment whose target no longer exists, or omit
+   that `cid` entirely. Do not invent an anchor when the new document has no
+   reliable matching quote.
+
+4. Update with the remaps:
+
+   ```bash
+   npx -y htmldrop-cli update "https://baseurl.ai/<id>?p=<password>" "<file>" --comment-anchors anchors.json
+   ```
+
+Unknown or reply `cid`s in the file are ignored by the service. Omitting
+`--comment-anchors` leaves the existing anchors untouched (the viewer then
+relies on text-quote fallback, orphaning anchors it can no longer locate).
+
 ## Verified CLI Behavior
 
 - Markdown files (`.md`, `.markdown`) are rendered to GitHub-flavored HTML

@@ -414,7 +414,7 @@ test("divergent global locks are ambiguous and skip the check", async () => {
   }
 });
 
-test("--help and --version exit 0 and print 0.2.1 even when the skill is stale", async () => {
+test("--help and --version exit 0 and print 0.2.2 even when the skill is stale", async () => {
   const dir = mkdtempSync(join(tmpdir(), "htmldrop-cli-helpver-"));
   try {
     const lock = writeLock(dir, { skills: { htmldrop: { skillFolderHash: "0000000000000000000000000000000000000000" } } });
@@ -426,7 +426,7 @@ test("--help and --version exit 0 and print 0.2.1 even when the skill is stale",
     assert.equal(h.code, 0, h.stderr);
     const v = await runCli(["--version"], "http://127.0.0.1:1", root.pathname, env);
     assert.equal(v.code, 0, v.stderr);
-    assert.ok(v.stdout.includes("0.2.1"), `expected 0.2.1 in: ${v.stdout}`);
+    assert.ok(v.stdout.includes("0.2.2"), `expected 0.2.2 in: ${v.stdout}`);
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
