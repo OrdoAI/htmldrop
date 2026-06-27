@@ -124,7 +124,7 @@ var model=null,ranges={},pendingAnchor=null,hlAll=null,hlActive=null,hoverCid=nu
 var supportsHL=!!(window.CSS&&window.CSS.highlights&&window.Highlight);
 
 var IC_COMMENT='<svg viewBox="0 0 24 24"><path d="M7 11a1 1 0 0 1 1-1h8a1 1 0 1 1 0 2H8a1 1 0 0 1-1-1Z"/><path d="M2 5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v11.5a2 2 0 0 1-2 2h-3.812a.5.5 0 0 0-.33.124l-2.541 2.224a2 2 0 0 1-2.634 0l-2.542-2.224a.5.5 0 0 0-.329-.124H4a2 2 0 0 1-2-2V5Zm2 0v11.5h3.812a2.5 2.5 0 0 1 1.646.619L12 19.343l2.542-2.224a2.5 2.5 0 0 1 1.646-.619H20V5H4Z"/></svg>';
-var IC_COLLAPSE='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12M18 6L6 18"/></svg>';
+var IC_COLLAPSE='<svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4l10 10M14 4L4 14"/></svg>';
 var IC_UP='<svg viewBox="0 0 24 24"><path d="M18 15l-6-6-6 6"/></svg>';
 var IC_DOWN='<svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>';
 var IC_LINK='<svg viewBox="0 0 24 24"><path d="M10.5 13.5a4 4 0 0 0 5.7 0l2.3-2.3a4 4 0 0 0-5.7-5.7l-1.3 1.3M13.5 10.5a4 4 0 0 0-5.7 0l-2.3 2.3a4 4 0 0 0 5.7 5.7l1.3-1.3"/></svg>';
