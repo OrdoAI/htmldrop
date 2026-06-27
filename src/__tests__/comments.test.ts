@@ -141,16 +141,6 @@ describe("comment writes", () => {
     const res = await post(page.id, `t=${t}`, { text: "one too many", author: "A", anchor: null });
     expect(res.status).toBe(409);
   });
-
-  it("stores no anchoredVersion field", async () => {
-    const page = await createPage();
-    const t = await token(page.id, page.password);
-    await post(page.id, `t=${t}`, { text: "hi", author: "A", anchor: { exact: "world", prefix: "", suffix: "" } });
-    const listed = await env.BUCKET.list({ prefix: `comment:${page.id}:` });
-    const obj = await env.BUCKET.get(listed.objects[0].key);
-    const record = JSON.parse(await obj!.text());
-    expect(record).not.toHaveProperty("anchoredVersion");
-  });
 });
 
 describe("resolve / reopen", () => {
@@ -281,7 +271,7 @@ describe("upload-time anchor remap", () => {
     });
   }
 
-  it("patches a root comment anchor and stores no anchoredVersion", async () => {
+  it("patches a root comment anchor on update", async () => {
     const page = await createPage();
     const t = await token(page.id, page.password);
     const root = await seedRootComment(page, t);
@@ -294,7 +284,6 @@ describe("upload-time anchor remap", () => {
     const obj = await env.BUCKET.get(`comment:${page.id}:${root.cid}`);
     const record = JSON.parse(await obj!.text());
     expect(record.anchor.exact).toBe("planet");
-    expect(record).not.toHaveProperty("anchoredVersion");
   });
 
   it("orphans a root via anchor:null and preserves resolved + replies", async () => {

@@ -11,10 +11,12 @@
 // inlineAssets regexes (which only match `<img src=` / `<link href=` /
 // `<script src=`).
 //
-// The preview is served under CSP `sandbox allow-scripts`. Verified in a real
-// Chrome: that top-level sandboxed document keeps a real origin (not opaque),
-// and navigator.clipboard.writeText() reaches the system clipboard, so
-// one-click copy works (execCommand kept only as a fallback). Button states:
+// The preview is served under CSP `sandbox allow-scripts`. Without
+// `allow-same-origin` the document has an opaque (null) origin, so origin-scoped
+// storage (localStorage/cookies) throws SecurityError — but the async clipboard
+// still works: navigator.clipboard.writeText() reaches the system clipboard
+// (verified in real Chrome), so one-click copy works (execCommand kept only as a
+// fallback). Button states:
 // idle (clipboard) -> busy (spinner "Copying...") -> done (check "Copied!").
 
 export const MD_CSS = `body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;max-width:48rem;margin:0 auto;padding:2rem;line-height:1.6;color:#24292e}h1,h2,h3,h4,h5,h6{margin-top:1.5em;margin-bottom:.5em;font-weight:600}h1{font-size:2em;border-bottom:1px solid #eee;padding-bottom:.3em}h2{font-size:1.5em;border-bottom:1px solid #eee;padding-bottom:.3em}code{background:#f6f8fa;padding:.2em .4em;border-radius:3px;font-size:85%}pre{background:#f6f8fa;padding:1em;border-radius:6px;overflow-x:auto}pre code{background:none;padding:0}blockquote{border-left:4px solid #dfe2e5;padding:0 1em;color:#6a737d;margin:1em 0}table{border-collapse:collapse;width:100%}th,td{border:1px solid #dfe2e5;padding:.5em .75em}th{background:#f6f8fa}img{max-width:100%}a{color:#0366d6}ul,ol{padding-left:2em}hr{border:none;border-top:1px solid #eee;margin:1.5em 0}`;
