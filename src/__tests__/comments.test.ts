@@ -384,6 +384,8 @@ describe("preview injection", () => {
     const html = await res.text();
     expect(html).toContain("data-htmldrop-comments");
     expect(html).toContain("htmldropCopyComments");
+    expect(html).toContain("function trimSpan");
+    expect(html).toContain("function rangeRects");
     expect(html).not.toContain(page.password);
     expect(html).not.toContain(cookie.split("=")[1]);
   });
