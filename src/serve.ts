@@ -119,8 +119,8 @@ var ID=${i},T=${t};
 var __name=function(f){return f;};
 var locateQuote=${LOCATE};
 var formatCommentsForCopy=${FORMAT};
-var W=344,me="",comments=[],expanded=false,activeCid=null,doneOpen=false,firstLoad=true;
-var model=null,ranges={},pendingAnchor=null,hlAll=null,hlActive=null,hoverCid=null;
+var W=344,me="",comments=[],expanded=false,activeCid=null,doneOpen=false;
+var model=null,ranges={},pendingAnchor=null,hlAll=null,hlActive=null,hoverCid=null,tipCid=null;
 var supportsHL=!!(window.CSS&&window.CSS.highlights&&window.Highlight);
 
 var IC_COMMENT='<svg viewBox="0 0 24 24"><path d="M7 11a1 1 0 0 1 1-1h8a1 1 0 1 1 0 2H8a1 1 0 0 1-1-1Z"/><path d="M2 5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v11.5a2 2 0 0 1-2 2h-3.812a.5.5 0 0 0-.33.124l-2.541 2.224a2 2 0 0 1-2.634 0l-2.542-2.224a.5.5 0 0 0-.329-.124H4a2 2 0 0 1-2-2V5Zm2 0v11.5h3.812a2.5 2.5 0 0 1 1.646.619L12 19.343l2.542-2.224a2.5 2.5 0 0 1 1.646-.619H20V5H4Z"/></svg>';
@@ -146,7 +146,8 @@ var CSS='.dock{position:fixed;top:50%;right:0;transform:translateY(-50%);display
 +'.composer{border-color:#ffc60a}.composer .cin{width:100%;box-sizing:border-box;min-height:62px;border:1px solid rgba(31,35,41,.12);border-radius:7px;padding:7px 9px;font:inherit;font-size:13.5px;resize:vertical}.composer .cin:focus{outline:0;border-color:#3370ff}.crow{display:flex;justify-content:flex-end;gap:8px;margin-top:8px}.crow button{border:0;border-radius:7px;padding:6px 14px;font:500 13px/1;cursor:pointer}.crow .cancel{background:#f2f3f5;color:#1f2329}.crow .csend{background:#3370ff;color:#fff}'
 +'.rfoot{flex:0 0 auto;display:flex;flex-direction:column;min-height:0;border-top:1px solid #e9eaec;background:#fff}.rfoot[hidden]{display:none}.rfoot .rbody{overflow-y:auto;max-height:55vh;padding:10px 12px 0}.rhd{display:flex;align-items:center;gap:6px;padding:10px 14px;font-size:12.5px;color:#646a73;cursor:pointer}.rhd:hover{background:#f7f8fa;color:#1f2329}.rhd svg{width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:2.4;transform:rotate(-90deg);transition:transform .15s}.rhd.open svg{transform:rotate(90deg)}.cc.resolved{opacity:.6}.cc.resolved:hover{opacity:1}'
 +'.sel{position:fixed;display:flex;align-items:center;gap:6px;background:#fff;color:#1f2329;border:1px solid rgba(31,35,41,.12);border-radius:8px;padding:7px 11px;font:500 13px/1 system-ui;cursor:pointer;box-shadow:0 6px 20px rgba(31,35,41,.18);z-index:2147483647}.sel[hidden]{display:none}.sel svg{width:16px;height:16px;color:#3370ff;fill:currentColor}'
-+'.ico{display:inline-flex;align-items:center}@keyframes hd-spin{to{transform:rotate(360deg)}}.ico.busy svg{animation:hd-spin .6s linear infinite}.ico.busy svg,.ico.done svg{fill:none;stroke:currentColor}';
++'.ico{display:inline-flex;align-items:center}@keyframes hd-spin{to{transform:rotate(360deg)}}.ico.busy svg{animation:hd-spin .6s linear infinite}.ico.busy svg,.ico.done svg{fill:none;stroke:currentColor}'
++'@keyframes hd-pop{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}.htip{position:fixed;z-index:2147483640;pointer-events:none;max-width:260px;background:#fff;border:1px solid rgba(31,35,41,.11);border-radius:10px;padding:9px 11px 10px;box-shadow:0 1px 2px rgba(31,35,41,.08),0 8px 22px -6px rgba(31,35,41,.22);font:400 13px/1.5 -apple-system,"PingFang SC",system-ui,sans-serif;color:#1f2329;animation:hd-pop .13s cubic-bezier(.2,.7,.3,1)}.htip[hidden]{display:none}.htip .tid{display:flex;align-items:center;gap:7px}.htip .tstack{display:flex;flex:0 0 auto}.htip .tav{width:20px;height:20px;border-radius:50%;overflow:hidden;border:1.5px solid #fff;background:#eef0f3}.htip .tav+.tav{margin-left:-7px}.htip .tav svg{width:100%;height:100%;display:block}.htip .twho{font:600 12px/1.3 system-ui;color:#1f2329;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}.htip .ttm{margin-left:auto;font-size:10.5px;color:#a8abb2;flex:0 0 auto}.htip .ttx{margin-top:5px;font-size:12.5px;line-height:1.5;color:#33373d;white-space:pre-wrap;word-break:break-word;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:4;line-clamp:4;overflow:hidden}.htip .tmore{margin-top:7px;font-size:11px;color:#9aa0aa;display:flex;align-items:center;justify-content:space-between}.htip .tmore .chev{color:#c2c6cd;font-size:12px}';
 
 var host=document.createElement("div");
 host.setAttribute("data-htmldrop-comments","");
@@ -156,9 +157,10 @@ root.innerHTML='<style>'+CSS+'</style>'
 +'<aside id="hd-rail" class="rail" hidden><div class="rh"><button id="hd-collapse" class="ib" title="收起" aria-label="收起">'+IC_COLLAPSE+'</button><span class="grow"></span><button id="hd-copy" class="copybtn" title="复制全文 + 全部评论，给 LLM" hidden><span class="ico">'+IC_COPY+'</span><span class="lbl">Copy for LLM</span></button><span class="nav"><button id="hd-prev" class="navb" title="上一条评论" aria-label="上一条评论">'+IC_UP+'</button><button id="hd-next" class="navb" title="下一条评论" aria-label="下一条评论">'+IC_DOWN+'</button></span></div>'
 +'<div class="ident"><div id="hd-identrow" class="identrow"><span id="hd-identav" class="identav"></span><input id="hd-name" class="name" placeholder="你的名字（必填，评论时显示）" maxlength="80"><button id="hd-namedone" class="namedone">确认</button></div><div id="hd-identset" class="identset" hidden><span id="hd-identav2" class="identav"></span>以 <span id="hd-identname" class="who"></span> 评论<button id="hd-identedit" class="editbtn" title="改名" aria-label="改名">'+IC_EDIT+'</button></div></div>'
 +'<div id="hd-list" class="list"></div><div id="hd-rfoot" class="rfoot" hidden></div></aside>'
-+'<button id="hd-sel" class="sel" hidden>'+IC_COMMENT+'评论</button>';
++'<button id="hd-sel" class="sel" hidden>'+IC_COMMENT+'评论</button>'
++'<div id="hd-tip" class="htip" hidden></div>';
 (document.body||document.documentElement).appendChild(host);
-var dockRef=root.querySelector("#hd-dock"),dockCommentRef=root.querySelector("#hd-dock-comment"),dockCopyRef=root.querySelector("#hd-dock-copy"),dockCopyIcoRef=root.querySelector("#hd-dock-copy .ico"),countRef=root.querySelector("#hd-count"),railRef=root.querySelector("#hd-rail"),prevRef=root.querySelector("#hd-prev"),nextRef=root.querySelector("#hd-next"),copyRef=root.querySelector("#hd-copy"),copyIcoRef=root.querySelector("#hd-copy .ico"),copyLblRef=root.querySelector("#hd-copy .lbl"),collapseRef=root.querySelector("#hd-collapse"),nameRef=root.querySelector("#hd-name"),identRowRef=root.querySelector("#hd-identrow"),identAvRef=root.querySelector("#hd-identav"),identAv2Ref=root.querySelector("#hd-identav2"),namedoneRef=root.querySelector("#hd-namedone"),identSetRef=root.querySelector("#hd-identset"),identNameRef=root.querySelector("#hd-identname"),identEditRef=root.querySelector("#hd-identedit"),listRef=root.querySelector("#hd-list"),footRef=root.querySelector("#hd-rfoot"),selRef=root.querySelector("#hd-sel");
+var dockRef=root.querySelector("#hd-dock"),dockCommentRef=root.querySelector("#hd-dock-comment"),dockCopyRef=root.querySelector("#hd-dock-copy"),dockCopyIcoRef=root.querySelector("#hd-dock-copy .ico"),countRef=root.querySelector("#hd-count"),railRef=root.querySelector("#hd-rail"),prevRef=root.querySelector("#hd-prev"),nextRef=root.querySelector("#hd-next"),copyRef=root.querySelector("#hd-copy"),copyIcoRef=root.querySelector("#hd-copy .ico"),copyLblRef=root.querySelector("#hd-copy .lbl"),collapseRef=root.querySelector("#hd-collapse"),nameRef=root.querySelector("#hd-name"),identRowRef=root.querySelector("#hd-identrow"),identAvRef=root.querySelector("#hd-identav"),identAv2Ref=root.querySelector("#hd-identav2"),namedoneRef=root.querySelector("#hd-namedone"),identSetRef=root.querySelector("#hd-identset"),identNameRef=root.querySelector("#hd-identname"),identEditRef=root.querySelector("#hd-identedit"),listRef=root.querySelector("#hd-list"),footRef=root.querySelector("#hd-rfoot"),selRef=root.querySelector("#hd-sel"),tipRef=root.querySelector("#hd-tip");
 
 function el(tag,cls,txt){var e=document.createElement(tag);if(cls)e.className=cls;if(txt!=null)e.textContent=txt;return e;}
 function roots(){return comments.filter(function(c){return !c.parentId;});}
@@ -193,17 +195,25 @@ function applyHL(){if(!hlActive)return;hlActive.clear();if(activeCid&&ranges[act
 // Only non-resolved root comments are hit-testable in the body: resolved ones
 // are hidden from the list, so they must not react to hover (no yellow) or
 // click. Their ranges stay in the ranges map for the explicit 已解决-card jump.
-function rangeAtPoint(x,y){for(var i=0;i<comments.length;i++){var c=comments[i];if(c.parentId||c.resolved)continue;var r=ranges[c.cid];if(!r)continue;var rects=r.getClientRects();for(var k=0;k<rects.length;k++){var rc=rects[k];if(x>=rc.left&&x<=rc.right&&y>=rc.top&&y<=rc.bottom)return c.cid;}}return null;}
+function cidsAtPoint(x,y){var out=[];for(var i=0;i<comments.length;i++){var c=comments[i];if(c.parentId||c.resolved)continue;var r=ranges[c.cid];if(!r)continue;var rects=r.getClientRects();for(var k=0;k<rects.length;k++){var rc=rects[k];if(x>=rc.left&&x<=rc.right&&y>=rc.top&&y<=rc.bottom){out.push(c);break;}}}return out;}
+function rangeAtPoint(x,y){var h=cidsAtPoint(x,y);return h.length?h[0].cid:null;}
+// Collapsed-state hover preview (Compact Chip): a small card anchored above the
+// highlighted text. When a spot carries several comments, show the newest one
+// plus a quiet "还有 N 条 ›"; the highlight itself stays click-to-expand.
+function newestOf(list){var n=list[0];for(var i=1;i<list.length;i++){if((list[i].createdAt||"")>(n.createdAt||""))n=list[i];}return n;}
+function hideTip(){tipRef.hidden=true;tipCid=null;}
+function buildTip(list){while(tipRef.firstChild)tipRef.removeChild(tipRef.firstChild);var c=newestOf(list),multi=list.length>1;var id=el("div","tid");var stack=el("div","tstack");var a1=el("span","tav");a1.innerHTML=pixelAvatar(c.author);stack.appendChild(a1);if(multi){var other=null;for(var i=0;i<list.length;i++){if(list[i].cid!==c.cid){other=list[i];break;}}if(other){var a2=el("span","tav");a2.innerHTML=pixelAvatar(other.author);stack.appendChild(a2);}}id.appendChild(stack);id.appendChild(el("span","twho",multi?((c.author||"匿名")+" 等 "+list.length+" 人"):(c.author||"匿名")));id.appendChild(el("span","ttm",fmtTime(c.createdAt)));tipRef.appendChild(id);tipRef.appendChild(el("div","ttx",c.text));if(multi){var more=el("div","tmore");more.appendChild(el("span",null,"还有 "+(list.length-1)+" 条"));more.appendChild(el("span","chev","›"));tipRef.appendChild(more);}}
+function showTip(list,cid){buildTip(list);tipRef.hidden=false;var r=ranges[cid];if(!r){hideTip();return;}var rc=r.getClientRects()[0]||r.getBoundingClientRect();var tw=tipRef.offsetWidth,th=tipRef.offsetHeight,pad=10,vw=window.innerWidth,vh=window.innerHeight;var x=Math.max(pad,Math.min(rc.left-6,vw-tw-pad));var y=rc.top-th-10;if(y<pad)y=rc.bottom+10;y=Math.max(pad,Math.min(y,vh-th-pad));tipRef.style.left=x+"px";tipRef.style.top=y+"px";}
 
 function api(path){return "/"+ID+path+"?t="+encodeURIComponent(T);}
-function load(){fetch(api("/comments"),{cache:"no-store"}).then(function(r){return r.ok?r.json():null;}).then(function(d){if(!d||!d.comments)return;comments=d.comments;relocate();var n=roots().filter(notResolved).length;if(firstLoad){firstLoad=false;if(n>0)setExpanded(true);}else if(expanded){render();}updateBadge();}).catch(function(){});}
+function load(){fetch(api("/comments"),{cache:"no-store"}).then(function(r){return r.ok?r.json():null;}).then(function(d){if(!d||!d.comments)return;comments=d.comments;relocate();if(expanded)render();updateBadge();}).catch(function(){});}
 function postComment(payload){return fetch(api("/comments"),{method:"POST",headers:{"Content-Type":"text/plain"},body:JSON.stringify(payload),cache:"no-store"}).then(function(r){return r.json();});}
 function mutate(cid,action){return fetch("/"+ID+"/comments/"+cid+"?t="+encodeURIComponent(T),{method:"POST",headers:{"Content-Type":"text/plain"},body:JSON.stringify({action:action}),cache:"no-store"}).then(function(r){return r.json();});}
 
 function updateBadge(){var n=roots().filter(notResolved).length;countRef.textContent=n;countRef.hidden=n<=0;updateNav();}
 function updateNav(){var dis=roots().filter(notResolved).length<=1;prevRef.disabled=dis;nextRef.disabled=dis;}
 function applyPad(){var narrow=window.innerWidth<640;document.documentElement.style.paddingRight=(expanded&&!narrow)?(W+"px"):"";}
-function setExpanded(v){expanded=v;railRef.hidden=!v;dockRef.hidden=v;applyPad();if(v){render();}else{activeCid=null;hoverCid=null;applyHL();document.body.style.cursor="";}}
+function setExpanded(v){expanded=v;railRef.hidden=!v;dockRef.hidden=v;applyPad();if(v){render();}else{activeCid=null;hoverCid=null;applyHL();document.body.style.cursor="";}hideTip();}
 function setActive(cid){activeCid=cid;render();applyHL();var r=ranges[cid];if(r){var rect=r.getBoundingClientRect();window.scrollTo({top:window.scrollY+rect.top-160,behavior:"smooth"});}}
 
 function msgEl(m){var d=el("div","msg");var av=el("span","av");av.innerHTML=pixelAvatar(m.author);var b=el("div","b");var nm=el("div","nm");nm.appendChild(el("span","who",m.author||"匿名"));nm.appendChild(el("span","tm",fmtTime(m.createdAt)));b.appendChild(nm);b.appendChild(el("div","tx",m.text));d.appendChild(av);d.appendChild(b);return d;}
@@ -251,10 +261,11 @@ collapseRef.addEventListener("click",function(){setExpanded(false);});
 selRef.addEventListener("mousedown",function(e){e.preventDefault();});
 selRef.addEventListener("click",onSelClick);
 document.addEventListener("mouseup",onMouseUp);
-document.addEventListener("mousemove",function(e){if(host.contains(e.target))return;var cid=rangeAtPoint(e.clientX,e.clientY);if(cid!==hoverCid){hoverCid=cid;applyHL();document.body.style.cursor=cid?"pointer":"";}});
+document.addEventListener("mousemove",function(e){if(host.contains(e.target))return;var hits=cidsAtPoint(e.clientX,e.clientY);var cid=hits.length?hits[0].cid:null;if(cid!==hoverCid){hoverCid=cid;applyHL();document.body.style.cursor=cid?"pointer":"";}if(!expanded&&cid){if(cid!==tipCid){tipCid=cid;showTip(hits,cid);}}else if(tipCid!==null){hideTip();}});
 document.addEventListener("click",function(e){if(host.contains(e.target))return;var cid=rangeAtPoint(e.clientX,e.clientY);if(!cid)return;if(expanded&&activeCid===cid){setExpanded(false);}else{if(!expanded)setExpanded(true);setActive(cid);}});
 document.addEventListener("visibilitychange",function(){if(!document.hidden)load();});
-window.addEventListener("resize",function(){if(expanded)applyPad();});
+window.addEventListener("resize",function(){if(expanded)applyPad();hideTip();});
+window.addEventListener("scroll",hideTip,true);
 window.htmldropCopyComments=function(text){try{return formatCommentsForCopy(text,comments,locateQuote);}catch(e){return text;}};
 restoreName();refreshIdent();
 setInterval(load,30000);
