@@ -69,13 +69,15 @@ export interface CopyComment {
   resolved: boolean;
 }
 
-// Appends a plain-text "Comments" section to the text that "Copy for LLM"
-// already copies, so an LLM reading the copy sees the review threads with line
-// anchors. Root comments are located in `text` via the injected `locate`
-// (so it reuses the exact same quote logic) and rendered as 1-based line
-// numbers, or `orphan` when the quote no longer matches. Replies follow their
-// root; resolved threads are included and marked. Returns `text` unchanged when
-// there are no comments. Plain string assembly only: no HTML, nothing to inject.
+// Builds the plain-text "Comments" section for "Copy for LLM", so an LLM
+// reading the copy sees the review threads with line anchors. Root comments
+// are located in `text` via the injected `locate` (so it reuses the exact same
+// quote logic) and rendered as 1-based line numbers, or `orphan` when the
+// quote no longer matches. Replies follow their root; resolved threads are
+// included and marked. By default returns `text` with the section appended
+// (unchanged when there are no comments); with mode "comments" returns only
+// the section ("" when there are no comments) — line numbers still refer to
+// `text`. Plain string assembly only: no HTML, nothing to inject.
 //
 // `locate` is passed in (not referenced from module scope) so this stays fully
 // self-contained and can be injected into the browser widget via
@@ -84,9 +86,10 @@ export function formatCommentsForCopy(
   text: string,
   comments: CopyComment[],
   locate: (fullText: string, anchor: QuoteAnchor) => QuoteRange | null,
+  mode?: "comments",
 ): string {
   const roots = comments.filter((c) => !c.parentId);
-  if (roots.length === 0) return text;
+  if (roots.length === 0) return mode === "comments" ? "" : text;
 
   const lines = text.split("\n");
   const lineAt = (offset: number): number => {
@@ -125,5 +128,6 @@ export function formatCommentsForCopy(
     out.push("");
   }
 
-  return `${text}\n\n---\nComments\n\n${out.join("\n").replace(/\n+$/, "\n")}`;
+  const block = `Comments\n\n${out.join("\n").replace(/\n+$/, "\n")}`;
+  return mode === "comments" ? block : `${text}\n\n---\n${block}`;
 }

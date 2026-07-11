@@ -7,6 +7,7 @@ and Markdown previews at `baseurl.ai`.
 
 - `src/index.ts` is the Worker entrypoint and route dispatcher.
 - `src/upload.ts`, `src/serve.ts`, `src/auth.ts`, `src/security.ts`, and `src/utils.ts` hold core behavior.
+- `src/widget.ts` builds the injected comment widget script; `src/anchor.ts` owns quote anchoring and the Copy-for-LLM formatter it injects.
 - `src/serve.ts` also handles `GET /:id/v` version probes and injects the stale-preview refresh notice; `src/auth.ts` owns the `PageRecord.version` field used for revalidation.
 - `src/pages/` contains server-rendered HTML pages.
 - `src/__tests__/` contains Vitest tests that run with the Cloudflare Workers test pool.
