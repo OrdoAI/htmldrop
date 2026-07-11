@@ -1,5 +1,4 @@
 import {
-  type PageRecord,
   getAuthCookie,
   getPage,
   mintCommentToken,

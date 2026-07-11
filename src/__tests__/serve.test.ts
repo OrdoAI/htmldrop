@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect } from "vitest";
 import { env, SELF } from "cloudflare:test";
 
 async function createPage(html = "<h1>Test</h1>", filename = "test.html") {

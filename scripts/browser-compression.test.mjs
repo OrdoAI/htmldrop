@@ -6,7 +6,6 @@ import { spawn } from "node:child_process";
 import assert from "node:assert/strict";
 import ts from "typescript";
 
-const root = new URL("../", import.meta.url);
 const fixtures = new URL("../cli/__tests__/fixtures/", import.meta.url);
 const chromePath = process.env.CHROME_BIN || "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
 
