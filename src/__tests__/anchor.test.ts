@@ -48,6 +48,28 @@ describe("formatCommentsForCopy", () => {
     expect(formatCommentsForCopy(text, [], locateQuote)).toBe(text);
   });
 
+  it("returns only the comments block with mode 'comments'", () => {
+    const comments: CopyComment[] = [
+      {
+        cid: "c1",
+        anchor: { exact: "a quote", prefix: "two has ", suffix: " here" },
+        author: "Alice",
+        text: "please clarify",
+        resolved: false,
+      },
+    ];
+    const block = formatCommentsForCopy(text, comments, locateQuote, "comments");
+    expect(block.startsWith("Comments\n\n")).toBe(true);
+    expect(block).toContain("[Comment C1] line 2");
+    expect(block).not.toContain("line one");
+    // The default mode is exactly the text plus the same block.
+    expect(formatCommentsForCopy(text, comments, locateQuote)).toBe(`${text}\n\n---\n${block}`);
+  });
+
+  it("returns an empty string with mode 'comments' and no comments", () => {
+    expect(formatCommentsForCopy(text, [], locateQuote, "comments")).toBe("");
+  });
+
   it("renders a located anchor as a 1-based line number", () => {
     const comments: CopyComment[] = [
       {
