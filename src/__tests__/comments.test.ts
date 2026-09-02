@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { env, SELF } from "cloudflare:test";
 import { mintCommentToken, mintNoticeToken } from "../auth";
+import { derivePageKey, openComment } from "../envelope";
 
 interface CreatedPage {
   url: string;
@@ -18,8 +19,9 @@ async function createPage(html = "<p>hello world</p>", filename = "t.html"): Pro
   return res.json<CreatedPage>();
 }
 
-function token(id: string, password: string): Promise<string> {
-  return mintCommentToken(env.AUTH_SECRET, id, password);
+async function token(id: string, password: string): Promise<string> {
+  const { key } = await derivePageKey(id, password);
+  return mintCommentToken(env.AUTH_SECRET, id, key);
 }
 
 function getComments(id: string, query: string): Promise<Response> {
@@ -32,6 +34,14 @@ function post(id: string, query: string, body: unknown): Promise<Response> {
     headers: { "Content-Type": "text/plain" },
     body: JSON.stringify(body),
   });
+}
+
+// Decrypt one stored comment object the way the Worker does.
+async function storedComment(page: CreatedPage, cid: string): Promise<Record<string, any>> {
+  const obj = await env.BUCKET.get(`comment:${page.id}:${cid}`);
+  const stored = JSON.parse(await obj!.text());
+  const { key } = await derivePageKey(page.id, page.password);
+  return (await openComment(key, page.id, stored)) as Record<string, any>;
 }
 
 async function listFor(id: string, t: string) {
@@ -228,7 +238,8 @@ describe("delete", () => {
 describe("token namespaces do not cross", () => {
   it("rejects a notice token on comment routes and a comment token on /v", async () => {
     const page = await createPage();
-    const notice = await mintNoticeToken(env.AUTH_SECRET, page.id, page.password);
+    const { verifier } = await derivePageKey(page.id, page.password);
+    const notice = await mintNoticeToken(env.AUTH_SECRET, page.id, verifier);
     const comment = await token(page.id, page.password);
 
     expect(await (await getComments(page.id, `t=${notice}`)).json()).toEqual({ comments: [] });
@@ -281,8 +292,7 @@ describe("upload-time anchor remap", () => {
     });
     expect(res.status).toBe(200);
 
-    const obj = await env.BUCKET.get(`comment:${page.id}:${root.cid}`);
-    const record = JSON.parse(await obj!.text());
+    const record = await storedComment(page, root.cid);
     expect(record.anchor.exact).toBe("planet");
   });
 
@@ -299,7 +309,7 @@ describe("upload-time anchor remap", () => {
 
     await update(page, { commentAnchors: [{ cid: root.cid, anchor: null }] });
 
-    const rootObj = JSON.parse(await (await env.BUCKET.get(`comment:${page.id}:${root.cid}`))!.text());
+    const rootObj = await storedComment(page, root.cid);
     expect(rootObj.anchor).toBeNull();
     expect(rootObj.resolved).toBe(true);
     const list = await listFor(page.id, t);
@@ -319,7 +329,7 @@ describe("upload-time anchor remap", () => {
       ],
     });
     expect(res.status).toBe(200);
-    const replyObj = JSON.parse(await (await env.BUCKET.get(`comment:${page.id}:${reply.cid}`))!.text());
+    const replyObj = await storedComment(page, reply.cid);
     expect(replyObj.parentId).toBe(root.cid);
     expect(replyObj.anchor).toBeUndefined();
   });
@@ -337,7 +347,7 @@ describe("upload-time anchor remap", () => {
 
     const afterPage = JSON.parse(await (await env.BUCKET.get(`page:${page.id}`))!.text());
     expect(afterPage.version).toBe(before.version);
-    const afterComment = JSON.parse(await (await env.BUCKET.get(`comment:${page.id}:${root.cid}`))!.text());
+    const afterComment = await storedComment(page, root.cid);
     expect(afterComment.anchor.exact).toBe("world");
   });
 
@@ -346,7 +356,7 @@ describe("upload-time anchor remap", () => {
     const t = await token(page.id, page.password);
     const root = await seedRootComment(page, t);
     await update(page, {});
-    const obj = JSON.parse(await (await env.BUCKET.get(`comment:${page.id}:${root.cid}`))!.text());
+    const obj = await storedComment(page, root.cid);
     expect(obj.anchor.exact).toBe("world");
   });
 
@@ -370,8 +380,79 @@ describe("upload-time anchor remap", () => {
     expect(res.status).toBe(403);
     const afterPage = JSON.parse(await (await env.BUCKET.get(`page:${page.id}`))!.text());
     expect(afterPage.version).toBe(before.version);
-    const afterComment = JSON.parse(await (await env.BUCKET.get(`comment:${page.id}:${root.cid}`))!.text());
+    const afterComment = await storedComment(page, root.cid);
     expect(afterComment.anchor.exact).toBe("world");
+  });
+});
+
+describe("comment storage", () => {
+  it("stores comments sealed: text, author, and quote are not at rest", async () => {
+    const page = await createPage("<p>hello world</p>");
+    const t = await token(page.id, page.password);
+    const res = await post(page.id, `t=${t}`, {
+      text: "confidential remark", author: "Reviewer", anchor: { exact: "hello", prefix: "", suffix: " world" },
+    });
+    expect(res.status).toBe(201);
+    const { comment } = await res.json<{ comment: { cid: string } }>();
+    const raw = await (await env.BUCKET.get(`comment:${page.id}:${comment.cid}`))!.text();
+    expect(raw).not.toContain("confidential remark");
+    expect(raw).not.toContain("Reviewer");
+    expect(raw).not.toContain("hello");
+    expect(JSON.parse(raw).v).toBe(2);
+    expect((await storedComment(page, comment.cid)).text).toBe("confidential remark");
+  });
+
+  it("a wrong page key cannot read a stored comment", async () => {
+    const page = await createPage();
+    const t = await token(page.id, page.password);
+    const { comment } = await (await post(page.id, `t=${t}`, { text: "x", author: "A", anchor: null }))
+      .json<{ comment: { cid: string } }>();
+    const stored = JSON.parse(await (await env.BUCKET.get(`comment:${page.id}:${comment.cid}`))!.text());
+    const { key } = await derivePageKey(page.id, "wrongpassword000");
+    expect(await openComment(key, page.id, stored)).toBeNull();
+  });
+
+  it("still lists a legacy plaintext comment and seals it on the next write", async () => {
+    const page = await createPage();
+    const t = await token(page.id, page.password);
+    await env.BUCKET.put(`comment:${page.id}:legacy1`, JSON.stringify({
+      cid: "legacy1", author: "Old", text: "plain", anchor: null,
+      createdAt: new Date().toISOString(), resolved: false,
+    }));
+    const before = await listFor(page.id, t);
+    expect(before.map((c) => c.cid)).toEqual(["legacy1"]);
+
+    await SELF.fetch(`http://localhost/${page.id}/comments/legacy1?t=${t}`, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain" },
+      body: JSON.stringify({ action: "resolve" }),
+    });
+    const raw = await (await env.BUCKET.get(`comment:${page.id}:legacy1`))!.text();
+    expect(raw).not.toContain("plain");
+    expect(JSON.parse(raw).v).toBe(2);
+    const after = await listFor(page.id, t);
+    expect(after[0].resolved).toBe(true);
+  });
+});
+
+describe("legacy comments on update", () => {
+  it("re-seals plaintext comments when the page is updated in place", async () => {
+    const page = await createPage();
+    const t = await token(page.id, page.password);
+    await env.BUCKET.put(`comment:${page.id}:legacy2`, JSON.stringify({
+      cid: "legacy2", author: "Old", text: "plain text", anchor: null,
+      createdAt: new Date().toISOString(), resolved: false,
+    }));
+    const res = await SELF.fetch("http://localhost/api/upload", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ html: "<p>v2</p>", filename: "t.html", id: page.id, password: page.password }),
+    });
+    expect(res.status).toBe(200);
+    const raw = await (await env.BUCKET.get(`comment:${page.id}:legacy2`))!.text();
+    expect(raw).not.toContain("plain text");
+    expect(JSON.parse(raw).v).toBe(2);
+    expect((await listFor(page.id, t)).map((c) => c.text)).toEqual(["plain text"]);
   });
 });
 

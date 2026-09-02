@@ -1,5 +1,6 @@
 import { type QuoteAnchor } from "./anchor";
-import { getPage, verifyCommentToken } from "./auth";
+import { type PageRecord, openWithKey, verifyCommentToken, verifyPassword } from "./auth";
+import { isStoredComment, openComment, sealComment } from "./envelope";
 import { withTransportSecurity } from "./security";
 import { utf8ByteLength } from "./utils";
 
@@ -56,19 +57,11 @@ function isString(v: unknown): v is string {
 // Returns the page record only when the page exists AND the comment token is
 // valid. Returns null for missing page, missing/wrong/expired/cross-page token
 // alike, so callers respond identically and nothing about page existence leaks.
-async function authorize(env: Env, id: string, token: string | null) {
+async function authorize(env: Env, id: string, token: string | null): Promise<PageRecord | null> {
   if (!token || !env.AUTH_SECRET) return null;
-  const record = await getPage(env.BUCKET, id);
-  if (!record) return null;
-  const ok = await verifyCommentToken(env.AUTH_SECRET, id, record.password, token);
-  return ok ? record : null;
-}
-
-function timingSafeEqual(a: string, b: string): boolean {
-  if (a.length !== b.length) return false;
-  let mismatch = 0;
-  for (let i = 0; i < a.length; i++) mismatch |= a.charCodeAt(i) ^ b.charCodeAt(i);
-  return mismatch === 0;
+  const key = await verifyCommentToken(env.AUTH_SECRET, id, token);
+  if (!key) return null;
+  return openWithKey(env.BUCKET, id, key);
 }
 
 // Read access for the comment list: either the sandbox widget's comment token,
@@ -81,12 +74,13 @@ async function authorizeRead(
   id: string,
   token: string | null,
   password: string | null,
-) {
+): Promise<PageRecord | null> {
   if (!env.AUTH_SECRET) return null;
-  const record = await getPage(env.BUCKET, id);
-  if (!record) return null;
-  if (token && await verifyCommentToken(env.AUTH_SECRET, id, record.password, token)) return record;
-  if (password && timingSafeEqual(password, record.password)) return record;
+  if (token) {
+    const key = await verifyCommentToken(env.AUTH_SECRET, id, token);
+    if (key) return openWithKey(env.BUCKET, id, key);
+  }
+  if (password) return verifyPassword(env.BUCKET, id, password);
   return null;
 }
 
@@ -96,19 +90,58 @@ function isValidRecord(value: unknown): value is CommentRecord {
   return isString(r.cid) && isString(r.author) && isString(r.text) && isString(r.createdAt);
 }
 
-async function listComments(bucket: R2Bucket, id: string): Promise<CommentRecord[]> {
+// Comment objects are sealed under the page key since storage v2. Plaintext
+// records from before stay readable until scripts/migrate-encrypt.mjs rewrites
+// them; every write here seals. Malformed or unreadable records decode to null
+// so one bad object never breaks a whole listing.
+async function decodeComment(
+  text: string,
+  id: string,
+  key: Uint8Array,
+): Promise<CommentRecord | null> {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(text);
+  } catch {
+    return null;
+  }
+  if (isStoredComment(parsed)) parsed = await openComment(key, id, parsed);
+  return isValidRecord(parsed) ? parsed : null;
+}
+
+async function readComment(
+  bucket: R2Bucket,
+  id: string,
+  cid: string,
+  key: Uint8Array,
+): Promise<CommentRecord | null> {
+  const stored = await bucket.get(commentKey(id, cid));
+  if (!stored) return null;
+  return decodeComment(await stored.text(), id, key);
+}
+
+async function writeComment(
+  bucket: R2Bucket,
+  id: string,
+  key: Uint8Array,
+  record: CommentRecord,
+): Promise<void> {
+  const sealed = await sealComment(key, id, record.cid, record);
+  await bucket.put(commentKey(id, record.cid), JSON.stringify(sealed));
+}
+
+async function listComments(
+  bucket: R2Bucket,
+  id: string,
+  key: Uint8Array,
+): Promise<CommentRecord[]> {
   const listed = await bucket.list({ prefix: `comment:${id}:`, limit: 1000 });
   const records: CommentRecord[] = [];
   for (const obj of listed.objects) {
     const stored = await bucket.get(obj.key);
     if (!stored) continue;
-    try {
-      const parsed: unknown = JSON.parse(await stored.text());
-      // Skip malformed records rather than break the whole response.
-      if (isValidRecord(parsed)) records.push(parsed);
-    } catch {
-      continue;
-    }
+    const record = await decodeComment(await stored.text(), id, key);
+    if (record) records.push(record);
   }
   records.sort((a, b) => (a.createdAt < b.createdAt ? -1 : a.createdAt > b.createdAt ? 1 : 0));
   return records;
@@ -153,27 +186,43 @@ export function validateAnchorRemaps(
   return { remaps };
 }
 
+// Re-seal any plaintext (pre-v2) comment of this page. Called on in-place
+// update, the one moment the Worker holds the key for a page whose comments
+// the bulk migration could not reach because the page was sealed first.
+export async function resealLegacyComments(
+  bucket: R2Bucket,
+  id: string,
+  key: Uint8Array,
+): Promise<void> {
+  const listed = await bucket.list({ prefix: `comment:${id}:`, limit: 1000 });
+  for (const obj of listed.objects) {
+    const stored = await bucket.get(obj.key);
+    if (!stored) continue;
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(await stored.text());
+    } catch {
+      continue;
+    }
+    if (isStoredComment(parsed) || !isValidRecord(parsed)) continue;
+    await writeComment(bucket, id, key, parsed);
+  }
+}
+
 // Apply validated remaps: patch the anchor of each existing ROOT comment for
 // this page (or set the explicit orphan `null`). Unknown cids, reply cids, and
 // malformed records are skipped so an agent mistake stays recoverable.
 export async function applyAnchorRemaps(
   bucket: R2Bucket,
   id: string,
+  key: Uint8Array,
   remaps: AnchorRemap[],
 ): Promise<void> {
   for (const { cid, anchor } of remaps) {
-    const stored = await bucket.get(commentKey(id, cid));
-    if (!stored) continue;
-    let record: CommentRecord;
-    try {
-      const parsed: unknown = JSON.parse(await stored.text());
-      if (!isValidRecord(parsed) || parsed.parentId) continue;
-      record = parsed;
-    } catch {
-      continue;
-    }
+    const record = await readComment(bucket, id, cid, key);
+    if (!record || record.parentId) continue;
     record.anchor = anchor;
-    await bucket.put(commentKey(id, cid), JSON.stringify(record));
+    await writeComment(bucket, id, key, record);
   }
 }
 
@@ -181,6 +230,7 @@ async function createComment(
   request: Request,
   env: Env,
   id: string,
+  key: Uint8Array,
 ): Promise<Response> {
   const raw = await request.text();
   if (utf8ByteLength(raw) > MAX_BODY_BYTES) {
@@ -215,16 +265,9 @@ async function createComment(
   let anchor: QuoteAnchor | null = null;
   if (body.parentId !== undefined && body.parentId !== null) {
     if (!isString(body.parentId)) return json(request, { error: "invalid parentId" }, 400);
-    const parent = await env.BUCKET.get(commentKey(id, body.parentId));
+    const parent = await readComment(env.BUCKET, id, body.parentId, key);
     if (!parent) return json(request, { error: "parent not found" }, 404);
-    try {
-      const parsed: unknown = JSON.parse(await parent.text());
-      if (!isValidRecord(parsed) || parsed.parentId) {
-        return json(request, { error: "invalid parent" }, 400);
-      }
-    } catch {
-      return json(request, { error: "invalid parent" }, 400);
-    }
+    if (parent.parentId) return json(request, { error: "invalid parent" }, 400);
     parentId = body.parentId;
   } else {
     const parsedAnchor = readQuoteAnchor(body.anchor);
@@ -249,7 +292,7 @@ async function createComment(
     createdAt: new Date().toISOString(),
     resolved: false,
   };
-  await env.BUCKET.put(commentKey(id, cid), JSON.stringify(record));
+  await writeComment(env.BUCKET, id, key, record);
   return json(request, { comment: record }, 201);
 }
 
@@ -283,13 +326,13 @@ export async function handleComments(
     // Sandbox widget (comment token) or owner/agent export (page password).
     const record = await authorizeRead(env, id, token, url.searchParams.get("p"));
     if (!record) return json(request, { comments: [] });
-    return json(request, { comments: await listComments(env.BUCKET, id) });
+    return json(request, { comments: await listComments(env.BUCKET, id, record.key) });
   }
 
   // POST writes require the comment token; the password authorizes reads only.
   const record = await authorize(env, id, token);
   if (!record) return json(request, { error: "unauthorized" }, 403);
-  return createComment(request, env, id);
+  return createComment(request, env, id, record.key);
 }
 
 // POST /:id/comments/:cid with `{ "action": "resolve" | "reopen" | "delete" }`.
@@ -334,23 +377,15 @@ export async function handleCommentMutate(
     return json(request, { error: "invalid action" }, 400);
   }
 
-  const stored = await env.BUCKET.get(commentKey(id, cid));
-  if (!stored) return json(request, { error: "not found" }, 404);
-  let target: CommentRecord;
-  try {
-    const parsed: unknown = JSON.parse(await stored.text());
-    if (!isValidRecord(parsed)) return json(request, { error: "not found" }, 404);
-    target = parsed;
-  } catch {
-    return json(request, { error: "not found" }, 404);
-  }
+  const target = await readComment(env.BUCKET, id, cid, record.key);
+  if (!target) return json(request, { error: "not found" }, 404);
 
   if (action === "delete") {
     // Permanently remove the comment. Deleting a root cascades to its replies so
     // no orphaned reply records linger; deleting a reply removes just that one.
     await env.BUCKET.delete(commentKey(id, cid));
     if (!target.parentId) {
-      const all = await listComments(env.BUCKET, id);
+      const all = await listComments(env.BUCKET, id, record.key);
       for (const c of all) {
         if (c.parentId === cid) await env.BUCKET.delete(commentKey(id, c.cid));
       }
@@ -361,6 +396,6 @@ export async function handleCommentMutate(
   if (target.parentId) return json(request, { error: "cannot resolve a reply" }, 400);
 
   target.resolved = action === "resolve";
-  await env.BUCKET.put(commentKey(id, cid), JSON.stringify(target));
+  await writeComment(env.BUCKET, id, record.key, target);
   return json(request, { comment: target });
 }

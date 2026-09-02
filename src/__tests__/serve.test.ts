@@ -403,12 +403,107 @@ describe("POST /:id/auth", () => {
   });
 });
 
+describe("Sealed storage", () => {
+  const stale = () => new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+
+  async function tamper(id: string, patch: Record<string, unknown>) {
+    const stored = JSON.parse(await (await env.BUCKET.get(`page:${id}`))!.text());
+    await env.BUCKET.put(`page:${id}`, JSON.stringify({ ...stored, ...patch }));
+  }
+
+  it("rejects a pre-v2 HMAC cookie", async () => {
+    const page = await createPage();
+    const res = await SELF.fetch(`http://localhost/${page.id}`, {
+      headers: { Cookie: `_hd_${page.id}=${"ab".repeat(32)}` },
+    });
+    expect(res.status).toBe(401);
+  });
+
+  it("a cookie for one page does not open another", async () => {
+    const page1 = await createPage("<h1>one</h1>");
+    const page2 = await createPage("<h1>two</h1>");
+    const boot = await SELF.fetch(`http://localhost/${page1.id}?p=${page1.password}`, { redirect: "manual" });
+    const value = getCookieFromHeaders(boot.headers)!.split("=")[1];
+    const res = await SELF.fetch(`http://localhost/${page2.id}`, {
+      headers: { Cookie: `_hd_${page2.id}=${value}` },
+    });
+    expect(res.status).toBe(401);
+  });
+
+  it("a pin flag added without the key fails closed instead of extending the page", async () => {
+    const page = await createPage("<h1>x</h1>");
+    await tamper(page.id, { pinned: true, createdAt: stale() });
+    const res = await SELF.fetch(`http://localhost/${page.id}?p=${page.password}`, { redirect: "manual" });
+    expect(res.status).toBe(403);
+  });
+
+  it("a renewed createdAt written without the key fails closed", async () => {
+    const page = await createPage("<h1>x</h1>");
+    const boot = await SELF.fetch(`http://localhost/${page.id}?p=${page.password}`, { redirect: "manual" });
+    const cookie = getCookieFromHeaders(boot.headers);
+    await tamper(page.id, { createdAt: new Date(Date.now() + 60_000).toISOString() });
+    const res = await SELF.fetch(`http://localhost/${page.id}`, { headers: { Cookie: cookie! } });
+    expect(res.status).toBe(404);
+  });
+
+  it("a legacy plaintext record still serves, with its createdAt as the version", async () => {
+    const id = "LEGACY01";
+    const password = "legacypass000001";
+    const createdAt = new Date().toISOString();
+    await env.BUCKET.put(`page:${id}`, JSON.stringify({
+      html: "<h1>Legacy</h1>", password, filename: "legacy.html", createdAt,
+    }));
+    const boot = await SELF.fetch(`http://localhost/${id}?p=${password}`, { redirect: "manual" });
+    expect(boot.status).toBe(303);
+    const cookie = getCookieFromHeaders(boot.headers);
+    const res = await SELF.fetch(`http://localhost/${id}`, { headers: { Cookie: cookie! } });
+    expect(res.status).toBe(200);
+    expect(res.headers.get("ETag")).toBe(`"${createdAt}"`);
+    const body = await res.text();
+    expect(body).toContain("<h1>Legacy</h1>");
+    const token = body.match(/T="([0-9a-f]{64})"/)![1];
+    const probe = await SELF.fetch(`http://localhost/${id}/v?t=${token}`);
+    expect((await probe.json<{ v: string | null }>()).v).toBe(createdAt);
+  });
+});
+
 describe("Missing/expired pages", () => {
   it("returns 404 for nonexistent ID without auth", async () => {
     const res = await SELF.fetch("http://localhost/zZzZzZzZ");
     expect(res.status).toBe(401);
     const body = await res.text();
     expect(body).toContain("Password Required");
+  });
+
+  it("purges an unpinned record past the 7-day TTL", async () => {
+    const id = "OLD00001";
+    const password = "stalepass0000001";
+    const stale = new Date(Date.now() - 8 * 24 * 60 * 60 * 1000).toISOString();
+    await env.BUCKET.put(`page:${id}`, JSON.stringify({
+      html: "<p>old</p>", password, filename: "old.html", createdAt: stale,
+    }));
+
+    const res = await SELF.fetch(`http://localhost/${id}?p=${password}`, { redirect: "manual" });
+    expect(res.status).toBe(403);
+    expect(await env.BUCKET.get(`page:${id}`)).toBeNull();
+  });
+
+  it("serves a pinned record past the 7-day TTL and keeps it stored", async () => {
+    const id = "PIN00001";
+    const password = "pinnedpass000001";
+    const stale = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+    await env.BUCKET.put(`page:${id}`, JSON.stringify({
+      html: "<h1>Pinned</h1>", password, filename: "pin.html", createdAt: stale,
+      version: "v1", pinned: true,
+    }));
+
+    const bootstrap = await SELF.fetch(`http://localhost/${id}?p=${password}`, { redirect: "manual" });
+    expect(bootstrap.status).toBe(303);
+    const cookie = getCookieFromHeaders(bootstrap.headers);
+    const res = await SELF.fetch(`http://localhost/${id}`, { headers: { Cookie: cookie! } });
+    expect(res.status).toBe(200);
+    expect(await res.text()).toContain("<h1>Pinned</h1>");
+    expect(await env.BUCKET.get(`page:${id}`)).not.toBeNull();
   });
 });
 

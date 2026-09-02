@@ -184,6 +184,8 @@ Read both stdout and stderr from the command.
   URL.
 - Mention the 7-day expiry policy. If the CLI printed an exact expiry date,
   relay that date. If it did not print one, do not invent an exact timestamp.
+  If it printed `expires: never`, the page was pinned by an operator: say the
+  link does not expire and skip the 7-day note.
 - Say the link is self-authenticating because the password is already in the
   URL. Do not print the password separately unless the user asks.
 - Only say the URL was copied to the clipboard if the CLI actually printed the

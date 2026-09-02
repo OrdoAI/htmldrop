@@ -7,6 +7,7 @@ and Markdown previews at `baseurl.ai`.
 
 - `src/index.ts` is the Worker entrypoint and route dispatcher.
 - `src/upload.ts`, `src/serve.ts`, `src/auth.ts`, `src/security.ts`, and `src/utils.ts` hold core behavior.
+- `src/envelope.ts` is the dependency-free encryption-at-rest layer (page key derivation, sealed page and comment records, cookie/token key wrapping). `scripts/pin-page.mjs` and `scripts/migrate-encrypt.mjs` import it directly under Node type stripping, so it must keep erasable-syntax TypeScript and no relative imports.
 - `src/widget.ts` builds the injected comment widget script; `src/anchor.ts` owns quote anchoring and the Copy-for-LLM formatter it injects.
 - `src/serve.ts` also handles `GET /:id/v` version probes and injects the stale-preview refresh notice; `src/auth.ts` owns the `PageRecord.version` field used for revalidation.
 - `src/pages/` contains server-rendered HTML pages.

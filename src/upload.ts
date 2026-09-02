@@ -1,6 +1,7 @@
 import { generateId as defaultGenerateId, generatePassword, utf8ByteLength } from "./utils";
-import { type PageRecord, verifyPassword } from "./auth";
-import { applyAnchorRemaps, validateAnchorRemaps } from "./comments";
+import { verifyPassword } from "./auth";
+import { derivePageKey, sealPage } from "./envelope";
+import { applyAnchorRemaps, resealLegacyComments, validateAnchorRemaps } from "./comments";
 import { publicOrigin, withTransportSecurity } from "./security";
 
 const MAX_HTML_BYTES = 24 * 1024 * 1024; // 24 MiB content limit
@@ -110,22 +111,30 @@ export async function handleUpload(
     if ("error" in remap) {
       return textResponse(`Invalid commentAnchors: ${remap.error}`, { status: 400 }, request);
     }
-    const updated: PageRecord = {
-      html,
-      password: existing.password,
-      filename,
-      createdAt: new Date().toISOString(), // refresh the 7-day expiry on update
-      version: crypto.randomUUID(), // changes on every overwrite for cache + probe
-    };
+    // Same password, so the same key re-seals the new content. The pin is
+    // carried forward from the stored record; the request body can never set it.
+    const updated = await sealPage(
+      { key: existing.key, verifier: existing.verifier },
+      {
+        id: updateId,
+        createdAt: new Date().toISOString(), // refresh the 7-day expiry on update
+        version: crypto.randomUUID(), // changes on every overwrite for cache + probe
+        ...(existing.pinned ? { pinned: true } : {}),
+      },
+      { html, filename },
+    );
     await env.BUCKET.put(`page:${updateId}`, JSON.stringify(updated));
     // Agent-assisted migration: the document structure changed, so patch the
     // surviving root comments to their remapped quotes (or explicit orphan).
-    await applyAnchorRemaps(env.BUCKET, updateId, remap.remaps);
-    const updatedExpiresAt = new Date(Date.now() + TTL_SECONDS * 1000).toISOString();
+    await applyAnchorRemaps(env.BUCKET, updateId, existing.key, remap.remaps);
+    await resealLegacyComments(env.BUCKET, updateId, existing.key);
+    const updatedExpiresAt = existing.pinned
+      ? null
+      : new Date(Date.now() + TTL_SECONDS * 1000).toISOString();
     return Response.json({
-      url: `${publicOrigin(request)}/${updateId}?p=${existing.password}`,
+      url: `${publicOrigin(request)}/${updateId}?p=${updatePassword}`,
       id: updateId,
-      password: existing.password,
+      password: updatePassword,
       expiresAt: updatedExpiresAt,
     }, {
       headers: withTransportSecurity({}, request),
@@ -148,13 +157,11 @@ export async function handleUpload(
     return textResponse("Failed to generate unique ID, try again", { status: 503 }, request);
   }
 
-  const record: PageRecord = {
-    html,
-    password,
-    filename,
-    createdAt: new Date().toISOString(),
-    version: crypto.randomUUID(),
-  };
+  const record = await sealPage(
+    await derivePageKey(id, password),
+    { id, createdAt: new Date().toISOString(), version: crypto.randomUUID() },
+    { html, filename },
+  );
 
   await env.BUCKET.put(`page:${id}`, JSON.stringify(record));
 

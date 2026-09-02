@@ -387,7 +387,9 @@ console.log(data.url);
 
 if (process.stdout.isTTY) {
   const note = updateCreds ? " | updated in place" : "";
-  process.stderr.write(`  id: ${data.id} | expires: ${data.expiresAt.split("T")[0]}${note}\n`);
+  // `expiresAt` is null for an operator-pinned page, which never expires.
+  const expires = data.expiresAt ? data.expiresAt.split("T")[0] : "never";
+  process.stderr.write(`  id: ${data.id} | expires: ${expires}${note}\n`);
   try {
     execSync("pbcopy", { input: data.url });
     process.stderr.write("  (copied to clipboard)\n");
