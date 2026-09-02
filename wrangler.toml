@@ -9,7 +9,3 @@ bucket_name = "htmldrop-pages"
 [[routes]]
 pattern = "baseurl.ai"
 custom_domain = true
-
-[[routes]]
-pattern = "pages.baseurl.ai"
-custom_domain = true
