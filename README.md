@@ -93,7 +93,10 @@ Preview links include the access password in the query string. Treat the full
 URL as a secret.
 
 Production HTTP requests are redirected to HTTPS. HTTPS responses include HSTS.
-Links expire after seven days.
+Links expire after seven days. An operator can exempt a single page with
+`node scripts/pin-page.mjs <id>`; a pinned page never expires and keeps its
+pin across in-place updates. `--unpin` restores the seven-day expiry, counted
+from the moment of unpinning.
 
 Do not commit local secrets, `.dev.vars`, generated `dist/` output, or local
 agent state such as `.claude/`.

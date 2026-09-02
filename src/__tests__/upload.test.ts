@@ -199,6 +199,54 @@ describe("POST /api/upload (update existing)", () => {
     });
     expect(res.status).toBe(400);
   });
+
+  it("carries an operator pin through an update and reports no expiry", async () => {
+    const id = "PINUPD01";
+    const password = "pinnedpass000002";
+    await env.BUCKET.put(`page:${id}`, JSON.stringify({
+      html: "<p>old</p>", password, filename: "old.html",
+      createdAt: new Date().toISOString(), pinned: true,
+    }));
+
+    const res = await SELF.fetch("http://localhost/api/upload", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ html: "<p>new</p>", filename: "new.html", id, password }),
+    });
+    expect(res.status).toBe(200);
+    const data = await res.json<{ expiresAt: string | null }>();
+    expect(data.expiresAt).toBeNull();
+
+    const record = JSON.parse(await (await env.BUCKET.get(`page:${id}`))!.text());
+    expect(record.html).toBe("<p>new</p>");
+    expect(record.pinned).toBe(true);
+  });
+
+  it("ignores a client-supplied pinned flag on create and on update", async () => {
+    const created = await SELF.fetch("http://localhost/api/upload", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ html: "<p>1</p>", filename: "a.html", pinned: true }),
+    });
+    expect(created.status).toBe(200);
+    const c = await created.json<{ id: string; password: string; expiresAt: string | null }>();
+    expect(c.expiresAt).toBeTruthy();
+    let record = JSON.parse(await (await env.BUCKET.get(`page:${c.id}`))!.text());
+    expect(record.pinned).toBeUndefined();
+
+    const updated = await SELF.fetch("http://localhost/api/upload", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        html: "<p>2</p>", filename: "a.html", id: c.id, password: c.password, pinned: true,
+      }),
+    });
+    expect(updated.status).toBe(200);
+    const u = await updated.json<{ expiresAt: string | null }>();
+    expect(u.expiresAt).toBeTruthy();
+    record = JSON.parse(await (await env.BUCKET.get(`page:${c.id}`))!.text());
+    expect(record.pinned).toBeUndefined();
+  });
 });
 
 describe("ID collision handling (deterministic)", () => {

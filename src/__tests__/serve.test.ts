@@ -410,6 +410,37 @@ describe("Missing/expired pages", () => {
     const body = await res.text();
     expect(body).toContain("Password Required");
   });
+
+  it("purges an unpinned record past the 7-day TTL", async () => {
+    const id = "OLD00001";
+    const password = "stalepass0000001";
+    const stale = new Date(Date.now() - 8 * 24 * 60 * 60 * 1000).toISOString();
+    await env.BUCKET.put(`page:${id}`, JSON.stringify({
+      html: "<p>old</p>", password, filename: "old.html", createdAt: stale,
+    }));
+
+    const res = await SELF.fetch(`http://localhost/${id}?p=${password}`, { redirect: "manual" });
+    expect(res.status).toBe(403);
+    expect(await env.BUCKET.get(`page:${id}`)).toBeNull();
+  });
+
+  it("serves a pinned record past the 7-day TTL and keeps it stored", async () => {
+    const id = "PIN00001";
+    const password = "pinnedpass000001";
+    const stale = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+    await env.BUCKET.put(`page:${id}`, JSON.stringify({
+      html: "<h1>Pinned</h1>", password, filename: "pin.html", createdAt: stale,
+      version: "v1", pinned: true,
+    }));
+
+    const bootstrap = await SELF.fetch(`http://localhost/${id}?p=${password}`, { redirect: "manual" });
+    expect(bootstrap.status).toBe(303);
+    const cookie = getCookieFromHeaders(bootstrap.headers);
+    const res = await SELF.fetch(`http://localhost/${id}`, { headers: { Cookie: cookie! } });
+    expect(res.status).toBe(200);
+    expect(await res.text()).toContain("<h1>Pinned</h1>");
+    expect(await env.BUCKET.get(`page:${id}`)).not.toBeNull();
+  });
 });
 
 describe("Homepage", () => {

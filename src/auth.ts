@@ -8,6 +8,9 @@ export interface PageRecord {
   // Random, regenerated on every write so it changes even for two updates in
   // the same millisecond. Optional for records written before this field.
   version?: string;
+  // Operator-set via scripts/pin-page.mjs, never through the upload API. A
+  // pinned record ignores the 7-day TTL; the update path carries it forward.
+  pinned?: boolean;
 }
 
 const TTL_MS = 7 * 24 * 60 * 60 * 1000;
@@ -98,7 +101,7 @@ export async function getPage(
   const obj = await bucket.get(`page:${id}`);
   if (!obj) return null;
   const record: PageRecord = JSON.parse(await obj.text());
-  if (Date.now() - new Date(record.createdAt).getTime() > TTL_MS) {
+  if (!record.pinned && Date.now() - new Date(record.createdAt).getTime() > TTL_MS) {
     await bucket.delete(`page:${id}`);
     return null;
   }

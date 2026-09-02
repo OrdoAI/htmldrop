@@ -116,12 +116,16 @@ export async function handleUpload(
       filename,
       createdAt: new Date().toISOString(), // refresh the 7-day expiry on update
       version: crypto.randomUUID(), // changes on every overwrite for cache + probe
+      // Carry the operator pin forward; the request body can never set it.
+      ...(existing.pinned ? { pinned: true } : {}),
     };
     await env.BUCKET.put(`page:${updateId}`, JSON.stringify(updated));
     // Agent-assisted migration: the document structure changed, so patch the
     // surviving root comments to their remapped quotes (or explicit orphan).
     await applyAnchorRemaps(env.BUCKET, updateId, remap.remaps);
-    const updatedExpiresAt = new Date(Date.now() + TTL_SECONDS * 1000).toISOString();
+    const updatedExpiresAt = existing.pinned
+      ? null
+      : new Date(Date.now() + TTL_SECONDS * 1000).toISOString();
     return Response.json({
       url: `${publicOrigin(request)}/${updateId}?p=${existing.password}`,
       id: updateId,
