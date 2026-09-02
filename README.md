@@ -92,11 +92,28 @@ npm run test:browser-compression
 Preview links include the access password in the query string. Treat the full
 URL as a secret.
 
+Pages and comments are encrypted at rest. The Worker derives a per-page key
+from the link password (HKDF-SHA-256) and stores only a verifier plus
+AES-256-GCM ciphertext in R2, with the page id, creation time, version, and pin
+flag bound as additional data. Holding the bucket credentials therefore does
+not let anyone read a page, learn its password, or silently extend its life:
+a record edited without the key fails to decrypt and the page returns 404.
+Two limits are inherent. Deletion cannot be prevented by encryption, and the
+Worker itself handles the password on every `?p=` request, so this protects
+against bucket access and credential leaks, not against a malicious Worker
+deploy. See `src/envelope.ts`.
+
 Production HTTP requests are redirected to HTTPS. HTTPS responses include HSTS.
-Links expire after seven days. An operator can exempt a single page with
-`node scripts/pin-page.mjs <id>`; a pinned page never expires and keeps its
-pin across in-place updates. `--unpin` restores the seven-day expiry, counted
-from the moment of unpinning.
+Links expire after seven days. An operator who has been given a page's link
+can exempt it with `node scripts/pin-page.mjs "<url>"`; the link is required
+because the pin flag lives inside the ciphertext. A pinned page never expires
+and keeps its pin across in-place updates. `--unpin` restores the seven-day
+expiry, counted from the moment of unpinning.
+
+`scripts/migrate-encrypt.mjs` is the one-shot migration that sealed the
+plaintext records written before this scheme. Run it (dry run by default,
+`--apply` to write) only after the Worker that reads the sealed format is
+deployed.
 
 Do not commit local secrets, `.dev.vars`, generated `dist/` output, or local
 agent state such as `.claude/`.

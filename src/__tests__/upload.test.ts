@@ -1,6 +1,16 @@
 import { describe, it, expect } from "vitest";
 import { env, SELF } from "cloudflare:test";
 import { handleUpload } from "../upload";
+import { type StoredPage, derivePageKey, openPage } from "../envelope";
+
+// Decrypt a stored v2 page the way the Worker does, given the link password.
+async function openStored(id: string, password: string) {
+  const obj = await env.BUCKET.get(`page:${id}`);
+  expect(obj).not.toBeNull();
+  const stored = JSON.parse(await obj!.text()) as StoredPage;
+  const { key } = await derivePageKey(id, password);
+  return { stored, payload: await openPage(key, id, stored) };
+}
 
 describe("POST /api/upload", () => {
   it("accepts valid HTML and returns expected shape", async () => {
@@ -18,7 +28,7 @@ describe("POST /api/upload", () => {
     expect(data.expiresAt).toBeTruthy();
   });
 
-  it("stores correct data in KV", async () => {
+  it("stores the page sealed: no html, filename, or password at rest", async () => {
     const res = await SELF.fetch("http://localhost/api/upload", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -27,11 +37,30 @@ describe("POST /api/upload", () => {
     const data = await res.json<{ id: string; password: string }>();
     const obj = await env.BUCKET.get(`page:${data.id}`);
     expect(obj).not.toBeNull();
-    const record = JSON.parse(await obj!.text());
-    expect(record.html).toBe("<p>stored</p>");
-    expect(record.password).toBe(data.password);
-    expect(record.filename).toBe("doc.html");
+    const text = await obj!.text();
+    expect(text).not.toContain("<p>stored</p>");
+    expect(text).not.toContain("doc.html");
+    expect(text).not.toContain(data.password);
+    const record = JSON.parse(text);
+    expect(record.v).toBe(2);
+    expect(record.password).toBeUndefined();
+    expect(record.html).toBeUndefined();
+    expect(record.verifier).toMatch(/^[0-9a-f]{64}$/);
     expect(record.createdAt).toBeTruthy();
+
+    const { payload } = await openStored(data.id, data.password);
+    expect(payload).toEqual({ html: "<p>stored</p>", filename: "doc.html" });
+  });
+
+  it("a wrong password cannot open the stored page", async () => {
+    const res = await SELF.fetch("http://localhost/api/upload", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ html: "<p>secret</p>", filename: "s.html" }),
+    });
+    const data = await res.json<{ id: string; password: string }>();
+    const { payload } = await openStored(data.id, "wrongpassword000");
+    expect(payload).toBeNull();
   });
 
   it("rejects when html field exceeds 24 MiB", async () => {
@@ -154,10 +183,10 @@ describe("POST /api/upload (update existing)", () => {
     expect(data.password).toBe(password);
     expect(data.url).toContain(`/${id}?p=${password}`);
 
-    const record = JSON.parse(await (await env.BUCKET.get(`page:${id}`))!.text());
-    expect(record.html).toBe("<p>new</p>");
-    expect(record.filename).toBe("new.html");
-    expect(record.password).toBe(password);
+    const { stored, payload } = await openStored(id, password);
+    expect(payload).toEqual({ html: "<p>new</p>", filename: "new.html" });
+    expect(stored.v).toBe(2); // a legacy record is rewritten sealed on update
+    expect(JSON.stringify(stored)).not.toContain(password);
 
     const oldExpires = new Date(oldCreatedAt).getTime() + 7 * 24 * 60 * 60 * 1000;
     expect(new Date(data.expiresAt).getTime()).toBeGreaterThan(oldExpires);
@@ -217,9 +246,9 @@ describe("POST /api/upload (update existing)", () => {
     const data = await res.json<{ expiresAt: string | null }>();
     expect(data.expiresAt).toBeNull();
 
-    const record = JSON.parse(await (await env.BUCKET.get(`page:${id}`))!.text());
-    expect(record.html).toBe("<p>new</p>");
-    expect(record.pinned).toBe(true);
+    const { stored, payload } = await openStored(id, password);
+    expect(payload?.html).toBe("<p>new</p>");
+    expect(stored.pinned).toBe(true);
   });
 
   it("ignores a client-supplied pinned flag on create and on update", async () => {

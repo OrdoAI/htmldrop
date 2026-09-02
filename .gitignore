@@ -6,3 +6,6 @@ artifacts/
 .dev.vars
 worker-configuration.d.ts
 cli/skill-tree.json
+
+# plaintext copies written by scripts/migrate-encrypt.mjs
+migrate-backup/

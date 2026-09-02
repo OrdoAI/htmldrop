@@ -1,9 +1,10 @@
 import {
   getAuthCookie,
-  getPage,
+  getPageMeta,
   mintCommentToken,
   mintCookie,
   mintNoticeToken,
+  openWithKey,
   recordVersion,
   setAuthCookieHeader,
   validateCookie,
@@ -129,7 +130,7 @@ export async function handleServe(
         headers: withTransportSecurity(APP_HEADERS, request),
       });
     }
-    const token = await mintCookie(env.AUTH_SECRET, id);
+    const token = await mintCookie(env.AUTH_SECRET, id, record.key);
     return new Response(null, {
       status: 303,
       headers: withTransportSecurity({
@@ -142,9 +143,11 @@ export async function handleServe(
 
   const cookieValue = getAuthCookie(request, id);
   if (cookieValue) {
-    const valid = await validateCookie(env.AUTH_SECRET, id, cookieValue);
-    if (valid) {
-      const record = await getPage(env.BUCKET, id);
+    const key = await validateCookie(env.AUTH_SECRET, id, cookieValue);
+    if (key) {
+      // The key from the cookie is the credential; a wrong or stale one, or a
+      // record whose metadata was edited behind the Worker, fails to open.
+      const record = await openWithKey(env.BUCKET, id, key);
       if (!record) {
         return new Response(responseBody(request, notFoundPage()), {
           status: 404,
@@ -164,8 +167,8 @@ export async function handleServe(
       if (request.headers.get("If-None-Match") === etag) {
         return new Response(null, { status: 304, headers });
       }
-      const token = await mintNoticeToken(env.AUTH_SECRET, id, record.password);
-      const commentToken = await mintCommentToken(env.AUTH_SECRET, id, record.password);
+      const token = await mintNoticeToken(env.AUTH_SECRET, id, record.verifier);
+      const commentToken = await mintCommentToken(env.AUTH_SECRET, id, record.key);
       const body = injectNotice(
         record.html,
         updateNotice(id, version, token) + commentWidget(id, commentToken),
@@ -196,9 +199,9 @@ export async function handleVersion(
   const token = new URL(request.url).searchParams.get("t");
   let v: string | null = null;
   if (token && env.AUTH_SECRET) {
-    const record = await getPage(env.BUCKET, id);
-    if (record && await verifyNoticeToken(env.AUTH_SECRET, id, record.password, token)) {
-      v = recordVersion(record);
+    const meta = await getPageMeta(env.BUCKET, id);
+    if (meta && await verifyNoticeToken(env.AUTH_SECRET, id, meta.verifier, token)) {
+      v = meta.version;
     }
   }
   return new Response(JSON.stringify({ v }), {
@@ -263,7 +266,7 @@ export async function handleAuthForm(
     });
   }
 
-  const token = await mintCookie(env.AUTH_SECRET, id);
+  const token = await mintCookie(env.AUTH_SECRET, id, record.key);
   return new Response(null, {
     status: 303,
     headers: withTransportSecurity({
