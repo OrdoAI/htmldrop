@@ -94,7 +94,7 @@ async function wrangler(...cmd) {
     } catch (err) {
       lastErr = err;
       const text = `${err.stderr ?? ""}${err.message ?? ""}`;
-      const transient = /fetch failed|connectivity|ECONNRESET|ETIMEDOUT|EAI_AGAIN|50[0-9]|429/.test(text);
+      const transient = /fetch failed|connectivity|ECONNRESET|ETIMEDOUT|EAI_AGAIN|50[0-9]|429|401/.test(text); // 401: wrangler refreshes an expired OAuth token on the next call
       if (!transient || attempt === 4) break;
       await new Promise((r) => setTimeout(r, 1000 * 2 ** attempt));
     }
