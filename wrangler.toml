@@ -9,3 +9,7 @@ bucket_name = "htmldrop-pages"
 [[routes]]
 pattern = "baseurl.ai"
 custom_domain = true
+
+# Daily sweep of expired pages and orphaned comments (src/cleanup.ts).
+[triggers]
+crons = ["17 3 * * *"]
