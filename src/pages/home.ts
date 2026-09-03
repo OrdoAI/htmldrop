@@ -151,14 +151,35 @@ input[type=file]{display:none}
 .copy-btn.copied .lbl::after{content:"Copied"}
 .copy-icon{width:.875rem;height:.875rem;stroke:currentColor;stroke-width:2;fill:none;flex-shrink:0}
 
-/* agents: a prompt to paste */
-.prompt-card{width:100%;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow);padding:1.5rem 1.75rem 1.5rem;text-align:left}
-.prompt-head{display:flex;align-items:center;justify-content:space-between;gap:1rem;margin-bottom:1rem}
-.prompt{font-family:inherit;font-size:1.0625rem;line-height:1.6;color:var(--ink);white-space:pre-wrap;letter-spacing:-.01em}
-.prompt code{font-family:var(--mono);font-size:.875rem;background:var(--surface-2);border:1px solid var(--line);border-radius:6px;padding:.1em .4em;white-space:nowrap}
-.prompt-note{margin-top:1.1rem;padding-top:1rem;border-top:1px solid var(--line);color:var(--ink-3);font-size:.8125rem;line-height:1.5}
-.prompt-note a{color:var(--ink);text-decoration:none;border-bottom:1px solid var(--line-2);transition:border-color var(--t1) var(--ease)}
-.prompt-note a:hover{border-color:var(--ink)}
+/* agents: a message composer addressed to the agent */
+.composer{width:100%;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow);text-align:left;transition:border-color var(--t2) var(--ease),box-shadow var(--t2) var(--ease)}
+.composer:focus-within{border-color:var(--accent);box-shadow:var(--shadow),0 0 0 4px var(--accent-soft)}
+.to{display:flex;align-items:baseline;gap:.6rem;padding:.9rem 1.5rem 0;font-size:.8125rem;color:var(--ink-3)}
+.to b{font-weight:600;color:var(--ink-2)}
+.msg{padding:.75rem 1.5rem 1rem;font-size:1.0625rem;line-height:1.6;letter-spacing:-.01em;color:var(--ink);outline:none;caret-color:var(--accent);min-height:5.75rem}
+.msg .tok{color:var(--accent-ink);border-bottom:1.5px dotted var(--accent);padding-bottom:1px;font-family:var(--mono);font-size:.9375rem;cursor:text}
+.msg .cmd{font-family:var(--mono);font-size:.9375rem;color:var(--ink-2)}
+.msg .opt{color:var(--ink-2)}
+.bar{display:flex;align-items:center;gap:.5rem;padding:.75rem .75rem .75rem 1.25rem;border-top:1px solid var(--line)}
+.chip{display:inline-flex;align-items:center;gap:.45rem;border:1px solid var(--line);background:var(--surface);border-radius:100px;padding:.4rem .85rem .4rem .7rem;font-size:.8125rem;font-weight:550;color:var(--ink-2);cursor:pointer;transition:all var(--t1) var(--ease)}
+.chip svg{width:.875rem;height:.875rem;stroke:currentColor;stroke-width:2;fill:none;stroke-linecap:round;stroke-linejoin:round}
+.chip:hover{border-color:var(--line-2);color:var(--ink)}
+.chip.on{background:var(--accent-soft);border-color:transparent;color:var(--accent-ink)}
+.bar .grow{flex:1}
+.send{width:2.5rem;height:2.5rem;border-radius:50%;border:0;background:var(--ink);color:var(--bg);display:grid;place-items:center;cursor:pointer;transition:background var(--t1) var(--ease),transform var(--t1) var(--ease)}
+.send svg{width:1.05rem;height:1.05rem;stroke:currentColor;stroke-width:2.25;fill:none;stroke-linecap:round;stroke-linejoin:round;grid-area:1/1;transition:opacity var(--t1) var(--ease),transform var(--t1) var(--ease)}
+.send .i-check{opacity:0;transform:scale(.6)}
+.send:hover{background:var(--ink-2)}
+.send:active{transform:scale(.94)}
+.send.copied{background:var(--accent)}
+.send.copied .i-up{opacity:0;transform:scale(.6)}
+.send.copied .i-check{opacity:1;transform:none}
+.send-wrap{position:relative;display:grid}
+.send-tip{position:absolute;right:0;bottom:calc(100% + .5rem);background:var(--ink);color:var(--bg);font-size:.75rem;font-weight:550;padding:.3rem .55rem;border-radius:6px;white-space:nowrap;opacity:0;transform:translateY(4px);pointer-events:none;transition:opacity var(--t1) var(--ease),transform var(--t1) var(--ease)}
+.send.copied+.send-tip{opacity:1;transform:none}
+.composer-note{margin-top:.9rem;font-size:.8125rem;line-height:1.5;color:var(--ink-3);text-align:center;text-wrap:balance}
+.composer-note a{color:var(--ink-2);text-decoration:none;border-bottom:1px solid var(--line-2);transition:border-color var(--t1) var(--ease)}
+.composer-note a:hover{color:var(--ink);border-color:var(--ink)}
 .dim{color:var(--ink-3);user-select:none}
 
 /* footer: what happens to the file */
@@ -182,8 +203,9 @@ input[type=file]{display:none}
   .seg-btn{padding:.45rem .7rem;font-size:.75rem}
   .link-box{grid-template-columns:1fr auto;padding:.6rem .6rem .6rem .8rem}
   .link-box .tag{grid-column:1/-1}
-  .prompt-card{padding:1.25rem 1.1rem}
-  .prompt{font-size:1rem}
+  .to{padding:.8rem 1.1rem 0}
+  .msg{padding:.6rem 1.1rem .9rem;font-size:1rem}
+  .bar{padding:.6rem .6rem .6rem .9rem;flex-wrap:wrap}
   .foot{gap:.35rem 1rem;padding:1.25rem 1rem}
 }
 @media(prefers-reduced-motion:reduce){
@@ -281,14 +303,17 @@ input[type=file]{display:none}
     </div>
 
     <div class="panel" id="panel-agents" role="tabpanel">
-      <section class="prompt-card">
-        <div class="prompt-head">
-          <span class="setting-label">Paste into your agent</span>
-          <button type="button" class="copy-btn" data-copy="Use the HTMLDrop skill to publish ./report.html as a preview and send me the link. If the skill is missing, install it first: npx skills add OrdoAI/htmldrop --skill htmldrop" title="Copy prompt"><svg class="copy-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg><span class="lbl"></span></button>
+      <div class="composer">
+        <div class="to"><b>To</b> your coding agent <span class="dim">&middot; Claude Code, Cursor, Codex</span></div>
+        <div class="msg" id="msg" contenteditable="true" spellcheck="false" role="textbox" aria-multiline="true" aria-label="Prompt for your agent">Use the HTMLDrop skill to publish <span class="tok">./report.html</span> and send me the link.<span class="opt" id="optPub"></span><span class="opt" id="optDays"></span> If the skill is missing, install it first: <span class="cmd">npx -y skills add OrdoAI/htmldrop --skill htmldrop -g -y</span></div>
+        <div class="bar">
+          <button type="button" class="chip" data-opt="pub" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></svg>Public</button>
+          <button type="button" class="chip" data-opt="days" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>30 days</button>
+          <span class="grow"></span>
+          <span class="send-wrap"><button type="button" class="send" id="sendBtn" title="Copy the message" aria-label="Copy the message"><svg class="i-up" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19V5"/><path d="M6 11l6-6 6 6"/></svg><svg class="i-check" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12l5 5L20 7"/></svg></button><span class="send-tip" aria-hidden="true">Copied</span></span>
         </div>
-        <p class="prompt">Use the HTMLDrop skill to publish <code>./report.html</code> as a preview and send me the link. If the skill is missing, install it first: <code>npx skills add OrdoAI/htmldrop --skill htmldrop</code></p>
-        <p class="prompt-note">Say &ldquo;make it public&rdquo; or &ldquo;keep it for 30 days&rdquo; when you need that; the skill knows the flags. <a href="https://github.com/OrdoAI/htmldrop/blob/main/skills/htmldrop/SKILL.md">Skill reference</a></p>
-      </section>
+      </div>
+      <p class="composer-note">Change the file name, toggle what you need, copy, paste. The skill turns the sentences into flags. <a href="https://github.com/OrdoAI/htmldrop/blob/main/skills/htmldrop/SKILL.md">Skill reference</a></p>
     </div>
   </div>
 </main>
@@ -473,6 +498,10 @@ input[type=file]{display:none}
   function segInit(id,attr,onPick){var seg=document.getElementById(id);seg.addEventListener('click',function(e){var b=e.target.closest('.seg-btn');if(!b)return;e.stopPropagation();if(b.classList.contains('on'))return;seg.querySelectorAll('.seg-btn').forEach(function(x){x.classList.remove('on');x.setAttribute('aria-pressed','false');});b.classList.add('on');b.setAttribute('aria-pressed','true');placeThumb(seg);onPick(b.dataset[attr]);});}
   segInit('segAccess','public',function(v){opts.public=v==='true';renderHint();});
   segInit('segExpires','days',function(v){opts.days=Number(v)||7;});
+
+  var msg=document.getElementById('msg'),sendBtn=document.getElementById('sendBtn');
+  document.querySelectorAll('.chip[data-opt]').forEach(function(c){c.addEventListener('click',function(){var on=!c.classList.contains('on');c.classList.toggle('on',on);c.setAttribute('aria-pressed',String(on));var slot=document.getElementById(c.dataset.opt==='pub'?'optPub':'optDays');slot.textContent=on?(c.dataset.opt==='pub'?' Make it public.':' Keep it for 30 days.'):'';});});
+  sendBtn.addEventListener('click',function(){var t=msg.innerText.replace(/\s+/g,' ').trim();if(!t||!navigator.clipboard)return;navigator.clipboard.writeText(t).then(function(){flash(sendBtn);});});
 
   var ecb=document.getElementById('editCopyBtn');
   ecb.addEventListener('click',function(){var v=document.getElementById('editInput').value;if(v&&navigator.clipboard)navigator.clipboard.writeText(v).then(function(){flash(ecb);});});
