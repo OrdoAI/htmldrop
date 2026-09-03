@@ -120,6 +120,22 @@ deployed.
 Do not commit local secrets, `.dev.vars`, generated `dist/` output, or local
 agent state such as `.claude/`.
 
+## Verifying the deployed code
+
+`GET https://baseurl.ai/version` reports the commit the running Worker was
+built from and the GitHub Actions run that deployed it:
+
+```json
+{"commit":"<sha>","ref":"main","source":"https://github.com/OrdoAI/htmldrop/commit/<sha>","deploy":"https://github.com/OrdoAI/htmldrop/actions/runs/<id>","ci":true}
+```
+
+Check that `commit` is on `main` in this repository and that the linked run
+deployed that commit. A deploy made outside the workflow (for example
+`wrangler deploy` from a laptop) has no build metadata and reports
+`"ci": false`. The values are self-reported by the Worker, so this audits an
+honest deploy and exposes a casual out-of-band one; it is not proof against an
+operator who deliberately forges them.
+
 ## Deployment
 
 Pushes to `main` run the Deploy workflow:
