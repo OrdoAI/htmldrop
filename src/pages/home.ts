@@ -47,9 +47,9 @@ button{font:inherit;color:inherit}
 
 /* hero */
 main{width:100%;max-width:46rem;margin:0 auto;padding:clamp(1.5rem,5vh,3.5rem) 1.5rem 4rem;display:flex;flex-direction:column;align-items:center}
-.hero{font-size:clamp(1.9rem,1.2rem+2.8vw,2.9rem);line-height:1.04;letter-spacing:-.035em;font-weight:600;text-align:center;text-wrap:balance;max-width:18ch}
-.hero em{font-style:normal;color:var(--ink-3)}
-.promise{margin-top:.9rem;color:var(--ink-2);font-size:1rem;line-height:1.5;text-align:center;text-wrap:balance;max-width:34rem}
+.hero{font-size:clamp(1.85rem,1.2rem+2.6vw,2.75rem);line-height:1.08;letter-spacing:-.035em;font-weight:600;text-align:center}
+.hero em{display:block;font-style:normal;color:var(--ink-3)}
+.promise{margin-top:.85rem;color:var(--ink-2);font-size:.9375rem;line-height:1.5;text-align:center;text-wrap:balance;max-width:26rem}
 
 /* shared sliding-thumb control (tabs + segmented) */
 .thumbed{position:relative;display:inline-flex;padding:3px;border-radius:100px;background:var(--track);isolation:isolate}
@@ -69,22 +69,23 @@ main{width:100%;max-width:46rem;margin:0 auto;padding:clamp(1.5rem,5vh,3.5rem) 1
 
 /* drop card */
 .drop-zone{width:100%;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow);overflow:hidden;transition:border-color var(--t2) var(--ease),opacity var(--t2) var(--ease)}
-.field{margin:.5rem;padding:2.75rem 1.5rem 2.25rem;border:1.5px dashed var(--line-2);border-radius:calc(var(--r) - .5rem);text-align:center;cursor:pointer;background-color:transparent;background-image:radial-gradient(var(--dot) 1px,transparent 1.5px);background-size:16px 16px;background-position:center;transition:border-color var(--t2) var(--ease),background-color var(--t2) var(--ease)}
+.field{position:relative;padding:3.25rem 1.5rem 2.75rem;text-align:center;cursor:pointer;transition:background-color var(--t2) var(--ease)}
+.field::before{content:"";position:absolute;inset:.5rem;border:1.5px dashed var(--accent);border-radius:calc(var(--r) - .5rem);opacity:0;transform:scale(.985);pointer-events:none;transition:opacity var(--t2) var(--ease),transform var(--t2) var(--ease)}
 .doc{width:2.75rem;height:auto;margin-bottom:1rem;stroke:var(--ink-3);stroke-width:1.5;fill:var(--surface);stroke-linecap:round;stroke-linejoin:round;transition:transform var(--t2) var(--ease),stroke var(--t2) var(--ease)}
 .dz-title{display:grid;font-size:1.25rem;font-weight:600;letter-spacing:-.02em;line-height:1.3}
 .dz-title span{grid-area:1/1;transition:opacity var(--t2) var(--ease),transform var(--t2) var(--ease)}
 .dz-title .t-over{opacity:0;transform:translateY(6px);color:var(--accent-ink)}
 .field p{color:var(--ink-3);font-size:.9rem;margin-top:.5rem;line-height:1.45;text-wrap:balance}
-body.dragging .drop-zone{border-color:var(--accent)}
-body.dragging .field{border-color:var(--accent)}
+body.dragging .field::before{opacity:.45;transform:none}
 .drop-zone.over{border-color:var(--accent)}
 .drop-zone.over>*{pointer-events:none}
-.drop-zone.over .field{--dot:var(--accent);border-color:var(--accent);background-color:var(--accent-soft)}
+.drop-zone.over .field{background-color:var(--accent-soft)}
+.drop-zone.over .field::before{opacity:1;transform:none}
 .drop-zone.over .doc{transform:translateY(-4px) rotate(-4deg);stroke:var(--accent)}
 .drop-zone.over .dz-title .t-idle{opacity:0;transform:translateY(-6px)}
 .drop-zone.over .dz-title .t-over{opacity:1;transform:none}
 .drop-zone.error{border-color:var(--err)}
-.drop-zone.error .field{border-color:var(--err);background-color:var(--err-soft);animation:nudge var(--t3) var(--ease)}
+.drop-zone.error .field{background-color:var(--err-soft);animation:nudge var(--t3) var(--ease)}
 .drop-zone.busy{pointer-events:none;opacity:.55}
 @keyframes nudge{20%{transform:translateX(-4px)}45%{transform:translateX(4px)}70%{transform:translateX(-2px)}}
 .pick-btns{display:flex;gap:.625rem;justify-content:center;margin-top:1.5rem;flex-wrap:wrap}
@@ -150,29 +151,15 @@ input[type=file]{display:none}
 .copy-btn.copied .lbl::after{content:"Copied"}
 .copy-icon{width:.875rem;height:.875rem;stroke:currentColor;stroke-width:2;fill:none;flex-shrink:0}
 
-/* agents: developer surface */
-.dev{width:100%;min-width:0;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow);overflow:hidden;list-style:none}
-.step{padding:1.25rem 1.5rem;display:grid;grid-template-columns:1.5rem minmax(0,1fr);column-gap:.9rem;row-gap:.6rem}
-.step+.step{border-top:1px solid var(--line)}
-.step .n{width:1.5rem;height:1.5rem;border-radius:50%;background:var(--ink);color:var(--bg);font-size:.75rem;font-weight:600;display:grid;place-items:center}
-.step h2{font-size:.9375rem;font-weight:600;letter-spacing:-.01em;align-self:center}
-.step>*:not(.n):not(h2){grid-column:2}
-.step p{color:var(--ink-2);font-size:.8125rem;line-height:1.5}
-.step p code{font-family:var(--mono);font-size:.75rem;background:var(--surface-2);border:1px solid var(--line);border-radius:4px;padding:.05em .3em}
-.step p a{color:var(--ink);text-decoration:none;border-bottom:1px solid var(--line-2);transition:border-color var(--t1) var(--ease)}
-.step p a:hover{border-color:var(--ink)}
-.cmds{display:flex;flex-direction:column;gap:.5rem;min-width:0}
-.cmd{display:flex;align-items:center;gap:.6rem;width:100%;text-align:left;background:var(--surface-2);border:1px solid var(--line);border-radius:10px;padding:.7rem .8rem;font-family:var(--mono);font-size:.8125rem;color:var(--ink);cursor:pointer;transition:border-color var(--t1) var(--ease),background var(--t1) var(--ease),transform var(--t1) var(--ease)}
-.cmd:hover{border-color:var(--line-2)}
-.cmd:active{transform:scale(.995)}
-.cmd.copied{border-color:var(--accent);background:var(--accent-soft)}
-.cmd code{flex:1;min-width:0;overflow-x:auto;white-space:nowrap;scrollbar-width:none;font-family:inherit}
-.cmd .k{color:var(--accent-ink)}
-.cmd .copy-icon{color:var(--ink-3);transition:color var(--t1) var(--ease)}
-.cmd:hover .copy-icon,.cmd.copied .copy-icon{color:var(--accent-ink)}
+/* agents: a prompt to paste */
+.prompt-card{width:100%;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow);padding:1.5rem 1.75rem 1.5rem;text-align:left}
+.prompt-head{display:flex;align-items:center;justify-content:space-between;gap:1rem;margin-bottom:1rem}
+.prompt{font-family:inherit;font-size:1.0625rem;line-height:1.6;color:var(--ink);white-space:pre-wrap;letter-spacing:-.01em}
+.prompt code{font-family:var(--mono);font-size:.875rem;background:var(--surface-2);border:1px solid var(--line);border-radius:6px;padding:.1em .4em;white-space:nowrap}
+.prompt-note{margin-top:1.1rem;padding-top:1rem;border-top:1px solid var(--line);color:var(--ink-3);font-size:.8125rem;line-height:1.5}
+.prompt-note a{color:var(--ink);text-decoration:none;border-bottom:1px solid var(--line-2);transition:border-color var(--t1) var(--ease)}
+.prompt-note a:hover{border-color:var(--ink)}
 .dim{color:var(--ink-3);user-select:none}
-.code{background:var(--surface-2);border:1px solid var(--line);border-radius:10px;padding:.7rem .85rem;font-family:var(--mono);font-size:.8125rem;line-height:1.7;color:var(--ink);overflow-x:auto;white-space:pre}
-.code .c{color:var(--ink-3)}
 
 /* footer: what happens to the file */
 .foot{padding:1.5rem;display:flex;flex-wrap:wrap;justify-content:center;gap:.5rem 1.5rem;color:var(--ink-3);font-size:.75rem;line-height:1.5}
@@ -184,7 +171,8 @@ input[type=file]{display:none}
   .top{padding:1rem}
   main{padding:1.25rem 1rem 3rem}
   .switch{margin:1.5rem 0 1.1rem}
-  .field{margin:.4rem;padding:2rem 1rem 1.6rem}
+  .field{padding:2.25rem 1rem 2rem}
+  .field::before{inset:.4rem}
   .dz-title{font-size:1.0625rem}
   .field p{font-size:.8125rem}
   .tray{padding:1rem}
@@ -194,8 +182,8 @@ input[type=file]{display:none}
   .seg-btn{padding:.45rem .7rem;font-size:.75rem}
   .link-box{grid-template-columns:1fr auto;padding:.6rem .6rem .6rem .8rem}
   .link-box .tag{grid-column:1/-1}
-  .step{padding:1rem;grid-template-columns:1.375rem minmax(0,1fr);column-gap:.7rem}
-  .cmd,.code{font-size:.75rem}
+  .prompt-card{padding:1.25rem 1.1rem}
+  .prompt{font-size:1rem}
   .foot{gap:.35rem 1rem;padding:1.25rem 1rem}
 }
 @media(prefers-reduced-motion:reduce){
@@ -214,7 +202,7 @@ input[type=file]{display:none}
 
 <main>
   <h1 class="hero">Drop a file. <em>Get a link that expires.</em></h1>
-  <p class="promise">HTML or Markdown, local images inlined, encrypted at rest. Private by default, gone after 7 to 30 days.</p>
+  <p class="promise">HTML or Markdown in, a private link out. Encrypted at rest, gone in 7 to 30 days.</p>
 
   <div class="switch thumbed" id="tabs" role="tablist" aria-label="Audience">
     <span class="thumb" aria-hidden="true"></span>
@@ -293,34 +281,14 @@ input[type=file]{display:none}
     </div>
 
     <div class="panel" id="panel-agents" role="tabpanel">
-      <ol class="dev">
-        <li class="step">
-          <span class="n">1</span>
-          <h2>Install the skill</h2>
-          <button type="button" class="cmd" data-copy="npx skills add OrdoAI/htmldrop --skill htmldrop" title="Copy install command" aria-label="Copy install command: npx skills add OrdoAI/htmldrop --skill htmldrop">
-            <span class="dim">$</span><code>npx skills add OrdoAI/htmldrop --skill htmldrop</code>
-            <svg class="copy-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
-          </button>
-          <p>Teaches your coding agent when and how to publish a preview. No account, no key. <a href="https://github.com/OrdoAI/htmldrop/blob/main/skills/htmldrop/SKILL.md">Skill reference</a></p>
-        </li>
-        <li class="step">
-          <span class="n">2</span>
-          <h2>Or call the CLI directly</h2>
-          <div class="cmds">
-            <button type="button" class="cmd" data-copy="npx -y htmldrop-cli ./report.html" aria-label="Copy: private upload"><span class="dim">$</span><code>npx -y htmldrop-cli ./report.html</code><svg class="copy-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></button>
-            <button type="button" class="cmd" data-copy="npx -y htmldrop-cli --public --expires 30 ./notes.md" aria-label="Copy: public upload, 30 days"><span class="dim">$</span><code>npx -y htmldrop-cli <span class="k">--public --expires 30</span> ./notes.md</code><svg class="copy-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></button>
-            <button type="button" class="cmd" data-copy="npx -y htmldrop-cli update &quot;https://baseurl.ai/&lt;id&gt;?p=&lt;password&gt;&quot; ./report.html" aria-label="Copy: update an existing preview"><span class="dim">$</span><code>npx -y htmldrop-cli <span class="k">update</span> &lt;url&gt; ./report.html</code><svg class="copy-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></button>
-          </div>
-          <p>Relative images, CSS and JS are inlined before upload. <code>update</code> overwrites in place and keeps the URL.</p>
-        </li>
-        <li class="step">
-          <span class="n">3</span>
-          <h2>What comes back</h2>
-          <pre class="code">https://baseurl.ai/k3Qx9mZa?p=&hellip;   <span class="c"># line 1: the link to hand out</span>
-<span class="c">  id: k3Qx9mZa | expires: 2026-09-10</span></pre>
-          <p>Public uploads print a second line: the edit link. Treat every link as a secret; the password rides in it.</p>
-        </li>
-      </ol>
+      <section class="prompt-card">
+        <div class="prompt-head">
+          <span class="setting-label">Paste into your agent</span>
+          <button type="button" class="copy-btn" data-copy="Use the HTMLDrop skill to publish ./report.html as a preview and send me the link. If the skill is missing, install it first: npx skills add OrdoAI/htmldrop --skill htmldrop" title="Copy prompt"><svg class="copy-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg><span class="lbl"></span></button>
+        </div>
+        <p class="prompt">Use the HTMLDrop skill to publish <code>./report.html</code> as a preview and send me the link. If the skill is missing, install it first: <code>npx skills add OrdoAI/htmldrop --skill htmldrop</code></p>
+        <p class="prompt-note">Say &ldquo;make it public&rdquo; or &ldquo;keep it for 30 days&rdquo; when you need that; the skill knows the flags. <a href="https://github.com/OrdoAI/htmldrop/blob/main/skills/htmldrop/SKILL.md">Skill reference</a></p>
+      </section>
     </div>
   </div>
 </main>
