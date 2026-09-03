@@ -2,6 +2,7 @@ import { handleUpload } from "./upload";
 import { handleServe, handleAuthForm, handleVersion } from "./serve";
 import { handleComments, handleCommentMutate } from "./comments";
 import { purgeExpired } from "./cleanup";
+import { handleVersionInfo } from "./version";
 import { homePage } from "./pages/home";
 import { notFoundPage } from "./pages/notfound";
 import {
@@ -13,6 +14,10 @@ import {
 interface Env {
   BUCKET: R2Bucket;
   AUTH_SECRET: string;
+  // Set by the deploy workflow via `wrangler deploy --var`; absent otherwise.
+  GIT_SHA?: string;
+  GIT_REF?: string;
+  BUILD_RUN?: string;
 }
 
 const APP_HEADERS: HeadersInit = {
@@ -44,6 +49,11 @@ export default {
         302,
       );
       return applyTransportSecurity(response, request);
+    }
+
+    // Reserved before the /:id match: which commit is running (see version.ts).
+    if (path === "/version") {
+      return handleVersionInfo(request, env);
     }
 
     if (path === "/api/upload") {

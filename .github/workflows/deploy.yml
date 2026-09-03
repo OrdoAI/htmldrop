@@ -24,7 +24,14 @@ jobs:
 
       - run: npm run test:cli
 
-      - run: npx wrangler deploy
+      # Build metadata for GET /version. Values must not contain ":" (wrangler
+      # splits --var on the first one), so only the run id is passed and the
+      # Worker builds the URL.
+      - run: >-
+          npx wrangler deploy
+          --var GIT_SHA:${{ github.sha }}
+          --var GIT_REF:${{ github.ref_name }}
+          --var BUILD_RUN:${{ github.run_id }}
         env:
           CLOUDFLARE_API_KEY: ${{ secrets.CLOUDFLARE_API_KEY }}
           CLOUDFLARE_EMAIL: ${{ secrets.CLOUDFLARE_EMAIL }}

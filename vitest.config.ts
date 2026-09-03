@@ -9,6 +9,9 @@ export default defineConfig({
         r2Buckets: ["BUCKET"],
         bindings: {
           AUTH_SECRET: "test-secret-for-hmac-signing",
+          GIT_SHA: "0123456789abcdef0123456789abcdef01234567",
+          GIT_REF: "main",
+          BUILD_RUN: "424242",
         },
       },
     }),
