@@ -103,8 +103,9 @@ input[type=file]{display:none}
 .note .t{font-size:1.25rem;line-height:1.75;color:var(--ink)}
 .note .blank{display:inline-block;min-width:8ch;border-bottom:1px solid var(--ink);padding:0 .3em;outline:none;text-align:center;color:var(--accent);font-family:var(--mono);font-size:.95rem;line-height:1.2;cursor:text}
 .note .blank:focus{border-bottom-color:var(--accent)}
-.note .dim{color:var(--ink)}
-.note .dim code{font-family:var(--mono);font-size:.9rem;color:var(--ink)}
+.note .blank:empty::before{content:attr(data-ph);color:var(--ink-4);font-family:var(--serif);font-style:italic;font-size:1rem}
+.note .dim{color:var(--ink-3)}
+.note .dim code{font-family:var(--mono);font-size:.9rem;color:var(--ink-3)}
 .note .foot{margin-top:1.25rem;padding-top:1rem;border-top:1px dashed var(--rule-2);display:flex;align-items:center;justify-content:space-between;gap:.75rem 1.25rem;flex-wrap:wrap}
 .note .foot .btn{margin-left:auto}
 .note-sub{margin-top:.9rem;text-align:center;font-style:italic;color:var(--ink-3);font-size:.9375rem;text-wrap:balance}
@@ -202,7 +203,7 @@ input[type=file]{display:none}
 
     <div class="panel" id="panel-agents" role="tabpanel">
       <div class="note">
-        <p class="t">Use the HTMLDrop skill to publish <span class="blank" id="agFile" contenteditable="true" spellcheck="false" role="textbox" aria-label="File to publish">./report.html</span> and send me the link.<span id="agOpts"></span><br><span class="dim">If the skill is missing, install it first: <code>npx -y skills add OrdoAI/htmldrop --skill htmldrop -g -y</code></span></p>
+        <p class="t">Use the HTMLDrop skill to publish <span class="blank" id="agFile" contenteditable="true" spellcheck="false" role="textbox" aria-label="File to publish" data-ph="which file"></span> and send me the link.<span id="agOpts"></span><br><span class="dim">If the skill is missing, install it first: <code>npx -y skills add OrdoAI/htmldrop --skill htmldrop -g -y</code></span></p>
         <div class="foot">
           <div class="grp"><span class="eyebrow">Access</span><button type="button" class="sw" id="agPublic" aria-pressed="false"><i aria-hidden="true"></i>Public</button></div>
           <div class="grp"><span class="eyebrow">Expires</span><span class="pick" id="agDays" role="radiogroup" aria-label="Expires in"><button type="button" class="on" data-days="7" aria-pressed="true">7</button><span class="sep">&middot;</span><button type="button" data-days="14" aria-pressed="false">14</button><span class="sep">&middot;</span><button type="button" data-days="30" aria-pressed="false">30</button><span class="unit">days</span></span></div>
@@ -398,11 +399,11 @@ input[type=file]{display:none}
 
   // For agents: the note is the prompt; the controls edit its sentences.
   var INSTALL='npx -y skills add OrdoAI/htmldrop --skill htmldrop -g -y';
-  var ag={file:'./report.html',pub:false,days:7};
+  var ag={file:'',pub:false,days:7};
   var agFile=document.getElementById('agFile'),agOpts=document.getElementById('agOpts'),agCopy=document.getElementById('agCopy');
   function agSentences(){return (ag.pub?' Make it public.':'')+(ag.days!==7?' Keep it for '+ag.days+' days.':'');}
-  function agText(){return 'Use the HTMLDrop skill to publish '+ag.file+' and send me the link.'+agSentences()+' If the skill is missing, install it first: '+INSTALL;}
-  agFile.addEventListener('input',function(){ag.file=agFile.textContent.replace(/\s+/g,' ').trim()||'./report.html';});
+  function agText(){return 'Use the HTMLDrop skill to publish '+(ag.file||'the file we are working on')+' and send me the link.'+agSentences()+' If the skill is missing, install it first: '+INSTALL;}
+  agFile.addEventListener('input',function(){ag.file=agFile.textContent.replace(/\s+/g,' ').trim();if(!agFile.textContent.trim())agFile.textContent='';});
   agFile.addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();agFile.blur();}});
   switchInit('agPublic',function(on){ag.pub=on;agOpts.textContent=agSentences();});
   pickInit('agDays',function(d){ag.days=d;agOpts.textContent=agSentences();});
