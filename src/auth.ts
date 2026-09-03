@@ -9,6 +9,7 @@ import {
   isStoredPage,
   legacyMeta,
   openPage,
+  publicKeyOf,
   stringsEqual,
   unwrapKey,
   wrapKey,
@@ -23,6 +24,8 @@ export interface PageRecord {
   createdAt: string;
   version: string;
   pinned?: boolean;
+  ttlDays?: number;
+  public: boolean;
   key: Uint8Array;
   verifier: string;
 }
@@ -35,10 +38,21 @@ export interface PageMetaOnly {
   pinned?: boolean;
 }
 
-const TTL_MS = 7 * 24 * 60 * 60 * 1000;
+export const DEFAULT_TTL_DAYS = 7;
+export const MAX_TTL_DAYS = 30;
+const DAY_MS = 24 * 60 * 60 * 1000;
 
-export function isExpired(createdAt: string, pinned: boolean | undefined, now: number = Date.now()): boolean {
-  return !pinned && now - new Date(createdAt).getTime() > TTL_MS;
+export function expiresAtOf(createdAt: string, ttlDays: number | undefined): string {
+  return new Date(new Date(createdAt).getTime() + (ttlDays ?? DEFAULT_TTL_DAYS) * DAY_MS).toISOString();
+}
+
+export function isExpired(
+  createdAt: string,
+  ttlDays: number | undefined,
+  pinned: boolean | undefined,
+  now: number = Date.now(),
+): boolean {
+  return !pinned && now > new Date(expiresAtOf(createdAt, ttlDays)).getTime();
 }
 
 // Wrapping namespaces. Bound into the ciphertext so a cookie never works as a
@@ -68,7 +82,8 @@ async function loadStored(
     return null;
   }
   if (!isStoredPage(parsed) && !isLegacyPage(parsed)) return null;
-  if (isExpired(parsed.createdAt, parsed.pinned)) {
+  const ttlDays = isStoredPage(parsed) ? parsed.ttlDays : undefined;
+  if (isExpired(parsed.createdAt, ttlDays, parsed.pinned)) {
     await bucket.delete(`page:${id}`);
     return null;
   }
@@ -87,6 +102,8 @@ async function openStored(
     createdAt: stored.createdAt,
     version: stored.version,
     ...(stored.pinned ? { pinned: true } : {}),
+    ...(stored.ttlDays !== undefined ? { ttlDays: stored.ttlDays } : {}),
+    public: stored.open !== undefined,
     key,
     verifier: stored.verifier,
   };
@@ -100,6 +117,7 @@ function fromLegacy(id: string, legacy: LegacyPage, pageKey: PageKey): PageRecor
     createdAt: meta.createdAt,
     version: meta.version,
     ...(meta.pinned ? { pinned: true } : {}),
+    public: false,
     key: pageKey.key,
     verifier: pageKey.verifier,
   };
@@ -158,6 +176,15 @@ export async function openWithKey(
   const pageKey = await derivePageKey(id, stored.password);
   if (!bytesEqual(pageKey.key, key)) return null;
   return fromLegacy(id, stored, pageKey);
+}
+
+// A public page opens with the key stored beside it; no credential needed.
+export async function openPublic(bucket: R2Bucket, id: string): Promise<PageRecord | null> {
+  const stored = await loadStored(bucket, id);
+  if (!stored || !isStoredPage(stored)) return null;
+  const key = publicKeyOf(stored);
+  if (!key) return null;
+  return openStored(id, stored, key);
 }
 
 export async function mintNoticeToken(

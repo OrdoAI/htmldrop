@@ -1,5 +1,5 @@
 import { generateId as defaultGenerateId, generatePassword, utf8ByteLength } from "./utils";
-import { verifyPassword } from "./auth";
+import { MAX_TTL_DAYS, expiresAtOf, verifyPassword } from "./auth";
 import { derivePageKey, sealPage } from "./envelope";
 import { applyAnchorRemaps, resealLegacyComments, validateAnchorRemaps } from "./comments";
 import { publicOrigin, withTransportSecurity } from "./security";
@@ -7,7 +7,6 @@ import { publicOrigin, withTransportSecurity } from "./security";
 const MAX_HTML_BYTES = 24 * 1024 * 1024; // 24 MiB content limit
 const MAX_BODY_BYTES = 25 * 1024 * 1024; // 25 MiB body guard
 const MAX_RETRIES = 3;
-const TTL_SECONDS = 604800; // 7 days
 
 interface Env {
   BUCKET: R2Bucket;
@@ -21,6 +20,22 @@ interface UploadBody {
   password?: unknown;
   // Optional agent-assisted anchor migration on the update path.
   commentAnchors?: unknown;
+  // Visibility and lifetime. Both default to private / 7 days on create and
+  // to the stored values on update.
+  public?: unknown;
+  expiresInDays?: unknown;
+}
+
+function readPublic(v: unknown): boolean | undefined | "invalid" {
+  if (v === undefined) return undefined;
+  return typeof v === "boolean" ? v : "invalid";
+}
+
+function readTtl(v: unknown): number | undefined | "invalid" {
+  if (v === undefined) return undefined;
+  return Number.isInteger(v) && (v as number) >= 1 && (v as number) <= MAX_TTL_DAYS
+    ? (v as number)
+    : "invalid";
 }
 
 export interface UploadDeps {
@@ -81,6 +96,19 @@ export async function handleUpload(
     return textResponse("Missing or invalid 'filename' field", { status: 400 }, request);
   }
 
+  const wantPublic = readPublic(body.public);
+  if (wantPublic === "invalid") {
+    return textResponse("'public' must be a boolean", { status: 400 }, request);
+  }
+  const wantTtl = readTtl(body.expiresInDays);
+  if (wantTtl === "invalid") {
+    return textResponse(
+      `'expiresInDays' must be an integer from 1 to ${MAX_TTL_DAYS}`,
+      { status: 400 },
+      request,
+    );
+  }
+
   const htmlByteLength = utf8ByteLength(html);
   if (htmlByteLength > MAX_HTML_BYTES) {
     return textResponse(
@@ -113,13 +141,19 @@ export async function handleUpload(
     }
     // Same password, so the same key re-seals the new content. The pin is
     // carried forward from the stored record; the request body can never set it.
+    // Visibility and lifetime keep their stored values unless the body says so.
+    const isPublic = wantPublic ?? existing.public;
+    const ttlDays = wantTtl ?? existing.ttlDays;
+    const createdAt = new Date().toISOString(); // the expiry window restarts on update
     const updated = await sealPage(
       { key: existing.key, verifier: existing.verifier },
       {
         id: updateId,
-        createdAt: new Date().toISOString(), // refresh the 7-day expiry on update
+        createdAt,
         version: crypto.randomUUID(), // changes on every overwrite for cache + probe
         ...(existing.pinned ? { pinned: true } : {}),
+        ...(ttlDays !== undefined ? { ttlDays } : {}),
+        ...(isPublic ? { public: true } : {}),
       },
       { html, filename },
     );
@@ -128,14 +162,13 @@ export async function handleUpload(
     // surviving root comments to their remapped quotes (or explicit orphan).
     await applyAnchorRemaps(env.BUCKET, updateId, existing.key, remap.remaps);
     await resealLegacyComments(env.BUCKET, updateId, existing.key);
-    const updatedExpiresAt = existing.pinned
-      ? null
-      : new Date(Date.now() + TTL_SECONDS * 1000).toISOString();
     return Response.json({
       url: `${publicOrigin(request)}/${updateId}?p=${updatePassword}`,
       id: updateId,
       password: updatePassword,
-      expiresAt: updatedExpiresAt,
+      expiresAt: existing.pinned ? null : expiresAtOf(createdAt, ttlDays),
+      public: isPublic,
+      ...(isPublic ? { publicUrl: `${publicOrigin(request)}/${updateId}` } : {}),
     }, {
       headers: withTransportSecurity({}, request),
     });
@@ -157,21 +190,29 @@ export async function handleUpload(
     return textResponse("Failed to generate unique ID, try again", { status: 503 }, request);
   }
 
+  const createdAt = new Date().toISOString();
+  const isPublic = wantPublic === true;
   const record = await sealPage(
     await derivePageKey(id, password),
-    { id, createdAt: new Date().toISOString(), version: crypto.randomUUID() },
+    {
+      id,
+      createdAt,
+      version: crypto.randomUUID(),
+      ...(wantTtl !== undefined ? { ttlDays: wantTtl } : {}),
+      ...(isPublic ? { public: true } : {}),
+    },
     { html, filename },
   );
 
   await env.BUCKET.put(`page:${id}`, JSON.stringify(record));
 
-  const expiresAt = new Date(Date.now() + TTL_SECONDS * 1000).toISOString();
-
   return Response.json({
     url: `${publicOrigin(request)}/${id}?p=${password}`,
     id,
     password,
-    expiresAt,
+    expiresAt: expiresAtOf(createdAt, wantTtl),
+    public: isPublic,
+    ...(isPublic ? { publicUrl: `${publicOrigin(request)}/${id}` } : {}),
   }, {
     headers: withTransportSecurity({}, request),
   });

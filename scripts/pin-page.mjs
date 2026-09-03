@@ -1,15 +1,19 @@
 #!/usr/bin/env node
-// Pin, unpin, or renew one HTMLDrop page in the production R2 bucket.
+// Operator changes to one HTMLDrop page's metadata, given its edit link.
 //
-//   node scripts/pin-page.mjs "https://baseurl.ai/<id>?p=<password>"          # never expire
-//   node scripts/pin-page.mjs "https://baseurl.ai/<id>?p=<password>" --unpin  # back to the 7-day TTL
+//   node scripts/pin-page.mjs "https://baseurl.ai/<id>?p=<password>" --pin        # never expire
+//   ... --unpin                                                                   # back to the expiry window
+//   ... --renew                                                                   # restart the expiry window
+//   ... --public | --private                                                      # bare-URL readable or not
+//   ... --expires <days>                                                          # window length, 1-30
+//   flags combine; add --local to act on wrangler's local store (testing)
 //
 // Needs the full link. Pages are sealed under a key derived from the password
-// and the pin flag is bound into that ciphertext, so bucket access alone can
-// neither read a page nor change its expiry; the owner has to hand over the
-// link. Both directions reset createdAt to now (an unpinned page gets a full
-// window instead of dying at the next read); `version` is left alone so open
-// previews see no stale notice.
+// and the metadata is bound into that ciphertext, so bucket access alone can
+// neither read a private page nor change its expiry; the owner has to hand
+// over the link. --pin and --unpin also restart the window (an unpinned page
+// gets a full one instead of dying at the next read). `version` is left alone
+// so open previews see no stale notice.
 //
 // Requires a logged-in wrangler and Node 22.18+ (imports src/envelope.ts under
 // native type stripping).
@@ -21,17 +25,34 @@ import { join } from "node:path";
 import { isLegacyPage, isStoredPage, resealPage } from "../src/envelope.ts";
 
 const args = process.argv.slice(2);
-const unpin = args.includes("--unpin");
+const has = (flag) => args.includes(flag);
 const target = args.includes("--local") ? "--local" : "--remote"; // --local: wrangler's local bucket, for testing
 const bucketIdx = args.indexOf("--bucket");
 const bucket = bucketIdx >= 0 ? args[bucketIdx + 1] : "htmldrop-pages";
-const link = args.find((a, i) => !a.startsWith("--") && (bucketIdx < 0 || i !== bucketIdx + 1));
+const expiresIdx = args.indexOf("--expires");
+const valueIdx = new Set([bucketIdx + 1, expiresIdx + 1].filter((i) => i > 0));
+const link = args.find((a, i) => !a.startsWith("--") && !valueIdx.has(i));
 
 function usage(msg) {
   if (msg) console.error(msg);
-  console.error('usage: node scripts/pin-page.mjs "https://baseurl.ai/<id>?p=<password>" [--unpin] [--bucket <name>] [--local]');
+  console.error('usage: node scripts/pin-page.mjs "https://baseurl.ai/<id>?p=<password>" (--pin|--unpin|--renew|--public|--private|--expires <days>)... [--bucket <name>] [--local]');
   process.exit(2);
 }
+
+const patch = {};
+if (has("--pin") && has("--unpin")) usage("--pin and --unpin are mutually exclusive");
+if (has("--public") && has("--private")) usage("--public and --private are mutually exclusive");
+if (has("--pin")) { patch.pinned = true; patch.createdAt = new Date().toISOString(); }
+if (has("--unpin")) { patch.pinned = false; patch.createdAt = new Date().toISOString(); }
+if (has("--renew")) patch.createdAt = new Date().toISOString();
+if (has("--public")) patch.public = true;
+if (has("--private")) patch.public = false;
+if (expiresIdx >= 0) {
+  const days = Number(args[expiresIdx + 1]);
+  if (!Number.isInteger(days) || days < 1 || days > 30) usage("--expires must be a whole number of days from 1 to 30");
+  patch.ttlDays = days;
+}
+if (Object.keys(patch).length === 0) usage("nothing to do: pass at least one action flag");
 
 let id = "";
 let password = "";
@@ -67,11 +88,8 @@ if (!isStoredPage(record) && !isLegacyPage(record)) {
   process.exit(1);
 }
 
-const before = record.pinned === true;
-const next = await resealPage(id, password, record, {
-  pinned: !unpin,
-  createdAt: new Date().toISOString(),
-});
+const before = { pinned: record.pinned === true, public: typeof record.open === "string", ttlDays: record.ttlDays ?? 7 };
+const next = await resealPage(id, password, record, patch);
 if (!next) {
   console.error(`page:${id}: password does not match this page (or the stored record is corrupt)`);
   process.exit(1);
@@ -86,4 +104,6 @@ try {
   rmSync(dir, { recursive: true, force: true });
 }
 
-console.log(`page:${id}: pinned ${before} -> ${!unpin}; createdAt reset to ${next.createdAt}; sealed v2`);
+const after = { pinned: next.pinned === true, public: typeof next.open === "string", ttlDays: next.ttlDays ?? 7 };
+const show = (k) => (before[k] === after[k] ? `${k}=${after[k]}` : `${k} ${before[k]} -> ${after[k]}`);
+console.log(`page:${id}: ${show("pinned")}; ${show("public")}; ${show("ttlDays")}; createdAt ${next.createdAt}; sealed v2`);

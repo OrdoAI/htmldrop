@@ -458,7 +458,7 @@ describe("Sealed storage", () => {
     const cookie = getCookieFromHeaders(boot.headers);
     const res = await SELF.fetch(`http://localhost/${id}`, { headers: { Cookie: cookie! } });
     expect(res.status).toBe(200);
-    expect(res.headers.get("ETag")).toBe(`"${createdAt}"`);
+    expect(res.headers.get("ETag")).toBe(`"${createdAt}.w"`); // authenticated view carries the widget
     const body = await res.text();
     expect(body).toContain("<h1>Legacy</h1>");
     const token = body.match(/T="([0-9a-f]{64})"/)![1];

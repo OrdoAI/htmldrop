@@ -37,6 +37,13 @@ input[type=file]{display:none}
 .link-box{display:flex;gap:.5rem;align-items:center;background:#fff;border:1px solid #ebebeb;border-radius:100px;padding:.75rem 1.25rem;width:100%;box-shadow:0 1px 2px rgba(0,0,0,.04)}
 .link-box input{flex:1;background:none;border:none;color:#171717;font-size:.8125rem;font-family:ui-monospace,SFMono-Regular,'SF Mono',Consolas,monospace;outline:none;min-width:0}
 .meta{color:#888;font-size:.75rem;margin-top:.65rem}
+.opts{display:flex;gap:1.25rem;flex-wrap:wrap;justify-content:center;margin-top:.9rem;color:#666;font-size:.8125rem}
+.opt{display:flex;align-items:center;gap:.4rem;cursor:pointer}
+.opt input{accent-color:#171717}
+.opt select{font:inherit;color:#171717;padding:.15rem .35rem;border:1px solid #e5e5e5;border-radius:6px;background:#fff}
+.edit-box{display:none;margin-top:.5rem}
+.edit-box.show{display:flex}
+.edit-box .tag{font-size:.7rem;color:#888;white-space:nowrap}
 .progress{display:none;color:#888;font-size:.875rem;margin-top:1rem}
 .progress.show{display:block}
 .error-msg{color:#ee0000;font-size:.875rem;margin-top:1rem;display:none;text-align:center}
@@ -89,6 +96,10 @@ input[type=file]{display:none}
       <button class="pick-btn" id="pickFolder">Pick folder</button>
     </div>
   </div>
+  <div class="opts">
+    <label class="opt"><input type="checkbox" id="optPublic"> Public link <span class="dim">(no password needed to read)</span></label>
+    <label class="opt">Expires in <select id="optExpires"><option value="7" selected>7 days</option><option value="14">14 days</option><option value="30">30 days</option></select></label>
+  </div>
   <input type="file" id="fileInput" multiple>
   <input type="file" id="folderInput" webkitdirectory multiple>
   <div class="file-picker" id="filePicker">
@@ -117,6 +128,11 @@ input[type=file]{display:none}
   <div class="link-box">
     <input type="text" id="linkInput" readonly>
     <button class="copy-btn" id="copyBtn" title="Copy"><svg class="copy-icon" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></button>
+  </div>
+  <div class="link-box edit-box" id="editBox">
+    <span class="tag">edit link</span>
+    <input type="text" id="editInput" readonly>
+    <button class="copy-btn" id="editCopyBtn" title="Copy edit link"><svg class="copy-icon" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></button>
   </div>
   <p class="meta" id="meta"></p>
 </div>
@@ -256,11 +272,22 @@ input[type=file]{display:none}
     upload(text,main.name);
   }
 
+  document.getElementById('editCopyBtn').addEventListener('click',function(){
+    var v=document.getElementById('editInput').value;if(v&&navigator.clipboard)navigator.clipboard.writeText(v);
+  });
+
   function upload(html,fn){
     prog.textContent='Uploading\\u2026';prog.classList.add('show');dz.style.pointerEvents='none';dz.style.opacity='0.5';
-    fetch('/api/upload',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({html:html,filename:fn})})
+    var isPub=document.getElementById('optPublic').checked,days=Number(document.getElementById('optExpires').value)||7;
+    var payload={html:html,filename:fn,expiresInDays:days};if(isPub)payload.public=true;
+    fetch('/api/upload',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)})
     .then(function(r){if(!r.ok)return r.text().then(function(t){throw new Error(t);});return r.json();})
-    .then(function(d){li.value=d.url;mt.textContent='Expires '+new Date(d.expiresAt).toLocaleDateString()+' \\u00b7 '+d.id;res.classList.add('show');})
+    .then(function(d){
+      var eb=document.getElementById('editBox'),ei=document.getElementById('editInput');
+      if(d.public&&d.publicUrl){li.value=d.publicUrl;ei.value=d.url;eb.classList.add('show');}
+      else{li.value=d.url;ei.value='';eb.classList.remove('show');}
+      mt.textContent=(d.public?'Public \\u00b7 ':'')+'Expires '+new Date(d.expiresAt).toLocaleDateString()+' \\u00b7 '+d.id;res.classList.add('show');
+    })
     .catch(function(e){showErr(e.message||'Upload failed');})
     .finally(function(){prog.classList.remove('show');dz.style.pointerEvents='';dz.style.opacity='';});
   }
