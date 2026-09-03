@@ -24,7 +24,13 @@ function withServer(handler) {
       req.on("end", () => {
         requests.push({ url: req.url, body });
         res.setHeader("Content-Type", "application/json");
-        res.end(JSON.stringify({ url: "http://preview.test/abc?p=secret", id: "abc", expiresAt: "2026-06-30T00:00:00.000Z" }));
+        // Echo the visibility the way the real service does.
+        let isPublic = false;
+        try { isPublic = JSON.parse(body).public === true; } catch {}
+        res.end(JSON.stringify({
+          url: "http://preview.test/abc?p=secret", id: "abc", expiresAt: "2026-06-30T00:00:00.000Z",
+          public: isPublic, ...(isPublic ? { publicUrl: "http://preview.test/abc" } : {}),
+        }));
       });
     });
     server.on("error", reject);
@@ -414,7 +420,7 @@ test("divergent global locks are ambiguous and skip the check", async () => {
   }
 });
 
-test("--help and --version exit 0 and print 0.2.4 even when the skill is stale", async () => {
+test("--help and --version exit 0 and print 0.2.5 even when the skill is stale", async () => {
   const dir = mkdtempSync(join(tmpdir(), "htmldrop-cli-helpver-"));
   try {
     const lock = writeLock(dir, { skills: { htmldrop: { skillFolderHash: "0000000000000000000000000000000000000000" } } });
@@ -426,7 +432,7 @@ test("--help and --version exit 0 and print 0.2.4 even when the skill is stale",
     assert.equal(h.code, 0, h.stderr);
     const v = await runCli(["--version"], "http://127.0.0.1:1", root.pathname, env);
     assert.equal(v.code, 0, v.stderr);
-    assert.ok(v.stdout.includes("0.2.4"), `expected 0.2.4 in: ${v.stdout}`);
+    assert.ok(v.stdout.includes("0.2.5"), `expected 0.2.5 in: ${v.stdout}`);
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
@@ -571,6 +577,77 @@ test("a project entry whose baked computedHash is missing skips (no global fallb
       });
       assert.equal(r.code, 0, r.stderr);
       assert.equal(requests.length, 1);
+    });
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("--public --expires sends the flags and prints the public URL before the edit link", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "htmldrop-cli-public-"));
+  try {
+    const pagePath = makePage(dir);
+    await withServer(async (endpoint, requests) => {
+      const result = await runCli(["--public", "--expires", "14", pagePath], endpoint);
+      assert.equal(result.code, 0, result.stderr);
+      const payload = JSON.parse(requests[0].body);
+      assert.equal(payload.public, true);
+      assert.equal(payload.expiresInDays, 14);
+      const lines = result.stdout.trim().split("\n");
+      assert.deepEqual(lines, ["http://preview.test/abc", "http://preview.test/abc?p=secret"]);
+    });
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("a private upload sends neither flag and prints one line", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "htmldrop-cli-private-"));
+  try {
+    const pagePath = makePage(dir);
+    await withServer(async (endpoint, requests) => {
+      const result = await runCli([pagePath], endpoint);
+      assert.equal(result.code, 0, result.stderr);
+      const payload = JSON.parse(requests[0].body);
+      assert.equal("public" in payload, false);
+      assert.equal("expiresInDays" in payload, false);
+      assert.deepEqual(result.stdout.trim().split("\n"), ["http://preview.test/abc?p=secret"]);
+    });
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("update --private sends public:false", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "htmldrop-cli-unpublic-"));
+  try {
+    const pagePath = makePage(dir);
+    await withServer(async (endpoint, requests) => {
+      const result = await runCli(["update", "http://preview.test/abc?p=secret", "--private", pagePath], endpoint);
+      assert.equal(result.code, 0, result.stderr);
+      assert.equal(JSON.parse(requests[0].body).public, false);
+    });
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("bad --expires, --private on create, and --public --private fail before any upload", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "htmldrop-cli-badflags-"));
+  try {
+    const pagePath = makePage(dir);
+    await withServer(async (endpoint, requests) => {
+      for (const args of [
+        ["--expires", "31", pagePath],
+        ["--expires", "0", pagePath],
+        ["--expires", "seven", pagePath],
+        ["--private", pagePath],
+        ["--public", "--private", pagePath],
+      ]) {
+        const result = await runCli(args, endpoint);
+        assert.equal(result.code, 1, `expected failure for ${args.join(" ")}`);
+      }
+      assert.equal(requests.length, 0);
     });
   } finally {
     rmSync(dir, { recursive: true, force: true });

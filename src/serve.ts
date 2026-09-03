@@ -1,9 +1,11 @@
 import {
+  type PageRecord,
   getAuthCookie,
   getPageMeta,
   mintCommentToken,
   mintCookie,
   mintNoticeToken,
+  openPublic,
   openWithKey,
   recordVersion,
   setAuthCookieHeader,
@@ -154,35 +156,54 @@ export async function handleServe(
           headers: withTransportSecurity(APP_HEADERS, request),
         });
       }
-      // `version` changes on every write, so it doubles as the cache validator.
-      // `no-cache` forces revalidation, so a plain refresh never serves a stale
-      // local copy.
-      const version = recordVersion(record);
-      const etag = `"${version}"`;
-      const headers = withTransportSecurity({
-        ...PREVIEW_HEADERS,
-        "Cache-Control": "private, no-cache",
-        ETag: etag,
-      }, request);
-      if (request.headers.get("If-None-Match") === etag) {
-        return new Response(null, { status: 304, headers });
-      }
-      const token = await mintNoticeToken(env.AUTH_SECRET, id, record.verifier);
-      const commentToken = await mintCommentToken(env.AUTH_SECRET, id, record.key);
-      const body = injectNotice(
-        record.html,
-        updateNotice(id, version, token) + commentWidget(id, commentToken),
-      );
-      return new Response(responseBody(request, body), {
-        status: 200,
-        headers,
-      });
+      return previewResponse(request, env, id, record, true);
     }
+  }
+
+  // Public page: anyone with the bare URL reads it. No cookie is set and no
+  // comment widget is injected, since its token would let any visitor write;
+  // whoever opens the edit link (`?p=`) still gets the widget.
+  const open = await openPublic(env.BUCKET, id);
+  if (open) {
+    return previewResponse(request, env, id, open, false);
   }
 
   return new Response(responseBody(request, passwordPage(id, false)), {
     status: 401,
     headers: withTransportSecurity(APP_HEADERS, request),
+  });
+}
+
+async function previewResponse(
+  request: Request,
+  env: Env,
+  id: string,
+  record: PageRecord,
+  withWidget: boolean,
+): Promise<Response> {
+  // `version` changes on every write, so it doubles as the cache validator.
+  // `no-cache` forces revalidation, so a plain refresh never serves a stale
+  // local copy. The widget variant gets its own validator so a browser that
+  // read the page anonymously and then authenticated never gets a 304 for
+  // the widget-less body.
+  const version = recordVersion(record);
+  const etag = withWidget ? `"${version}.w"` : `"${version}"`;
+  const headers = withTransportSecurity({
+    ...PREVIEW_HEADERS,
+    "Cache-Control": "private, no-cache",
+    ETag: etag,
+  }, request);
+  if (request.headers.get("If-None-Match") === etag) {
+    return new Response(null, { status: 304, headers });
+  }
+  const token = await mintNoticeToken(env.AUTH_SECRET, id, record.verifier);
+  let inject = updateNotice(id, version, token);
+  if (withWidget) {
+    inject += commentWidget(id, await mintCommentToken(env.AUTH_SECRET, id, record.key));
+  }
+  return new Response(responseBody(request, injectNotice(record.html, inject)), {
+    status: 200,
+    headers,
   });
 }
 

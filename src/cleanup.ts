@@ -18,6 +18,7 @@ export interface PurgeResult {
 
 interface ExpiryMeta {
   createdAt: string;
+  ttlDays: number | undefined;
   pinned: boolean;
 }
 
@@ -41,7 +42,12 @@ async function readExpiryMeta(bucket: R2Bucket, key: string): Promise<ExpiryMeta
     // `pinned` precedes `iv` in a sealed record, so seeing `iv` means the
     // head covered the pin flag.
     if (created && text.includes('"iv":')) {
-      return { createdAt: created[1], pinned: text.includes('"pinned":true') };
+      const ttl = text.match(/"ttlDays":(\d+)/);
+      return {
+        createdAt: created[1],
+        ttlDays: ttl ? Number(ttl[1]) : undefined,
+        pinned: text.includes('"pinned":true'),
+      };
     }
   } catch {
     // fall through to a full read
@@ -53,7 +59,11 @@ async function readExpiryMeta(bucket: R2Bucket, key: string): Promise<ExpiryMeta
     if (!parsed || typeof parsed !== "object") return null;
     const r = parsed as Record<string, unknown>;
     if (typeof r.createdAt !== "string") return null;
-    return { createdAt: r.createdAt, pinned: r.pinned === true };
+    return {
+      createdAt: r.createdAt,
+      ttlDays: typeof r.ttlDays === "number" ? r.ttlDays : undefined,
+      pinned: r.pinned === true,
+    };
   } catch {
     return null;
   }
@@ -71,7 +81,7 @@ export async function purgeExpired(
     const id = key.slice("page:".length);
     const meta = await readExpiryMeta(bucket, key);
     if (!meta) continue; // unreadable: leave it for a human
-    if (!isExpired(meta.createdAt, meta.pinned, now)) {
+    if (!isExpired(meta.createdAt, meta.ttlDays, meta.pinned, now)) {
       live.add(id);
       continue;
     }

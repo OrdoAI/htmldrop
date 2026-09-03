@@ -19,6 +19,13 @@ export interface PageMeta {
   createdAt: string;
   version: string;
   pinned?: boolean;
+  // Days until expiry, counted from createdAt. Absent means the 7-day default.
+  ttlDays?: number;
+  // Public: the content key is stored alongside the ciphertext (`open`), so a
+  // bare GET can read the page without the password. Public content is by
+  // definition readable, and with bucket access also editable; only private
+  // pages get the operator-cannot-read/modify guarantee.
+  public?: boolean;
 }
 
 export interface PagePayload {
@@ -33,6 +40,8 @@ export interface StoredPage {
   createdAt: string;
   version: string;
   pinned?: boolean;
+  ttlDays?: number;
+  open?: string; // base64url content key; present only on public pages
   iv: string;
   ct: string;
 }
@@ -176,7 +185,10 @@ async function openJson(raw: Uint8Array, aad: string, sealed: Sealed): Promise<u
 }
 
 function pageAad(meta: PageMeta): string {
-  return `htmldrop:page:v2|${meta.id}|${meta.createdAt}|${meta.version}|${meta.pinned ? 1 : 0}`;
+  let aad = `htmldrop:page:v2|${meta.id}|${meta.createdAt}|${meta.version}|${meta.pinned ? 1 : 0}`;
+  // Appended only when set, so records sealed before the field existed still open.
+  if (meta.ttlDays !== undefined) aad += `|ttl=${meta.ttlDays}`;
+  return aad;
 }
 
 export function storedMeta(id: string, stored: StoredPage): PageMeta {
@@ -185,7 +197,16 @@ export function storedMeta(id: string, stored: StoredPage): PageMeta {
     createdAt: stored.createdAt,
     version: stored.version,
     ...(stored.pinned ? { pinned: true } : {}),
+    ...(stored.ttlDays !== undefined ? { ttlDays: stored.ttlDays } : {}),
+    ...(stored.open ? { public: true } : {}),
   };
+}
+
+// The content key of a public page, or null for a private one.
+export function publicKeyOf(stored: StoredPage): Uint8Array | null {
+  if (!stored.open) return null;
+  const key = fromBase64Url(stored.open);
+  return key && key.length === 32 ? key : null;
 }
 
 export async function sealPage(
@@ -200,6 +221,8 @@ export async function sealPage(
     createdAt: meta.createdAt,
     version: meta.version,
     ...(meta.pinned ? { pinned: true } : {}),
+    ...(meta.ttlDays !== undefined ? { ttlDays: meta.ttlDays } : {}),
+    ...(meta.public ? { open: toBase64Url(pageKey.key) } : {}),
     iv,
     ct,
   };
@@ -284,7 +307,9 @@ export function isStoredPage(value: unknown): value is StoredPage {
     && typeof r.createdAt === "string"
     && typeof r.version === "string"
     && typeof r.iv === "string"
-    && typeof r.ct === "string";
+    && typeof r.ct === "string"
+    && (r.ttlDays === undefined || (Number.isInteger(r.ttlDays) && (r.ttlDays as number) > 0))
+    && (r.open === undefined || typeof r.open === "string");
 }
 
 export function isLegacyPage(value: unknown): value is LegacyPage {
@@ -321,14 +346,14 @@ export async function migrateLegacyPage(id: string, legacy: LegacyPage): Promise
   return sealPage(pageKey, legacyMeta(id, legacy), { html: legacy.html, filename: legacy.filename });
 }
 
-// Re-seal with new metadata (pin, unpin, renew). Content and `version` are
-// kept. Null when the password does not match or the ciphertext fails to
-// authenticate.
+// Re-seal with new metadata (pin, unpin, renew, visibility, expiry). Content
+// and `version` are kept. Null when the password does not match or the
+// ciphertext fails to authenticate.
 export async function resealPage(
   id: string,
   password: string,
   stored: StoredPage | LegacyPage,
-  patch: { createdAt?: string; pinned?: boolean },
+  patch: { createdAt?: string; pinned?: boolean; public?: boolean; ttlDays?: number },
 ): Promise<StoredPage | null> {
   const pageKey = await derivePageKey(id, password);
   let payload: PagePayload;
@@ -346,5 +371,6 @@ export async function resealPage(
   }
   const next: PageMeta = { ...meta, ...patch };
   if (!next.pinned) delete next.pinned;
+  if (!next.public) delete next.public;
   return sealPage(pageKey, next, payload);
 }

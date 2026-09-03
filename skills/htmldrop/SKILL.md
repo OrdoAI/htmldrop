@@ -65,6 +65,25 @@ To check the installed CLI version:
 npx -y htmldrop-cli --version
 ```
 
+Previews are private by default: only the password-bearing link opens them.
+When the user wants a link that opens without a password (a public post, a
+job ad, anything meant to be forwarded freely), pass `--public`:
+
+```bash
+npx -y htmldrop-cli --public "<file>"
+```
+
+Previews expire after 7 days by default. `--expires <days>` sets 1 to 30
+days; use it when the user asks for a longer (or shorter) lifetime:
+
+```bash
+npx -y htmldrop-cli --expires 30 "<file>"
+```
+
+Both flags also work with `update`; `update --private` makes a public preview
+private again. Do not pass `--public` unless the user asked for a public or
+password-free link.
+
 Use `--no-inline` only when the user explicitly wants references left as-is or
 when the default inlining makes the upload too large:
 
@@ -163,10 +182,16 @@ relies on text-quote fallback, orphaning anchors it can no longer locate).
   guard. Asset inlining and Markdown rendering can make the final payload larger
   than the original file.
 - The upload response contains a URL shaped like
-  `https://baseurl.ai/<id>?p=<password>`. Links expire after 7 days according to
-  the service response.
+  `https://baseurl.ai/<id>?p=<password>`. Links expire after 7 days by default,
+  or after the `--expires <days>` value (1 to 30), according to the service
+  response.
+- With `--public` the CLI prints two stdout lines: first the bare
+  `https://baseurl.ai/<id>` that anyone can open, then the password link, which
+  is the edit link (needed for `update` and `comments`).
 - `update <url> <file>` sends the `id` and password from that URL with the new
-  content, returns the same URL, and refreshes the 7-day expiry.
+  content, returns the same URL, restarts the expiry window, and keeps the
+  preview's visibility and lifetime unless `--public`, `--private`, or
+  `--expires` say otherwise.
 - `--version` prints the installed `htmldrop-cli` version and exits without
   uploading.
 - Unknown options fail before upload. Use `--` before the file path when a local
@@ -180,14 +205,19 @@ relies on text-quote fallback, orphaning anchors it can no longer locate).
 Read both stdout and stderr from the command.
 
 - The first stdout line is the shareable URL. Give that URL to the user.
+- If there is a second stdout line (you passed `--public`), it is the edit
+  link with the password. Tell the user the first link is public and the
+  second one is for updating; do not present the second one as the link to
+  forward.
 - If you used `update`, say the existing preview was overwritten at the same
   URL.
-- Mention the 7-day expiry policy. If the CLI printed an exact expiry date,
-  relay that date. If it did not print one, do not invent an exact timestamp.
-  If it printed `expires: never`, the page was pinned by an operator: say the
-  link does not expire and skip the 7-day note.
-- Say the link is self-authenticating because the password is already in the
-  URL. Do not print the password separately unless the user asks.
+- Mention the expiry: 7 days unless `--expires` was used. If the CLI printed
+  an exact expiry date, relay that date. If it did not print one, do not
+  invent an exact timestamp. If it printed `expires: never`, the page was
+  pinned by an operator: say the link does not expire and skip the expiry note.
+- For a private preview, say the link is self-authenticating because the
+  password is already in the URL. Do not print the password separately unless
+  the user asks.
 - Only say the URL was copied to the clipboard if the CLI actually printed the
   clipboard message.
 - If stderr reports asset warnings such as `not found`, surface them. A URL may

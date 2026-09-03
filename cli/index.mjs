@@ -31,6 +31,11 @@ Relative images, CSS, and JS are automatically inlined as base64.
 overwritten preview keeps that same URL.
 
 Options:
+  --public                  Anyone with the bare URL can read; no password
+                            (default: private). Prints the public URL first,
+                            then the edit link.
+  --private                 (update) Make a public preview private again
+  --expires <days>          Days until expiry, 1-30 (default 7)
   --no-inline               Skip asset inlining, upload HTML as-is
   --comment-anchors <file>  (update) JSON array of {cid, anchor} remaps applied
                             to existing comments after the document changes
@@ -249,6 +254,9 @@ try {
     options: {
       "no-inline": { type: "boolean", default: false },
       "comment-anchors": { type: "string" },
+      public: { type: "boolean", default: false },
+      private: { type: "boolean", default: false },
+      expires: { type: "string" },
       version: { type: "boolean", short: "V" },
       help: { type: "boolean", short: "h" },
     },
@@ -282,6 +290,15 @@ if (positionals[0] === "create" || positionals[0] === "update" || positionals[0]
 
 if (values["comment-anchors"] && mode !== "update") {
   die("--comment-anchors is only valid with 'update'");
+}
+if (values.public && values.private) die("--public and --private are mutually exclusive");
+if (values.private && mode !== "update") die("--private is only valid with 'update' (new previews are private by default)");
+let expiresInDays;
+if (values.expires !== undefined) {
+  expiresInDays = Number(values.expires);
+  if (!Number.isInteger(expiresInDays) || expiresInDays < 1 || expiresInDays > 30) {
+    die("--expires must be a whole number of days from 1 to 30");
+  }
 }
 
 // comments: read-only export of a preview's comments (id + password parsed from
@@ -369,6 +386,9 @@ const body = updateCreds
   ? { html: content, filename, ...updateCreds }
   : { html: content, filename };
 if (commentAnchors) body.commentAnchors = commentAnchors;
+if (values.public) body.public = true;
+if (values.private) body.public = false;
+if (expiresInDays !== undefined) body.expiresInDays = expiresInDays;
 const payload = JSON.stringify(body);
 
 const res = await fetch(`${endpoint}/api/upload`, {
@@ -383,15 +403,22 @@ if (!res.ok) {
 }
 
 const data = await res.json();
-console.log(data.url);
+// A public preview has two links: the bare one to share, and the password
+// link that still gates update/comments. Shareable first, so line 1 of stdout
+// is always "the URL to hand out".
+const shareUrl = data.public && data.publicUrl ? data.publicUrl : data.url;
+console.log(shareUrl);
+if (shareUrl !== data.url) console.log(data.url);
 
 if (process.stdout.isTTY) {
-  const note = updateCreds ? " | updated in place" : "";
+  let note = updateCreds ? " | updated in place" : "";
+  if (data.public) note += " | public";
   // `expiresAt` is null for an operator-pinned page, which never expires.
   const expires = data.expiresAt ? data.expiresAt.split("T")[0] : "never";
   process.stderr.write(`  id: ${data.id} | expires: ${expires}${note}\n`);
+  if (shareUrl !== data.url) process.stderr.write("  (second line is the edit link; keep it private)\n");
   try {
-    execSync("pbcopy", { input: data.url });
+    execSync("pbcopy", { input: shareUrl });
     process.stderr.write("  (copied to clipboard)\n");
   } catch {}
 }

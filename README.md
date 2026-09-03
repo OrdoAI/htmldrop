@@ -103,14 +103,23 @@ Worker itself handles the password on every `?p=` request, so this protects
 against bucket access and credential leaks, not against a malicious Worker
 deploy. See `src/envelope.ts`.
 
+Previews are private by default: only the password link opens them. A preview
+uploaded with `public: true` (CLI `--public`, or the checkbox on the home
+page) also opens at its bare `https://baseurl.ai/<id>` URL. Its content key
+is stored beside the ciphertext, so a public page is readable, and with bucket
+access editable, by the operator; the guarantees above apply to private pages.
+Anonymous readers of a public page get no comment widget; the password link
+(the "edit link") still does.
+
 Production HTTP requests are redirected to HTTPS. HTTPS responses include HSTS.
-Links expire after seven days. An expired page is purged on its next read, and
+Links expire after seven days by default, or after `expiresInDays` (1 to 30;
+CLI `--expires`, or the selector on the home page). An expired page is purged on its next read, and
 a daily cron (`[triggers]` in `wrangler.toml`, `src/cleanup.ts`) sweeps the
 ones nobody opens again, along with comments whose page is gone. An operator who has been given a page's link
-can exempt it with `node scripts/pin-page.mjs "<url>"`; the link is required
-because the pin flag lives inside the ciphertext. A pinned page never expires
-and keeps its pin across in-place updates. `--unpin` restores the seven-day
-expiry, counted from the moment of unpinning.
+can change it with `node scripts/pin-page.mjs "<url>" --pin|--unpin|--renew|
+--public|--private|--expires <days>`; the link is required because the metadata
+lives inside the ciphertext. A pinned page never expires and keeps its pin
+across in-place updates; `--unpin` restarts the expiry window from that moment.
 
 `scripts/migrate-encrypt.mjs` is the one-shot migration that sealed the
 plaintext records written before this scheme. Run it (dry run by default,
