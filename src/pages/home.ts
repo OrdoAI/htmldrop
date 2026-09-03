@@ -25,7 +25,7 @@ h1{position:fixed;top:1.5rem;left:2rem;font-size:1rem;line-height:1.25rem;font-w
 .drop-zone strong{color:#171717;font-size:1.25rem;line-height:1.35;font-weight:650;letter-spacing:-.02em}
 .drop-zone p{color:#777;font-size:.9375rem;margin-top:.75rem;line-height:1.45;text-wrap:balance}
 .pick-btns{display:flex;gap:.75rem;justify-content:center;margin-top:1.75rem}
-.pick-btn{min-height:2.625rem;color:#171717;background:#fff;border:1px solid #ebebeb;border-radius:100px;padding:0 1.35rem;font-size:.875rem;cursor:pointer;transition:all .15s;font-family:inherit;font-weight:550}
+.pick-btn{min-height:2.625rem;color:#171717;background:#fff;border:1px solid #ebebeb;border-radius:100px;padding:0 1.35rem;font-size:.875rem;cursor:pointer;transition:all .15s;font-family:inherit;font-weight:550;white-space:nowrap}
 .pick-btn:hover{border-color:#888;background:#fafafa}
 #pickFile{background:#171717;color:#fff;border-color:#171717}
 #pickFile:hover{background:#333}
@@ -37,13 +37,35 @@ input[type=file]{display:none}
 .link-box{display:flex;gap:.5rem;align-items:center;background:#fff;border:1px solid #ebebeb;border-radius:100px;padding:.75rem 1.25rem;width:100%;box-shadow:0 1px 2px rgba(0,0,0,.04)}
 .link-box input{flex:1;background:none;border:none;color:#171717;font-size:.8125rem;font-family:ui-monospace,SFMono-Regular,'SF Mono',Consolas,monospace;outline:none;min-width:0}
 .meta{color:#888;font-size:.75rem;margin-top:.65rem}
-.opts{display:flex;gap:1.25rem;flex-wrap:wrap;justify-content:center;margin-top:.9rem;color:#666;font-size:.8125rem}
-.opt{display:flex;align-items:center;gap:.4rem;cursor:pointer}
-.opt input{accent-color:#171717}
-.opt select{font:inherit;color:#171717;padding:.15rem .35rem;border:1px solid #e5e5e5;border-radius:6px;background:#fff}
-.edit-box{display:none;margin-top:.5rem}
+.settings{display:grid;grid-template-columns:auto auto;justify-content:center;align-items:center;column-gap:.9rem;row-gap:.6rem;margin-top:2.25rem;padding-top:1.5rem;border-top:1px solid #f0f0f0;cursor:default}
+.setting{display:contents}
+.setting-label{justify-self:end;font-size:.6875rem;font-weight:600;color:#9a9a9a;letter-spacing:.06em;text-transform:uppercase}
+.seg{justify-self:start}
+.seg{display:inline-flex;padding:3px;background:#f2f2f2;border-radius:100px}
+.seg-btn{border:none;background:transparent;color:#7a7a7a;font:inherit;font-size:.8125rem;font-weight:550;line-height:1;padding:.5rem .9rem;border-radius:100px;cursor:pointer;transition:color .15s,background .15s,box-shadow .15s;white-space:nowrap}
+.seg-btn:hover{color:#171717}
+.seg-btn.on{background:#fff;color:#171717;box-shadow:0 1px 2px rgba(0,0,0,.08),0 0 0 1px rgba(0,0,0,.05)}
+.setting-hint{color:#9a9a9a;font-size:.8125rem;line-height:1.4;margin-top:.9rem;min-height:1.2em;transition:color .15s;cursor:default}
+.setting-hint.public{color:#4d4d4d}
+.edit-box{display:none;margin-top:.5rem;background:#fafafa}
+@media (max-width:520px){
+  body{padding:4.5rem 1rem 9rem}
+  .tabs{margin-bottom:1.25rem}
+  .drop-zone{padding:2.75rem 1.25rem 2rem;border-radius:22px}
+  .drop-zone strong{font-size:1.125rem}
+  .drop-zone p{font-size:.875rem}
+  .pick-btns{gap:.5rem}
+  .pick-btn{padding:0 1.1rem;font-size:.8125rem}
+  .settings{grid-template-columns:1fr;justify-items:center;row-gap:.9rem;margin-top:1.75rem;padding-top:1.25rem}
+  .setting-label{justify-self:center;margin-bottom:-.35rem}
+  .seg{justify-self:center;max-width:100%}
+  .seg-btn{padding:.45rem .75rem;font-size:.75rem}
+  .setting-hint{font-size:.75rem;margin-top:.75rem}
+  .link-box{padding:.65rem .9rem;border-radius:18px}
+  .sub{font-size:.8125rem;padding-top:.75rem}
+}
 .edit-box.show{display:flex}
-.edit-box .tag{font-size:.7rem;color:#888;white-space:nowrap}
+.edit-box .tag{font-size:.6875rem;font-weight:600;color:#9a9a9a;letter-spacing:.06em;text-transform:uppercase;white-space:nowrap}
 .progress{display:none;color:#888;font-size:.875rem;margin-top:1rem}
 .progress.show{display:block}
 .error-msg{color:#ee0000;font-size:.875rem;margin-top:1rem;display:none;text-align:center}
@@ -95,10 +117,24 @@ input[type=file]{display:none}
       <button class="pick-btn" id="pickFile">Pick file</button>
       <button class="pick-btn" id="pickFolder">Pick folder</button>
     </div>
-  </div>
-  <div class="opts">
-    <label class="opt"><input type="checkbox" id="optPublic"> Public link <span class="dim">(no password needed to read)</span></label>
-    <label class="opt">Expires in <select id="optExpires"><option value="7" selected>7 days</option><option value="14">14 days</option><option value="30">30 days</option></select></label>
+    <div class="settings">
+      <div class="setting">
+        <span class="setting-label">Access</span>
+        <div class="seg" id="segAccess" role="radiogroup" aria-label="Access">
+          <button type="button" class="seg-btn on" data-public="false" aria-pressed="true">Private</button>
+          <button type="button" class="seg-btn" data-public="true" aria-pressed="false">Public</button>
+        </div>
+      </div>
+      <div class="setting">
+        <span class="setting-label">Expires</span>
+        <div class="seg" id="segExpires" role="radiogroup" aria-label="Expires in">
+          <button type="button" class="seg-btn on" data-days="7" aria-pressed="true">7 days</button>
+          <button type="button" class="seg-btn" data-days="14" aria-pressed="false">14 days</button>
+          <button type="button" class="seg-btn" data-days="30" aria-pressed="false">30 days</button>
+        </div>
+      </div>
+    </div>
+    <div class="setting-hint" id="settingHint">Only people with the password link can open it.</div>
   </div>
   <input type="file" id="fileInput" multiple>
   <input type="file" id="folderInput" webkitdirectory multiple>
@@ -130,7 +166,7 @@ input[type=file]{display:none}
     <button class="copy-btn" id="copyBtn" title="Copy"><svg class="copy-icon" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></button>
   </div>
   <div class="link-box edit-box" id="editBox">
-    <span class="tag">edit link</span>
+    <span class="tag">Edit link</span>
     <input type="text" id="editInput" readonly>
     <button class="copy-btn" id="editCopyBtn" title="Copy edit link"><svg class="copy-icon" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></button>
   </div>
@@ -272,14 +308,19 @@ input[type=file]{display:none}
     upload(text,main.name);
   }
 
+  var opts={public:false,days:7},hint=document.getElementById('settingHint');
+  function renderHint(){hint.textContent=opts.public?'Anyone with the URL can read it. You also get a separate edit link for updates.':'Only people with the password link can open it.';hint.classList.toggle('public',opts.public);}
+  function segInit(id,attr,onPick){var seg=document.getElementById(id);seg.addEventListener('click',function(e){var b=e.target.closest('.seg-btn');if(!b)return;e.stopPropagation();seg.querySelectorAll('.seg-btn').forEach(function(x){x.classList.remove('on');x.setAttribute('aria-pressed','false');});b.classList.add('on');b.setAttribute('aria-pressed','true');onPick(b.dataset[attr]);});}
+  segInit('segAccess','public',function(v){opts.public=v==='true';renderHint();});
+  segInit('segExpires','days',function(v){opts.days=Number(v)||7;});
+
   document.getElementById('editCopyBtn').addEventListener('click',function(){
     var v=document.getElementById('editInput').value;if(v&&navigator.clipboard)navigator.clipboard.writeText(v);
   });
 
   function upload(html,fn){
     prog.textContent='Uploading\\u2026';prog.classList.add('show');dz.style.pointerEvents='none';dz.style.opacity='0.5';
-    var isPub=document.getElementById('optPublic').checked,days=Number(document.getElementById('optExpires').value)||7;
-    var payload={html:html,filename:fn,expiresInDays:days};if(isPub)payload.public=true;
+    var payload={html:html,filename:fn,expiresInDays:opts.days};if(opts.public)payload.public=true;
     fetch('/api/upload',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)})
     .then(function(r){if(!r.ok)return r.text().then(function(t){throw new Error(t);});return r.json();})
     .then(function(d){
