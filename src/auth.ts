@@ -37,6 +37,10 @@ export interface PageMetaOnly {
 
 const TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
+export function isExpired(createdAt: string, pinned: boolean | undefined, now: number = Date.now()): boolean {
+  return !pinned && now - new Date(createdAt).getTime() > TTL_MS;
+}
+
 // Wrapping namespaces. Bound into the ciphertext so a cookie never works as a
 // comment token or vice versa.
 const COOKIE_NS = "cookie";
@@ -64,7 +68,7 @@ async function loadStored(
     return null;
   }
   if (!isStoredPage(parsed) && !isLegacyPage(parsed)) return null;
-  if (!parsed.pinned && Date.now() - new Date(parsed.createdAt).getTime() > TTL_MS) {
+  if (isExpired(parsed.createdAt, parsed.pinned)) {
     await bucket.delete(`page:${id}`);
     return null;
   }

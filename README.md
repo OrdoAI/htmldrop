@@ -104,7 +104,9 @@ against bucket access and credential leaks, not against a malicious Worker
 deploy. See `src/envelope.ts`.
 
 Production HTTP requests are redirected to HTTPS. HTTPS responses include HSTS.
-Links expire after seven days. An operator who has been given a page's link
+Links expire after seven days. An expired page is purged on its next read, and
+a daily cron (`[triggers]` in `wrangler.toml`, `src/cleanup.ts`) sweeps the
+ones nobody opens again, along with comments whose page is gone. An operator who has been given a page's link
 can exempt it with `node scripts/pin-page.mjs "<url>"`; the link is required
 because the pin flag lives inside the ciphertext. A pinned page never expires
 and keeps its pin across in-place updates. `--unpin` restores the seven-day

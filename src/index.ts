@@ -1,6 +1,7 @@
 import { handleUpload } from "./upload";
 import { handleServe, handleAuthForm, handleVersion } from "./serve";
 import { handleComments, handleCommentMutate } from "./comments";
+import { purgeExpired } from "./cleanup";
 import { homePage } from "./pages/home";
 import { notFoundPage } from "./pages/notfound";
 import {
@@ -83,5 +84,14 @@ export default {
       status: 404,
       headers: withTransportSecurity(APP_HEADERS, request),
     });
+  },
+
+  // Cron trigger (see wrangler.toml): sweep expired pages and orphaned
+  // comments that no read has purged.
+  async scheduled(_controller: ScheduledController, env: Env): Promise<void> {
+    const r = await purgeExpired(env.BUCKET);
+    console.log(
+      `cleanup: scanned ${r.scanned} pages, purged ${r.purgedPages} pages and ${r.purgedComments} comments`,
+    );
   },
 };
