@@ -18,5 +18,8 @@ export default defineConfig({
   ],
   test: {
     include: ["src/__tests__/**/*.test.ts"],
+    // The v3 storage tests push multi-MiB pages through the real sealer;
+    // GitHub's runners take several times longer than a laptop on them.
+    testTimeout: 60_000,
   },
 });
