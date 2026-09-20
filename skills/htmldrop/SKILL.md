@@ -178,9 +178,9 @@ relies on text-quote fallback, orphaning anchors it can no longer locate).
   inlined by default. Remote URLs, data URLs, fragment links, and JavaScript
   URLs are left alone.
 - `--no-inline` leaves local references untouched.
-- The service accepts an HTML payload up to 24 MiB and has a 25 MiB request-body
-  guard. Asset inlining and Markdown rendering can make the final payload larger
-  than the original file.
+- The service accepts a page up to 50 MiB (UTF-8 bytes after rendering and
+  inlining). Asset inlining and Markdown rendering can make the final payload
+  larger than the original file.
 - The upload response contains a URL shaped like
   `https://baseurl.ai/<id>?p=<password>`. Links expire after 7 days by default,
   or after the `--expires <days>` value (1 to 30), according to the service

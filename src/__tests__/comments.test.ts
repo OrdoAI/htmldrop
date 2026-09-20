@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { env, SELF } from "cloudflare:test";
+import { storedHeader } from "./v3-helpers";
 import { mintCommentToken, mintNoticeToken } from "../auth";
 import { derivePageKey, openComment } from "../envelope";
 
@@ -338,14 +339,14 @@ describe("upload-time anchor remap", () => {
     const page = await createPage();
     const t = await token(page.id, page.password);
     const root = await seedRootComment(page, t);
-    const before = JSON.parse(await (await env.BUCKET.get(`page:${page.id}`))!.text());
+    const before = await storedHeader(page.id);
 
     const res = await update(page, {
       commentAnchors: [{ cid: root.cid, anchor: { exact: "x".repeat(1001), prefix: "", suffix: "" } }],
     });
     expect(res.status).toBe(400);
 
-    const afterPage = JSON.parse(await (await env.BUCKET.get(`page:${page.id}`))!.text());
+    const afterPage = await storedHeader(page.id);
     expect(afterPage.version).toBe(before.version);
     const afterComment = await storedComment(page, root.cid);
     expect(afterComment.anchor.exact).toBe("world");
@@ -364,7 +365,7 @@ describe("upload-time anchor remap", () => {
     const page = await createPage();
     const t = await token(page.id, page.password);
     const root = await seedRootComment(page, t);
-    const before = JSON.parse(await (await env.BUCKET.get(`page:${page.id}`))!.text());
+    const before = await storedHeader(page.id);
 
     const res = await SELF.fetch("http://localhost/api/upload", {
       method: "POST",
@@ -378,7 +379,7 @@ describe("upload-time anchor remap", () => {
       }),
     });
     expect(res.status).toBe(403);
-    const afterPage = JSON.parse(await (await env.BUCKET.get(`page:${page.id}`))!.text());
+    const afterPage = await storedHeader(page.id);
     expect(afterPage.version).toBe(before.version);
     const afterComment = await storedComment(page, root.cid);
     expect(afterComment.anchor.exact).toBe("world");

@@ -1,16 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { env, SELF } from "cloudflare:test";
 import { handleUpload } from "../upload";
-import { type StoredPage, derivePageKey, openPage } from "../envelope";
-
-// Decrypt a stored v2 page the way the Worker does, given the link password.
-async function openStored(id: string, password: string) {
-  const obj = await env.BUCKET.get(`page:${id}`);
-  expect(obj).not.toBeNull();
-  const stored = JSON.parse(await obj!.text()) as StoredPage;
-  const { key } = await derivePageKey(id, password);
-  return { stored, payload: await openPage(key, id, stored) };
-}
+import { openStored, storedHeader } from "./v3-helpers";
 
 describe("POST /api/upload", () => {
   it("accepts valid HTML and returns expected shape", async () => {
@@ -37,18 +28,16 @@ describe("POST /api/upload", () => {
     const data = await res.json<{ id: string; password: string }>();
     const obj = await env.BUCKET.get(`page:${data.id}`);
     expect(obj).not.toBeNull();
-    const text = await obj!.text();
+    const text = new TextDecoder("latin1").decode(await obj!.arrayBuffer());
+    expect(text.startsWith("HDP3")).toBe(true);
     expect(text).not.toContain("<p>stored</p>");
     expect(text).not.toContain("doc.html");
     expect(text).not.toContain(data.password);
-    const record = JSON.parse(text);
-    expect(record.v).toBe(2);
-    expect(record.password).toBeUndefined();
-    expect(record.html).toBeUndefined();
-    expect(record.verifier).toMatch(/^[0-9a-f]{64}$/);
-    expect(record.createdAt).toBeTruthy();
-
-    const { payload } = await openStored(data.id, data.password);
+    const { header, payload } = await openStored(data.id, data.password);
+    expect(header.v).toBe(3);
+    expect(header.verifier).toMatch(/^[0-9a-f]{64}$/);
+    expect(header.createdAt).toBeTruthy();
+    expect(header.bytes).toBe("<p>stored</p>".length);
     expect(payload).toEqual({ html: "<p>stored</p>", filename: "doc.html" });
   });
 
@@ -183,10 +172,10 @@ describe("POST /api/upload (update existing)", () => {
     expect(data.password).toBe(password);
     expect(data.url).toContain(`/${id}?p=${password}`);
 
-    const { stored, payload } = await openStored(id, password);
+    const { header, payload } = await openStored(id, password);
     expect(payload).toEqual({ html: "<p>new</p>", filename: "new.html" });
-    expect(stored.v).toBe(2); // a legacy record is rewritten sealed on update
-    expect(JSON.stringify(stored)).not.toContain(password);
+    expect(header.v).toBe(3); // a legacy record is rewritten sealed on update
+    expect(JSON.stringify(header)).not.toContain(password);
 
     const oldExpires = new Date(oldCreatedAt).getTime() + 7 * 24 * 60 * 60 * 1000;
     expect(new Date(data.expiresAt).getTime()).toBeGreaterThan(oldExpires);
@@ -246,9 +235,9 @@ describe("POST /api/upload (update existing)", () => {
     const data = await res.json<{ expiresAt: string | null }>();
     expect(data.expiresAt).toBeNull();
 
-    const { stored, payload } = await openStored(id, password);
+    const { header, payload } = await openStored(id, password);
     expect(payload?.html).toBe("<p>new</p>");
-    expect(stored.pinned).toBe(true);
+    expect(header.pinned).toBe(true);
   });
 
   it("ignores a client-supplied pinned flag on create and on update", async () => {
@@ -260,8 +249,7 @@ describe("POST /api/upload (update existing)", () => {
     expect(created.status).toBe(200);
     const c = await created.json<{ id: string; password: string; expiresAt: string | null }>();
     expect(c.expiresAt).toBeTruthy();
-    let record = JSON.parse(await (await env.BUCKET.get(`page:${c.id}`))!.text());
-    expect(record.pinned).toBeUndefined();
+    expect((await storedHeader(c.id)).pinned).toBeUndefined();
 
     const updated = await SELF.fetch("http://localhost/api/upload", {
       method: "POST",
@@ -273,8 +261,7 @@ describe("POST /api/upload (update existing)", () => {
     expect(updated.status).toBe(200);
     const u = await updated.json<{ expiresAt: string | null }>();
     expect(u.expiresAt).toBeTruthy();
-    record = JSON.parse(await (await env.BUCKET.get(`page:${c.id}`))!.text());
-    expect(record.pinned).toBeUndefined();
+    expect((await storedHeader(c.id)).pinned).toBeUndefined();
   });
 });
 

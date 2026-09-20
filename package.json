@@ -10,6 +10,7 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:cli": "npm test --prefix cli",
+    "test:pages": "node scripts/pages-script.test.mjs",
     "test:cli:shell": "node cli/__tests__/shell-inline.test.mjs",
     "test:browser-compression": "node scripts/browser-compression.test.mjs"
   },

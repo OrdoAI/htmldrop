@@ -16,10 +16,19 @@ function withServer(handler) {
   return new Promise((resolve, reject) => {
     const requests = [];
     const server = createServer((req, res) => {
-      let body = "";
-      req.setEncoding("utf8");
-      req.on("data", (chunk) => { body += chunk; });
+      const chunks = [];
+      req.on("data", (chunk) => { chunks.push(chunk); });
       req.on("end", () => {
+        // Uploads arrive as one JSON metadata line, a newline, then the raw
+        // page; re-join them as the JSON shape the assertions read.
+        const raw = Buffer.concat(chunks);
+        const nl = raw.indexOf(0x0a);
+        let body = raw.toString("utf8");
+        if (req.method === "POST" && nl >= 0) {
+          try {
+            body = JSON.stringify({ ...JSON.parse(raw.subarray(0, nl).toString("utf8")), html: raw.subarray(nl + 1).toString("utf8") });
+          } catch {}
+        }
         requests.push({ url: req.url, method: req.method, body });
         res.setHeader("Content-Type", "application/json");
         if (req.url.includes("/comments")) {

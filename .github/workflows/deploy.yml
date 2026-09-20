@@ -24,6 +24,8 @@ jobs:
 
       - run: npm run test:cli
 
+      - run: npm run test:pages
+
       # Build metadata for GET /version. Values must not contain ":" (wrangler
       # splits --var on the first one), so only the run id is passed and the
       # Worker builds the URL.

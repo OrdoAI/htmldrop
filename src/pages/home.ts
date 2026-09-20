@@ -154,7 +154,7 @@ input[type=file]{display:none}
         <div class="field" id="dropField">
           <svg class="doc" viewBox="0 0 48 56" aria-hidden="true"><path d="M8 4h22l10 10v36a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z"/><path d="M30 4v10h10"/><path d="M24 22v16m-6-6 6 6 6-6"/></svg>
           <strong class="dz-title"><span class="t-idle">Drop a file or folder</span><span class="t-over" aria-hidden="true">Release to upload</span></strong>
-          <p>.html or .md &middot; up to 24 MB &middot; local images inlined</p>
+          <p>.html or .md &middot; up to 50 MB &middot; local images inlined</p>
           <div class="pick-btns">
             <button type="button" class="btn" id="pickFile">Pick file</button>
             <button type="button" class="btn ghost" id="pickFolder">Pick folder</button>
@@ -336,7 +336,7 @@ input[type=file]{display:none}
     for(var j=0;j<entries.length;j++)await walk(entries[j],'');return files;
   }
 
-  var MAX=24*1024*1024;
+  var MAX=50*1024*1024;
   var dz=document.getElementById('dropZone'),fi=document.getElementById('fileInput'),fo=document.getElementById('folderInput');
   var pf=document.getElementById('pickFile'),pfr=document.getElementById('pickFolder');
   var prog=document.getElementById('progress'),err=document.getElementById('errorMsg');
@@ -386,7 +386,7 @@ input[type=file]{display:none}
       try{var r=await inlineAssets(text,assets,main);text=r.html;if(r.inlined>0||r.missing.length>0){ilInfo.textContent=r.inlined+' inlined'+(r.missing.length?', '+r.missing.length+' not found':'');ilInfo.classList.add('show');}}
       catch(e){prog.classList.remove('show');showErr('Inlining failed: '+e.message);return;}
     }
-    if(new Blob([text]).size>MAX){prog.classList.remove('show');showErr('Too large after inlining (max 24 MB)');return;}
+    if(new Blob([text]).size>MAX){prog.classList.remove('show');showErr('Too large after inlining (max 50 MB)');return;}
     upload(text,main.name);
   }
 
@@ -414,8 +414,9 @@ input[type=file]{display:none}
 
   function upload(html,fn){
     prog.textContent='Uploading\\u2026';prog.classList.add('show');dz.classList.add('busy');
-    var payload={html:html,filename:fn,expiresInDays:opts.days};if(opts.public)payload.public=true;
-    fetch('/api/upload',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)})
+    var page=new Blob([html]);
+    var meta={filename:fn,bytes:page.size,expiresInDays:opts.days};if(opts.public)meta.public=true;
+    fetch('/api/upload',{method:'POST',headers:{'Content-Type':'application/x-htmldrop-upload'},body:new Blob([JSON.stringify(meta)+'\\n',page])})
     .then(function(r){if(!r.ok)return r.text().then(function(t){throw new Error(t);});return r.json();})
     .then(function(d){
       var eb=document.getElementById('editBox'),ei=document.getElementById('editInput'),tag=document.getElementById('shareTag');

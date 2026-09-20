@@ -382,18 +382,22 @@ if (updateUrl) {
   updateCreds = parsePreviewUrl(updateUrl);
 }
 
-const body = updateCreds
-  ? { html: content, filename, ...updateCreds }
-  : { html: content, filename };
-if (commentAnchors) body.commentAnchors = commentAnchors;
-if (values.public) body.public = true;
-if (values.private) body.public = false;
-if (expiresInDays !== undefined) body.expiresInDays = expiresInDays;
-const payload = JSON.stringify(body);
+// Streaming upload shape: one JSON line of metadata (with the page's UTF-8
+// length), a newline, then the raw page. The service seals it frame by frame,
+// which is what allows pages up to 50 MiB.
+const page = Buffer.from(content, "utf-8");
+const meta = updateCreds
+  ? { filename, bytes: page.length, ...updateCreds }
+  : { filename, bytes: page.length };
+if (commentAnchors) meta.commentAnchors = commentAnchors;
+if (values.public) meta.public = true;
+if (values.private) meta.public = false;
+if (expiresInDays !== undefined) meta.expiresInDays = expiresInDays;
+const payload = Buffer.concat([Buffer.from(`${JSON.stringify(meta)}\n`, "utf-8"), page]);
 
 const res = await fetch(`${endpoint}/api/upload`, {
   method: "POST",
-  headers: { "Content-Type": "application/json" },
+  headers: { "Content-Type": "application/x-htmldrop-upload" },
   body: payload,
 });
 
