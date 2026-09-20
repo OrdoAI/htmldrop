@@ -18,15 +18,24 @@ function withServer(handler) {
   return new Promise((resolve, reject) => {
     const requests = [];
     const server = createServer((req, res) => {
-      let body = "";
-      req.setEncoding("utf8");
-      req.on("data", chunk => { body += chunk; });
+      const chunks = [];
+      req.on("data", chunk => { chunks.push(chunk); });
       req.on("end", () => {
-        requests.push({ url: req.url, body });
+        // The streaming upload shape: one JSON line of metadata, a newline,
+        // then the raw page. `body` re-joins them as the JSON the service's
+        // original API took, so assertions read one shape.
+        const raw = Buffer.concat(chunks);
+        const nl = raw.indexOf(0x0a);
+        let meta = {};
+        let html = raw.toString("utf8");
+        if (nl >= 0) {
+          try { meta = JSON.parse(raw.subarray(0, nl).toString("utf8")); } catch {}
+          html = raw.subarray(nl + 1).toString("utf8");
+        }
+        requests.push({ url: req.url, headers: req.headers, meta, html, pageBytes: nl >= 0 ? raw.length - nl - 1 : raw.length, body: JSON.stringify({ ...meta, html }) });
         res.setHeader("Content-Type", "application/json");
         // Echo the visibility the way the real service does.
-        let isPublic = false;
-        try { isPublic = JSON.parse(body).public === true; } catch {}
+        const isPublic = meta.public === true;
         res.end(JSON.stringify({
           url: "http://preview.test/abc?p=secret", id: "abc", expiresAt: "2026-06-30T00:00:00.000Z",
           public: isPublic, ...(isPublic ? { publicUrl: "http://preview.test/abc" } : {}),
@@ -190,6 +199,12 @@ test("create <file> explicit verb uploads without update credentials", async () 
       const payload = JSON.parse(requests[0].body);
       assert.equal(payload.id, undefined);
       assert.equal(payload.password, undefined);
+      // Streaming shape: metadata line carries the page's byte length, the
+      // page itself follows raw, with a Content-Length on the request.
+      assert.equal(requests[0].headers["content-type"], "application/x-htmldrop-upload");
+      assert.equal(requests[0].meta.bytes, requests[0].pageBytes);
+      assert.equal(requests[0].meta.bytes, Buffer.byteLength(requests[0].html, "utf8"));
+      assert.equal(requests[0].headers["content-length"], String(Buffer.byteLength(`${JSON.stringify(requests[0].meta)}\n`) + requests[0].pageBytes));
     });
   } finally {
     rmSync(dir, { recursive: true, force: true });
@@ -420,7 +435,7 @@ test("divergent global locks are ambiguous and skip the check", async () => {
   }
 });
 
-test("--help and --version exit 0 and print 0.2.5 even when the skill is stale", async () => {
+test("--help and --version exit 0 and print the package version even when the skill is stale", async () => {
   const dir = mkdtempSync(join(tmpdir(), "htmldrop-cli-helpver-"));
   try {
     const lock = writeLock(dir, { skills: { htmldrop: { skillFolderHash: "0000000000000000000000000000000000000000" } } });
@@ -432,7 +447,8 @@ test("--help and --version exit 0 and print 0.2.5 even when the skill is stale",
     assert.equal(h.code, 0, h.stderr);
     const v = await runCli(["--version"], "http://127.0.0.1:1", root.pathname, env);
     assert.equal(v.code, 0, v.stderr);
-    assert.ok(v.stdout.includes("0.2.5"), `expected 0.2.5 in: ${v.stdout}`);
+    const { version } = JSON.parse(readFileSync(new URL("../package.json", import.meta.url)));
+    assert.ok(v.stdout.includes(version), `expected ${version} in: ${v.stdout}`);
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }

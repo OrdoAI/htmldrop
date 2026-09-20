@@ -9,7 +9,7 @@
 // Per object:
 //   page, legacy, live         -> sealed v2 under the key derived from its stored password
 //   page, legacy, expired      -> deleted with its comments (what the Worker does on read)
-//   page, already v2           -> untouched
+//   page, already sealed (v2 or v3) -> untouched
 //   comment, legacy, page migrated here -> sealed under that page's key
 //   comment, legacy, page already v2    -> left alone; the Worker seals it on the page's next update
 //   comment, page missing      -> deleted (orphan)
@@ -22,8 +22,8 @@
 // Requires a logged-in wrangler and Node 22.18+ (type stripping).
 
 import { execFile } from "node:child_process";
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { homedir } from "node:os";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
 import {
@@ -31,6 +31,7 @@ import {
   isLegacyPage,
   isStoredComment,
   isStoredPage,
+  isV3Prefix,
   migrateLegacyPage,
   sealComment,
 } from "../src/envelope.ts";
@@ -102,7 +103,19 @@ async function wrangler(...cmd) {
   throw lastErr;
 }
 
-const getObject = (key) => wrangler("r2", "object", "get", `${bucket}/${key}`, "--remote", "--pipe");
+// Objects are read to a file, never through a text pipe: a v3 page is binary
+// and can be 50 MiB, past what a captured stdout allows.
+async function getObjectBytes(key) {
+  const dir = mkdtempSync(join(tmpdir(), "htmldrop-migrate-"));
+  const file = join(dir, "object.bin");
+  try {
+    await wrangler("r2", "object", "get", `${bucket}/${key}`, "--remote", "--file", file);
+    return readFileSync(file);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+}
+const getObject = async (key) => (await getObjectBytes(key)).toString("utf8");
 const deleteObject = (key) => wrangler("r2", "object", "delete", `${bucket}/${key}`, "--remote");
 async function putObject(key, value) {
   const file = join(backupDir, "_staging", key.replace(/[^A-Za-z0-9._-]/g, "_") + ".json");
@@ -151,18 +164,20 @@ const pageState = new Map(); // id -> { status, key? }
 let done = 0;
 await pool(pageKeys, async (key) => {
   const id = key.slice("page:".length);
-  let text;
+  let bytes;
   try {
-    text = await getObject(key);
+    bytes = await getObjectBytes(key);
   } catch (err) {
     console.log(`  unreadable ${key}: ${String(err.stderr ?? err.message).split("\n").find((l) => l.includes("ERROR")) ?? "get failed"}`);
     pageState.set(id, { status: "unreadable" });
     done++;
     return;
   }
-  const record = parse(text);
+  const v3 = isV3Prefix(bytes);
+  const text = v3 ? "" : bytes.toString("utf8");
+  const record = v3 ? null : parse(text);
   let status;
-  if (isStoredPage(record)) {
+  if (v3 || isStoredPage(record)) {
     status = "sealed-already";
   } else if (!isLegacyPage(record)) {
     status = "unrecognised";

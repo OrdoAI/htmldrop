@@ -47,6 +47,8 @@ jobs:
 
       - run: npm run test:cli
 
+      - run: npm run test:pages
+
       - name: Smoke CLI help
         run: node cli/index.mjs --help
 

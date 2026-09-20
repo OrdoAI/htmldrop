@@ -1,4 +1,5 @@
 import {
+  PageChangedError,
   type PageRecord,
   getAuthCookie,
   getPageMeta,
@@ -14,6 +15,7 @@ import {
   verifyPassword,
 } from "./auth";
 import { commentWidget } from "./widget";
+import { pipeThrough } from "./envelope";
 import { passwordPage } from "./pages/password";
 import { notFoundPage } from "./pages/notfound";
 import { withTransportSecurity } from "./security";
@@ -87,13 +89,51 @@ setTimeout(check,30000);
 }
 
 // Insert the notice before the last </body> when present; append as a fallback.
-// Treated as hostile-to-collisions: the snippet is otherwise self-contained.
-function injectNotice(html: string, snippet: string): string {
-  const re = /<\/body\s*>/gi;
+// Streams the page through, holding back only the last `hold` bytes, so the
+// search costs the same for a 50 MiB page as for a 5 KiB one. A page whose
+// last </body> sits more than `hold` bytes before its end gets the snippet
+// appended instead, which browsers render the same way.
+const HOLD_BYTES = 256 * 1024;
+
+function lastBodyClose(b: Uint8Array): number {
   let last = -1;
-  let m: RegExpExecArray | null;
-  while ((m = re.exec(html)) !== null) last = m.index;
-  return last === -1 ? html + snippet : html.slice(0, last) + snippet + html.slice(last);
+  for (let i = 0; i + 6 < b.length; i++) {
+    if (b[i] !== 0x3c || b[i + 1] !== 0x2f) continue; // "</"
+    if ((b[i + 2] | 0x20) !== 0x62 || (b[i + 3] | 0x20) !== 0x6f
+      || (b[i + 4] | 0x20) !== 0x64 || (b[i + 5] | 0x20) !== 0x79) continue; // "body"
+    let j = i + 6;
+    while (j < b.length && (b[j] === 0x20 || b[j] === 0x09 || b[j] === 0x0a || b[j] === 0x0d || b[j] === 0x0c)) j++;
+    if (j < b.length && b[j] === 0x3e) last = i;
+  }
+  return last;
+}
+
+export function injectAtBodyEnd(snippet: Uint8Array, hold = HOLD_BYTES): TransformStream<Uint8Array, Uint8Array> {
+  let tail = new Uint8Array(0);
+  return new TransformStream({
+    transform(chunk, controller) {
+      const joined = new Uint8Array(tail.length + chunk.length);
+      joined.set(tail, 0);
+      joined.set(chunk, tail.length);
+      if (joined.length > hold) {
+        controller.enqueue(joined.subarray(0, joined.length - hold));
+        tail = joined.slice(joined.length - hold);
+      } else {
+        tail = joined;
+      }
+    },
+    flush(controller) {
+      const at = lastBodyClose(tail);
+      if (at < 0) {
+        if (tail.length) controller.enqueue(tail);
+        controller.enqueue(snippet);
+      } else {
+        controller.enqueue(tail.subarray(0, at));
+        controller.enqueue(snippet);
+        controller.enqueue(tail.subarray(at));
+      }
+    },
+  });
 }
 
 const APP_HEADERS: HeadersInit = {
@@ -109,7 +149,28 @@ function responseBody(request: Request, body: BodyInit): BodyInit | null {
   return request.method === "HEAD" ? null : body;
 }
 
+// A page rewritten between the header read and the body read makes body()
+// throw; the whole lookup, authorization included, runs again on the new
+// object. Three tries covers any realistic burst of updates.
 export async function handleServe(
+  request: Request,
+  env: Env,
+  id: string,
+): Promise<Response> {
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      return await serveOnce(request, env, id);
+    } catch (err) {
+      if (!(err instanceof PageChangedError)) throw err;
+    }
+  }
+  return new Response(responseBody(request, "Page is being updated, retry"), {
+    status: 503,
+    headers: withTransportSecurity({ "Retry-After": "1" }, request),
+  });
+}
+
+async function serveOnce(
   request: Request,
   env: Env,
   id: string,
@@ -201,7 +262,10 @@ async function previewResponse(
   if (withWidget) {
     inject += commentWidget(id, await mintCommentToken(env.AUTH_SECRET, id, record.key));
   }
-  return new Response(responseBody(request, injectNotice(record.html, inject)), {
+  // HEAD never opens the page; only a GET streams it.
+  if (request.method === "HEAD") return new Response(null, { status: 200, headers });
+  const { stream } = await record.body();
+  return new Response(pipeThrough(stream, injectAtBodyEnd(new TextEncoder().encode(inject))), {
     status: 200,
     headers,
   });

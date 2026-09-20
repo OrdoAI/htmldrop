@@ -15,14 +15,17 @@
 // gets a full one instead of dying at the next read). `version` is left alone
 // so open previews see no stale notice.
 //
+// Works on both storage formats: a v3 object (binary, chunked) is re-sealed
+// whole, a v2 JSON record through the older path.
+//
 // Requires a logged-in wrangler and Node 22.18+ (imports src/envelope.ts under
 // native type stripping).
 
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { isLegacyPage, isStoredPage, resealPage } from "../src/envelope.ts";
+import { isLegacyPage, isStoredPage, isV3Prefix, parseV3Header, resealPage, resealPageV3 } from "../src/envelope.ts";
 
 const args = process.argv.slice(2);
 const has = (flag) => args.includes(flag);
@@ -76,34 +79,63 @@ function wrangler(...cmd) {
   });
 }
 
-let record;
-try {
-  record = JSON.parse(wrangler("r2", "object", "get", key, target, "--pipe"));
-} catch {
-  console.error(`page:${id}: missing or not JSON`);
-  process.exit(1);
-}
-if (!isStoredPage(record) && !isLegacyPage(record)) {
-  console.error(`page:${id}: unrecognised record shape`);
-  process.exit(1);
-}
-
-const before = { pinned: record.pinned === true, public: typeof record.open === "string", ttlDays: record.ttlDays ?? 7 };
-const next = await resealPage(id, password, record, patch);
-if (!next) {
-  console.error(`page:${id}: password does not match this page (or the stored record is corrupt)`);
-  process.exit(1);
-}
-
+// Read to a file, never through a text pipe: a v3 object is binary.
 const dir = mkdtempSync(join(tmpdir(), "htmldrop-pin-"));
-const file = join(dir, "record.json");
+const inFile = join(dir, "object.bin");
+const outFile = join(dir, "next.bin");
+let bytes;
 try {
-  writeFileSync(file, JSON.stringify(next));
-  wrangler("r2", "object", "put", key, "--file", file, target, "--content-type", "application/json");
+  wrangler("r2", "object", "get", key, target, "--file", inFile);
+  bytes = new Uint8Array(readFileSync(inFile));
+} catch {
+  console.error(`page:${id}: missing or unreadable`);
+  rmSync(dir, { recursive: true, force: true });
+  process.exit(1);
+}
+
+const summary = (h) => ({ pinned: h.pinned === true, public: typeof h.open === "string", ttlDays: h.ttlDays ?? 7 });
+let before;
+let after;
+let nextBytes;
+let contentType;
+let format;
+try {
+  if (isV3Prefix(bytes)) {
+    const parsed = parseV3Header(bytes);
+    if (!parsed) fail(`page:${id}: unrecognised v3 object`);
+    before = summary(parsed.header);
+    const next = await resealPageV3(id, password, bytes, patch);
+    if (!next) fail(`page:${id}: password does not match this page (or the stored object is corrupt)`);
+    after = { ...summary(parseV3Header(next).header), createdAt: parseV3Header(next).header.createdAt };
+    nextBytes = next;
+    contentType = "application/octet-stream";
+    format = "v3";
+  } else {
+    let record;
+    try {
+      record = JSON.parse(new TextDecoder().decode(bytes));
+    } catch {
+      fail(`page:${id}: not JSON`);
+    }
+    if (!isStoredPage(record) && !isLegacyPage(record)) fail(`page:${id}: unrecognised record shape`);
+    before = summary(record);
+    const next = await resealPage(id, password, record, patch);
+    if (!next) fail(`page:${id}: password does not match this page (or the stored record is corrupt)`);
+    after = { ...summary(next), createdAt: next.createdAt };
+    nextBytes = new TextEncoder().encode(JSON.stringify(next));
+    contentType = "application/json";
+    format = "v2";
+  }
+  writeFileSync(outFile, nextBytes);
+  wrangler("r2", "object", "put", key, "--file", outFile, target, "--content-type", contentType);
 } finally {
   rmSync(dir, { recursive: true, force: true });
 }
 
-const after = { pinned: next.pinned === true, public: typeof next.open === "string", ttlDays: next.ttlDays ?? 7 };
+function fail(msg) {
+  console.error(msg);
+  process.exit(1);
+}
+
 const show = (k) => (before[k] === after[k] ? `${k}=${after[k]}` : `${k} ${before[k]} -> ${after[k]}`);
-console.log(`page:${id}: ${show("pinned")}; ${show("public")}; ${show("ttlDays")}; createdAt ${next.createdAt}; sealed v2`);
+console.log(`page:${id}: ${show("pinned")}; ${show("public")}; ${show("ttlDays")}; createdAt ${after.createdAt}; sealed ${format}`);

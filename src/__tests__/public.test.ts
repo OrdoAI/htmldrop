@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { env, SELF } from "cloudflare:test";
-import { derivePageKey, openPage, resealPage, sealPage, type StoredPage } from "../envelope";
+import { derivePageKey, openPageV3Bytes, resealPageV3, sealPage } from "../envelope";
+import { headerOf, storedHeader, storedObject, tamperHeader } from "./v3-helpers";
 import { purgeExpired } from "../cleanup";
 
 const DAY = 24 * 60 * 60 * 1000;
@@ -21,9 +22,7 @@ async function create(body: Record<string, unknown> = {}): Promise<Created> {
   return res.json<Created>();
 }
 
-async function stored(id: string): Promise<StoredPage> {
-  return JSON.parse(await (await env.BUCKET.get(`page:${id}`))!.text());
-}
+const stored = storedHeader;
 
 async function cookieFor(page: Created): Promise<string> {
   const boot = await SELF.fetch(`http://localhost/${page.id}?p=${page.password}`, { redirect: "manual" });
@@ -107,10 +106,9 @@ describe("public pages", () => {
 
   it("a stored open key that does not decrypt the page is not served", async () => {
     const page = await create();
-    const s = await stored(page.id);
     const { key } = await derivePageKey(page.id, "wrongpassword000");
     const b64 = btoa(String.fromCharCode(...key)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
-    await env.BUCKET.put(`page:${page.id}`, JSON.stringify({ ...s, open: b64 }));
+    await tamperHeader(page.id, { open: b64 });
     expect((await SELF.fetch(`http://localhost/${page.id}`)).status).toBe(401);
   });
 
@@ -174,26 +172,26 @@ describe("expiresInDays", () => {
 
   it("the window is bound into the ciphertext", async () => {
     const page = await create({ expiresInDays: 7 });
-    const s = await stored(page.id);
     const { key } = await derivePageKey(page.id, page.password);
-    expect(await openPage(key, page.id, { ...s, ttlDays: 30 })).toBeNull();
-    expect(await openPage(key, page.id, s)).not.toBeNull();
+    expect(await openPageV3Bytes(key, page.id, await storedObject(page.id))).not.toBeNull();
+    await tamperHeader(page.id, { ttlDays: 30 });
+    expect(await openPageV3Bytes(key, page.id, await storedObject(page.id))).toBeNull();
   });
 });
 
-describe("resealPage visibility and window", () => {
+describe("resealPageV3 visibility and window", () => {
   it("toggles public and sets the window with the password", async () => {
     const page = await create();
-    const s = await stored(page.id);
-    const pub = await resealPage(page.id, page.password, s, { public: true, ttlDays: 21 });
-    expect(pub!.open).toBeTruthy();
-    expect(pub!.ttlDays).toBe(21);
-    expect(pub!.version).toBe(s.version);
-    await env.BUCKET.put(`page:${page.id}`, JSON.stringify(pub));
+    const s = await storedObject(page.id);
+    const pub = (await resealPageV3(page.id, page.password, s, { public: true, ttlDays: 21 }))!;
+    expect(headerOf(pub).open).toBeTruthy();
+    expect(headerOf(pub).ttlDays).toBe(21);
+    expect(headerOf(pub).version).toBe(headerOf(s).version);
+    await env.BUCKET.put(`page:${page.id}`, pub);
     expect((await SELF.fetch(`http://localhost/${page.id}`)).status).toBe(200);
-    const priv = await resealPage(page.id, page.password, pub!, { public: false });
-    expect(priv!.open).toBeUndefined();
-    expect(priv!.ttlDays).toBe(21);
-    expect(await resealPage(page.id, "wrongpassword000", pub!, { public: false })).toBeNull();
+    const priv = (await resealPageV3(page.id, page.password, pub, { public: false }))!;
+    expect(headerOf(priv).open).toBeUndefined();
+    expect(headerOf(priv).ttlDays).toBe(21);
+    expect(await resealPageV3(page.id, "wrongpassword000", pub, { public: false })).toBeNull();
   });
 });

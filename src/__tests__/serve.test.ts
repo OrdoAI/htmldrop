@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { env, SELF } from "cloudflare:test";
+import { tamperHeader } from "./v3-helpers";
 
 async function createPage(html = "<h1>Test</h1>", filename = "test.html") {
   const res = await SELF.fetch("http://localhost/api/upload", {
@@ -406,10 +407,7 @@ describe("POST /:id/auth", () => {
 describe("Sealed storage", () => {
   const stale = () => new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
 
-  async function tamper(id: string, patch: Record<string, unknown>) {
-    const stored = JSON.parse(await (await env.BUCKET.get(`page:${id}`))!.text());
-    await env.BUCKET.put(`page:${id}`, JSON.stringify({ ...stored, ...patch }));
-  }
+  const tamper = tamperHeader;
 
   it("rejects a pre-v2 HMAC cookie", async () => {
     const page = await createPage();
