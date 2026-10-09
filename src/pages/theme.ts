@@ -1,60 +1,65 @@
-// Shared "notebook" design tokens and primitives for every server-rendered
-// page: warm paper in light mode, night paper in dark mode, serif prose with
-// sans UI, dashed rules, fill-in blanks, switches and circled choices.
+// Shared design tokens and primitives for every server-rendered page: a quiet
+// warm-neutral surface, one blue accent (amber marks anything public), Geist
+// for text and Geist Mono for links and code. The fonts are served by the
+// Worker itself (src/fonts.ts); keep these paths in step with FONT_PATHS.
 // Inlined into each page's <style>; keep it free of backticks and "${".
+export const FONT_PRELOAD =
+  '<link rel="preload" href="/_fonts/geist-1.7.2.woff2" as="font" type="font/woff2" crossorigin>';
+
 export const THEME_CSS = `
+@font-face{font-family:"Geist";src:url(/_fonts/geist-1.7.2.woff2) format("woff2");font-weight:100 900;font-style:normal;font-display:swap}
+@font-face{font-family:"Geist Mono";src:url(/_fonts/geist-mono-1.7.2.woff2) format("woff2");font-weight:100 900;font-style:normal;font-display:swap}
 :root{
-  --bg:#f3efe3;--paper:#fffdf7;--paper-2:#f7f2e6;
-  --ink:#2a2620;--ink-2:#5f584c;--ink-3:#8a8477;--ink-4:#b6ae9d;
-  --rule:#e6dfcb;--rule-2:#cfc6ad;
-  --accent:#2148c4;--accent-soft:#e9eefc;
-  --pub:#9a4f0a;--pub-soft:#f9ecd8;
-  --err:#b3261e;--err-soft:#f9e6e3;--warn:#8a5a10;
-  --shadow:0 1px 2px rgba(60,45,20,.06),0 18px 40px -16px rgba(60,45,20,.18);
-  --serif:'Iowan Old Style','Palatino Linotype',Palatino,'Book Antiqua',Georgia,'Times New Roman',serif;
-  --sans:Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
-  --mono:ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace;
-  --ease:cubic-bezier(.22,.68,.2,1);--t1:.16s;--t2:.3s;--t3:.45s;
-  --r:14px;--r-s:8px;
+  --bg:#fafaf9;--surface:#ffffff;--sunken:#f4f4f2;--hover:#eeeeeb;
+  --ink:#121211;--ink-2:#575752;--ink-3:#8b8b85;--ink-4:#bcbcb5;
+  --line:#e8e8e4;--line-2:#d8d8d2;
+  --accent:#2c53e8;--accent-soft:#eef1fe;--accent-line:#c8d2fb;
+  --pub:#b9520b;--pub-soft:#fdf1e6;--pub-line:#f1cfaf;
+  --ok:#1f8a55;--err:#c42b20;--err-soft:#fdeeec;--warn:#946000;
+  --shadow-sm:0 1px 2px rgba(18,18,17,.05);
+  --shadow:0 1px 2px rgba(18,18,17,.04),0 10px 30px -12px rgba(18,18,17,.12);
+  --shadow-lg:0 2px 6px rgba(18,18,17,.05),0 24px 56px -16px rgba(18,18,17,.22);
+  --sans:"Geist",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",sans-serif;
+  --mono:"Geist Mono",ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;
+  --ease:cubic-bezier(.2,.7,.2,1);--t1:.15s;--t2:.25s;--t3:.4s;
+  --r-lg:18px;--r:14px;--r-s:10px;
   color-scheme:light dark;
 }
 @media(prefers-color-scheme:dark){:root{
-  --bg:#171410;--paper:#1f1b15;--paper-2:#27221a;
-  --ink:#ece5d3;--ink-2:#b6ad99;--ink-3:#847b69;--ink-4:#56503f;
-  --rule:#332d23;--rule-2:#48412f;
-  --accent:#9db3ff;--accent-soft:#232a44;
-  --pub:#e6ad62;--pub-soft:#332616;
-  --err:#ff8177;--err-soft:#3a1f1c;--warn:#dfae5c;
-  --shadow:0 1px 2px rgba(0,0,0,.4),0 18px 40px -16px rgba(0,0,0,.6);
+  --bg:#0c0c0b;--surface:#151514;--sunken:#1c1c1a;--hover:#242422;
+  --ink:#f2f2ee;--ink-2:#abaaa3;--ink-3:#7a7a73;--ink-4:#4c4c47;
+  --line:#262624;--line-2:#34342f;
+  --accent:#7f97ff;--accent-soft:#191f3d;--accent-line:#2e3a78;
+  --pub:#f0a45c;--pub-soft:#2b1d0f;--pub-line:#5b3c1c;
+  --ok:#4cc38a;--err:#ff7b72;--err-soft:#3a1d1a;--warn:#e2b25c;
+  --shadow-sm:0 1px 2px rgba(0,0,0,.4);
+  --shadow:0 1px 2px rgba(0,0,0,.4),0 12px 32px -12px rgba(0,0,0,.7);
+  --shadow-lg:0 2px 6px rgba(0,0,0,.5),0 24px 56px -16px rgba(0,0,0,.85);
 }}
-*{margin:0;padding:0;box-sizing:border-box}
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
 html{background:var(--bg);-webkit-text-size-adjust:100%}
-body{font-family:var(--serif);background:var(--bg);color:var(--ink);-webkit-font-smoothing:antialiased;line-height:1.5}
+body{font-family:var(--sans);font-size:15px;line-height:1.55;color:var(--ink);background:var(--bg);-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;text-rendering:optimizeLegibility}
 button,input,select{font:inherit;color:inherit}
-:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:4px}
-a{color:var(--ink);text-decoration:none;border-bottom:1px solid var(--rule-2);transition:border-color var(--t1) var(--ease)}
-a:hover{border-color:var(--ink)}
-.eyebrow{font-family:var(--sans);font-size:.6875rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3)}
-.btn{font-family:var(--sans);display:inline-flex;align-items:center;justify-content:center;gap:.45rem;min-height:2.375rem;padding:0 1.05rem;border-radius:var(--r-s);border:1px solid var(--ink);background:var(--ink);color:var(--paper);font-size:.8125rem;font-weight:550;cursor:pointer;white-space:nowrap;transition:background var(--t1) var(--ease),color var(--t1) var(--ease),border-color var(--t1) var(--ease),transform var(--t1) var(--ease)}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:6px}
+a{color:inherit;text-decoration:none}
+::selection{background:var(--accent-soft)}
+.mark{display:inline-block;width:1.375rem;height:1.375rem;flex:none}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:.5rem;height:2.5rem;padding:0 1.05rem;border-radius:var(--r-s);border:1px solid var(--ink);background:var(--ink);color:var(--bg);font-size:.875rem;font-weight:550;letter-spacing:-.005em;white-space:nowrap;cursor:pointer;transition:background-color var(--t1) var(--ease),border-color var(--t1) var(--ease),transform var(--t1) var(--ease)}
 .btn:hover{background:var(--ink-2);border-color:var(--ink-2)}
-.btn:active{transform:scale(.97)}
-.btn.ghost{background:transparent;color:var(--ink);border-color:var(--rule-2)}
-.btn.ghost:hover{background:var(--paper-2);border-color:var(--ink-3);color:var(--ink)}
-.btn.copied,.btn.ghost.copied{background:var(--accent);border-color:var(--accent);color:#fff}
-.btn svg{width:.9rem;height:.9rem;stroke:currentColor;stroke-width:2;fill:none;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0}
+.btn:active{transform:scale(.98)}
+.btn.secondary{background:var(--surface);color:var(--ink);border-color:var(--line-2);box-shadow:var(--shadow-sm)}
+.btn.secondary:hover{background:var(--sunken);border-color:var(--line-2)}
+.btn svg{width:1rem;height:1rem;flex:none;stroke:currentColor;stroke-width:2;fill:none;stroke-linecap:round;stroke-linejoin:round}
 .lbl::after{content:"Copy"}
 .copied .lbl::after{content:"Copied"}
-.sw{font-family:var(--sans);display:inline-flex;align-items:center;gap:.5rem;background:none;border:0;padding:0;cursor:pointer;font-size:.8125rem;font-weight:550;color:var(--ink-3);transition:color var(--t1) var(--ease)}
-.sw i{width:2rem;height:1.15rem;border-radius:100px;background:var(--rule-2);position:relative;flex-shrink:0;transition:background var(--t2) var(--ease)}
-.sw i::after{content:"";position:absolute;top:2px;left:2px;width:.85rem;height:.85rem;border-radius:50%;background:var(--paper);box-shadow:0 1px 2px rgba(0,0,0,.25);transition:transform var(--t2) var(--ease)}
-.sw:hover{color:var(--ink-2)}
-.sw.on{color:var(--ink)}.sw.on i{background:var(--ink)}.sw.on i::after{transform:translateX(.85rem)}
-.sw.on.pub-on{color:var(--pub)}.sw.on.pub-on i{background:var(--pub)}
-.pick{font-family:var(--sans);display:inline-flex;align-items:baseline;gap:.1rem;font-size:.8125rem;font-weight:550;color:var(--ink-3)}
-.pick button{background:none;border:0;padding:.1rem .3rem;color:var(--ink-3);cursor:pointer;border-bottom:1.5px solid transparent;transition:color var(--t1) var(--ease),border-color var(--t1) var(--ease)}
-.pick button:hover{color:var(--ink-2)}
-.pick button.on{color:var(--ink);border-bottom-color:var(--ink)}
-.pick .sep{color:var(--ink-4);padding:0 .05rem}
-.pick .unit{margin-left:.3rem;color:var(--ink-3)}
+.btn .i-ok{display:none}
+.btn.copied .i-ok{display:inline}
+.btn.copied .i-copy{display:none}
+@keyframes rise{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{transition-duration:0s!important;transition-delay:0s!important;animation-duration:0s!important}}
 `;
+
+// The brand mark: a rounded tile with a page dropping into a tray.
+export const MARK_SVG =
+  '<svg class="mark" viewBox="0 0 24 24" aria-hidden="true"><rect width="24" height="24" rx="7" fill="currentColor"/>' +
+  '<path d="M12 6.25v7.5M8.75 10.75 12 14l3.25-3.25M7.25 17.25h9.5" fill="none" stroke="var(--bg)" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg>';

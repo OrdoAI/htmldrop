@@ -19,3 +19,9 @@ declare namespace Cloudflare {
 declare module "cloudflare:test" {
   interface ProvidedEnv extends Env {}
 }
+
+// Bundled as Data modules (see [[rules]] in wrangler.toml).
+declare module "*.woff2" {
+  const data: ArrayBuffer;
+  export default data;
+}

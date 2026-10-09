@@ -1,5 +1,5 @@
 import { generateId as defaultGenerateId, generatePassword } from "./utils";
-import { MAX_TTL_DAYS, expiresAtOf, verifyPassword } from "./auth";
+import { MAX_TTL_DAYS, PageChangedError, expiresAtOf, verifyPassword } from "./auth";
 import { type PageKey, type PageMeta, V3_MAX_PAGE_BYTES, derivePageKey, sealPageV3 } from "./envelope";
 import { applyAnchorRemaps, resealLegacyComments, validateAnchorRemaps } from "./comments";
 import { publicOrigin, withTransportSecurity } from "./security";
@@ -241,9 +241,18 @@ async function readRawUpload(request: Request): Promise<Parsed> {
   return { meta: meta as UploadMeta, content: { stream, bytes: bytes as number } };
 }
 
+// Thrown by `storePage` when `ifEtag` no longer matches the stored object.
+class PageConflictError extends Error {
+  constructor() {
+    super("page changed while it was being rewritten");
+    this.name = "PageConflictError";
+  }
+}
+
 // Seals the page straight into R2. The put is atomic: any stream error
 // (body length mismatch, client disconnect) leaves the previous object, if
-// any, untouched.
+// any, untouched. With `ifEtag`, the put only lands if the object is still
+// the one that etag names.
 async function storePage(
   bucket: R2Bucket,
   id: string,
@@ -251,6 +260,7 @@ async function storePage(
   meta: PageMeta,
   filename: string,
   content: PageContent,
+  ifEtag?: string,
 ): Promise<void> {
   const sealer = await sealPageV3(pageKey, meta, filename, content.bytes);
   const sealed = sealer.seal(content.stream);
@@ -280,10 +290,17 @@ async function storePage(
       throw err;
     }
   })();
-  const put = bucket.put(`page:${id}`, fixed.readable).catch((err: unknown) => {
-    fail(err);
-    throw err;
-  });
+  const put = bucket
+    .put(`page:${id}`, fixed.readable, ifEtag ? { onlyIf: { etagMatches: ifEtag } } : undefined)
+    .then((obj) => {
+      // A failed precondition answers null, possibly without reading the
+      // body, so the pump has to be torn down here or it would wait forever.
+      if (obj === null) throw new PageConflictError();
+    })
+    .catch((err: unknown) => {
+      fail(err);
+      throw err;
+    });
   const settled = await Promise.allSettled([pump, put]);
   if (settled.some((r) => r.status === "rejected")) throw failure instanceof Error ? failure : new Error(String(failure));
 }
@@ -434,6 +451,98 @@ export async function handleUpload(
     id,
     password,
     expiresAt: expiresAtOf(createdAt, wantTtl),
+    public: isPublic,
+    ...(isPublic ? { publicUrl: `${publicOrigin(request)}/${id}` } : {}),
+  }, {
+    headers: withTransportSecurity({}, request),
+  });
+}
+
+// POST /api/settings: change an existing page's visibility and lifetime
+// without uploading it again. Same credential as an update (id + password),
+// JSON body `{id, password, public?, expiresInDays?}`. A new `expiresInDays`
+// counts from now, like an update; changing only `public` keeps the current
+// expiry. Content, filename and `version` stay as they are, so open previews
+// see no update notice. The page is re-sealed as a stream, because the header
+// is bound into every frame, and the write only lands if no upload replaced
+// the page in the meantime.
+const MAX_SETTINGS_BODY_BYTES = 4096;
+
+export async function handleSettings(request: Request, env: Env): Promise<Response> {
+  if (request.method !== "POST") {
+    return textResponse("Method Not Allowed", { status: 405 }, request);
+  }
+  if (!(request.headers.get("Content-Type") ?? "").includes("application/json")) {
+    return textResponse("Content-Type must be application/json", { status: 415 }, request);
+  }
+  const raw = await readCapped(request.body, MAX_SETTINGS_BODY_BYTES);
+  if (raw === null) return tooLarge(request, "Request body", null, MAX_SETTINGS_BODY_BYTES);
+  let body: unknown;
+  try {
+    body = JSON.parse(new TextDecoder().decode(raw));
+  } catch {
+    return textResponse("Invalid JSON", { status: 400 }, request);
+  }
+  if (!body || typeof body !== "object") {
+    return textResponse("Invalid body", { status: 400 }, request);
+  }
+  const { id, password, public: pub, expiresInDays } = body as Record<string, unknown>;
+  if (typeof id !== "string" || typeof password !== "string") {
+    return textResponse("Both 'id' and 'password' are required", { status: 400 }, request);
+  }
+  const wantPublic = readPublic(pub);
+  if (wantPublic === "invalid") {
+    return textResponse("'public' must be a boolean", { status: 400 }, request);
+  }
+  const wantTtl = readTtl(expiresInDays);
+  if (wantTtl === "invalid") {
+    return textResponse(
+      `'expiresInDays' must be an integer from 1 to ${MAX_TTL_DAYS}`,
+      { status: 400 },
+      request,
+    );
+  }
+  if (wantPublic === undefined && wantTtl === undefined) {
+    return textResponse("Nothing to change: give 'public', 'expiresInDays', or both", { status: 400 }, request);
+  }
+
+  const existing = await verifyPassword(env.BUCKET, id, password);
+  if (!existing) {
+    return textResponse("Invalid id or password", { status: 403 }, request);
+  }
+  const isPublic = wantPublic ?? existing.public;
+  const ttlDays = wantTtl ?? existing.ttlDays;
+  const createdAt = wantTtl !== undefined ? new Date().toISOString() : existing.createdAt;
+  if (wantTtl !== undefined || isPublic !== existing.public) {
+    try {
+      await storePage(
+        env.BUCKET,
+        id,
+        { key: existing.key, verifier: existing.verifier },
+        {
+          id,
+          createdAt,
+          version: existing.version,
+          ...(existing.pinned ? { pinned: true } : {}),
+          ...(ttlDays !== undefined ? { ttlDays } : {}),
+          ...(isPublic ? { public: true } : {}),
+        },
+        existing.filename,
+        await existing.body(),
+        existing.etag,
+      );
+    } catch (err) {
+      if (err instanceof PageConflictError || err instanceof PageChangedError) {
+        return textResponse("The page changed while saving; try again", { status: 409 }, request);
+      }
+      return textResponse(`Saving settings failed: ${(err as Error).message}`, { status: 500 }, request);
+    }
+  }
+  return Response.json({
+    url: `${publicOrigin(request)}/${id}?p=${password}`,
+    id,
+    password,
+    expiresAt: existing.pinned ? null : expiresAtOf(createdAt, ttlDays),
     public: isPublic,
     ...(isPublic ? { publicUrl: `${publicOrigin(request)}/${id}` } : {}),
   }, {

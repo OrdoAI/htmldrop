@@ -472,3 +472,19 @@ describe("preview injection", () => {
     expect(html).not.toContain(cookie.split("=")[1]);
   });
 });
+
+describe("framed preview", () => {
+  it("a preview loaded in a frame gets no comment widget", async () => {
+    const page = await createPage("<p>hello world</p>");
+    const boot = await SELF.fetch(`http://localhost/${page.id}?p=${page.password}`, { redirect: "manual" });
+    const cookie = boot.headers.get("Set-Cookie")!.match(/^([^;]+)/)![1];
+    const framed = await SELF.fetch(`http://localhost/${page.id}`, { headers: { Cookie: cookie, "Sec-Fetch-Dest": "iframe" } });
+    expect(framed.status).toBe(200);
+    const html = await framed.text();
+    expect(html).toContain("hello world");
+    expect(html).not.toContain("data-htmldrop-comments");
+    expect(framed.headers.get("ETag")).not.toContain(".w");
+    const top = await SELF.fetch(`http://localhost/${page.id}`, { headers: { Cookie: cookie, "Sec-Fetch-Dest": "document" } });
+    expect(await top.text()).toContain("data-htmldrop-comments");
+  });
+});

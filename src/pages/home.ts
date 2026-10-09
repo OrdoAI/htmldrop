@@ -1,4 +1,40 @@
-import { THEME_CSS } from "./theme";
+import { FONT_PRELOAD, MARK_SVG, THEME_CSS } from "./theme";
+
+const I = {
+  lock: '<svg class="i-lock" viewBox="0 0 24 24" aria-hidden="true"><rect x="4.5" y="10.5" width="15" height="10" rx="2.5"/><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3"/></svg>',
+  globe: '<svg class="i-globe" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5c2.4 2.3 3.6 5.1 3.6 8.5s-1.2 6.2-3.6 8.5c-2.4-2.3-3.6-5.1-3.6-8.5s1.2-6.2 3.6-8.5z"/></svg>',
+  clock: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg>',
+  chev: '<svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>',
+  check: '<svg class="ck" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>',
+  copy: '<svg class="i-copy" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2.5"/><path d="M15 9V6.5A2.5 2.5 0 0 0 12.5 4h-6A2.5 2.5 0 0 0 4 6.5v6A2.5 2.5 0 0 0 6.5 15H9"/></svg><svg class="i-ok" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>',
+  out: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 17 17 7M9 7h8v8"/></svg>',
+  plus: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>',
+  key: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="8" cy="15" r="4"/><path d="m11 12 8.5-8.5M16 6.5l2.5 2.5M18.5 4l2 2"/></svg>',
+  down: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v12M7 12.5l5 5 5-5"/></svg>',
+  refresh: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19.5 10.5A7.5 7.5 0 0 0 6 6.6L4.5 8M4.5 4v4h4M4.5 13.5A7.5 7.5 0 0 0 18 17.4l1.5-1.4M19.5 20v-4h-4"/></svg>',
+  gh: '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .3a12 12 0 00-3.79 23.4c.6.1.82-.26.82-.58v-2.17c-3.34.73-4.04-1.61-4.04-1.61-.55-1.39-1.34-1.76-1.34-1.76-1.09-.75.08-.73.08-.73 1.2.08 1.84 1.24 1.84 1.24 1.07 1.84 2.81 1.31 3.5 1 .1-.78.42-1.31.76-1.61-2.67-.3-5.47-1.33-5.47-5.93 0-1.31.47-2.38 1.24-3.22-.13-.3-.54-1.52.12-3.18 0 0 1-.32 3.3 1.23a11.5 11.5 0 016.02 0c2.28-1.55 3.29-1.23 3.29-1.23.66 1.66.25 2.88.12 3.18.77.84 1.24 1.91 1.24 3.22 0 4.61-2.81 5.63-5.48 5.92.43.37.81 1.1.81 2.22v3.29c0 .32.22.7.82.58A12 12 0 0012 .3"/></svg>',
+};
+
+// A chip that opens a short menu: who can open the link.
+function accessMenu(id: string): string {
+  return `<div class="menu-wrap" id="${id}">
+  <button type="button" class="chip" aria-haspopup="menu" aria-expanded="false">${I.lock}${I.globe}<span class="v">Private</span>${I.chev}</button>
+  <div class="menu" role="menu">
+    <button type="button" role="menuitemradio" aria-checked="true" data-pub="0"><span class="ic">${I.lock}</span><b>Private</b>${I.check}<small>Only people you send the link to. The password is part of it.</small></button>
+    <button type="button" role="menuitemradio" aria-checked="false" data-pub="1"><span class="ic">${I.globe}</span><b>Public</b>${I.check}<small>Anyone with the URL. You keep a separate link for edits.</small></button>
+  </div>
+</div>`;
+}
+
+// A chip that opens the expiry choices; the script fills in the dates.
+function daysMenu(id: string, label: string): string {
+  const item = (d: number) =>
+    `<button type="button" role="menuitemradio" aria-checked="${d === 7}" data-days="${d}"><b>${d} days</b><small></small>${I.check}</button>`;
+  return `<div class="menu-wrap" id="${id}">
+  <button type="button" class="chip" aria-haspopup="menu" aria-expanded="false">${I.clock}<span class="v">${label}</span>${I.chev}</button>
+  <div class="menu days" role="menu">${item(7)}${item(14)}${item(30)}</div>
+</div>`;
+}
 
 export function homePage(): string {
   return `<!DOCTYPE html>
@@ -7,219 +43,374 @@ export function homePage(): string {
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="light dark">
-<title>HTMLDrop</title>
+<title>HTMLDrop: share a page with a link that expires</title>
+${FONT_PRELOAD}
 <style>${THEME_CSS}
-.top{display:flex;align-items:center;justify-content:space-between;padding:1.25rem 1.5rem}
-.brand{border:0;display:inline-flex;align-items:center;gap:.55rem;font-size:1.0625rem;font-weight:600;letter-spacing:-.01em}
-.brand i{width:.5rem;height:.5rem;border-radius:1px;background:var(--ink);transform:rotate(45deg)}
-.gh{border:0;color:var(--ink-3);display:flex;transition:color var(--t1) var(--ease)}
-.gh:hover{color:var(--ink)}
-.gh svg{width:1.375rem;height:1.375rem}
-main{width:100%;max-width:44rem;margin:0 auto;padding:clamp(1.5rem,5vh,3.5rem) 1.5rem 4rem;display:flex;flex-direction:column;align-items:center}
-.hero{font-size:clamp(2rem,1.3rem+2.8vw,3rem);line-height:1.1;letter-spacing:-.02em;font-weight:500;text-align:center}
-.hero em{display:block;font-style:italic;font-weight:400;color:var(--ink-3)}
-.promise{margin-top:.9rem;color:var(--ink-2);font-size:1.0625rem;line-height:1.55;text-align:center;font-style:italic;text-wrap:balance;max-width:28rem}
+:root{--dot:rgba(18,18,17,.14);--glow:rgba(44,83,232,.16);--win-shadow:0 0 0 1px rgba(18,18,17,.07),0 1px 2px rgba(18,18,17,.05),0 12px 24px -12px rgba(18,18,17,.12),0 40px 80px -32px rgba(18,18,17,.22),0 80px 140px -60px rgba(44,83,232,.28)}
+@media(prefers-color-scheme:dark){:root{--dot:rgba(255,255,255,.075);--glow:rgba(127,151,255,.13);--win-shadow:0 0 0 1px rgba(255,255,255,.07),inset 0 1px 0 rgba(255,255,255,.05),0 12px 24px -12px rgba(0,0,0,.6),0 40px 90px -30px rgba(0,0,0,.85),0 80px 160px -60px rgba(127,151,255,.22)}}
+body{overflow-x:clip}
+.top{display:flex;align-items:center;justify-content:space-between;max-width:68rem;margin:0 auto;padding:1.375rem 1.5rem}
+.brand{display:inline-flex;align-items:center;gap:.6rem;font-size:.9375rem;font-weight:650;letter-spacing:-.02em}
+.nav{display:flex;align-items:center;gap:1.5rem;font-size:.875rem;color:var(--ink-2)}
+.nav a{transition:color var(--t1) var(--ease)}
+.nav a:hover{color:var(--ink)}
+.nav .gh{display:flex}
+.nav .gh svg{width:1.25rem;height:1.25rem}
 
-/* tabs: two words, an ink underline that slides */
-.tabs{position:relative;display:flex;gap:1.75rem;margin:2rem 0 1.5rem}
-.tab{background:none;border:0;padding:.35rem .1rem .55rem;font-size:1.0625rem;color:var(--ink-3);cursor:pointer;transition:color var(--t1) var(--ease)}
-.tab:hover{color:var(--ink-2)}
-.tab.active{color:var(--ink)}
-.tabs .thumb{position:absolute;left:0;bottom:0;height:2px;width:0;background:var(--ink);border-radius:1px;pointer-events:none}
-.tabs.ready .thumb{transition:transform var(--t2) var(--ease),width var(--t2) var(--ease)}
+/* hero: the last word of the promise fades out, the way the link will */
+.hero{max-width:52rem;margin:0 auto;padding:clamp(2.75rem,9vh,5.5rem) 1.5rem 0;text-align:center}
+.hero h1{font-size:clamp(2.625rem,1.4rem + 4.6vw,4.75rem);font-weight:680;line-height:1;letter-spacing:-.052em}
+.hero h1 span{display:block;text-wrap:balance}
+.fade{font-style:normal;background:linear-gradient(90deg,var(--ink) 0%,var(--ink) 16%,color-mix(in srgb,var(--ink) 9%,transparent) 97%);-webkit-background-clip:text;background-clip:text;color:transparent;padding-right:.04em}
+.lede{max-width:31rem;margin:1.5rem auto 0;font-size:1.125rem;line-height:1.55;color:var(--ink-2);text-wrap:balance}
 
-/* panels: stacked, cross-fade, no reflow */
-.panels{display:grid;grid-template-columns:minmax(0,1fr);width:100%;align-items:start}
-.panel{grid-area:1/1;width:100%;min-width:0;display:flex;flex-direction:column;align-items:center;opacity:0;visibility:hidden;transform:translateY(8px);pointer-events:none;transition:opacity var(--t2) var(--ease),transform var(--t2) var(--ease),visibility 0s linear var(--t2)}
-.panel.active{opacity:1;visibility:visible;transform:none;pointer-events:auto;transition-delay:0s}
-
-/* the sheet */
-.drop-zone{width:100%;background:var(--paper);border:1px solid var(--rule);border-radius:var(--r);box-shadow:var(--shadow);overflow:hidden;transition:border-color var(--t2) var(--ease),opacity var(--t2) var(--ease)}
-.field{position:relative;padding:3rem 1.5rem 2.5rem;text-align:center;cursor:pointer;transition:background-color var(--t2) var(--ease)}
-.field::before{content:"";position:absolute;inset:.5rem;border:1.5px dashed var(--accent);border-radius:calc(var(--r) - .5rem);opacity:0;transform:scale(.985);pointer-events:none;transition:opacity var(--t2) var(--ease),transform var(--t2) var(--ease)}
-.doc{width:2.75rem;height:auto;margin-bottom:1rem;stroke:var(--ink-3);stroke-width:1.5;fill:var(--paper);stroke-linecap:round;stroke-linejoin:round;transition:transform var(--t2) var(--ease),stroke var(--t2) var(--ease)}
-.dz-title{display:grid;font-size:1.5rem;font-weight:500;letter-spacing:-.01em;line-height:1.3}
-.dz-title span{grid-area:1/1;transition:opacity var(--t2) var(--ease),transform var(--t2) var(--ease)}
-.dz-title .t-over{opacity:0;transform:translateY(6px);color:var(--accent)}
-.field p{color:var(--ink-3);font-size:.9375rem;margin-top:.5rem;font-style:italic}
-body.dragging .field::before{opacity:.45;transform:none}
-.drop-zone.over{border-color:var(--accent)}
-.drop-zone.over>*{pointer-events:none}
-.drop-zone.over .field{background-color:var(--accent-soft)}
-.drop-zone.over .field::before{opacity:1;transform:none}
-.drop-zone.over .doc{transform:translateY(-4px) rotate(-4deg);stroke:var(--accent)}
-.drop-zone.over .dz-title .t-idle{opacity:0;transform:translateY(-6px)}
-.drop-zone.over .dz-title .t-over{opacity:1;transform:none}
-.drop-zone.error{border-color:var(--err)}
-.drop-zone.error .field{background-color:var(--err-soft);animation:nudge var(--t3) var(--ease)}
-.drop-zone.busy{pointer-events:none;opacity:.55}
+/* the stage: a browser window. Drop a file into it and it becomes a page. */
+.stage{position:relative;max-width:54rem;margin:3.25rem auto 0;padding:0 1.5rem}
+.stage::before{content:"";position:absolute;left:50%;top:-6rem;bottom:-5rem;width:100vw;transform:translateX(-50%);z-index:-1;pointer-events:none;
+  background:radial-gradient(ellipse 38% 46% at 50% 42%,var(--glow),transparent 72%),radial-gradient(circle,var(--dot) 1px,transparent 1.3px) 0 0/22px 22px;
+  -webkit-mask-image:radial-gradient(ellipse 58% 62% at 50% 45%,#000 35%,transparent 78%);mask-image:radial-gradient(ellipse 58% 62% at 50% 45%,#000 35%,transparent 78%)}
+.win{position:relative;background:var(--surface);border-radius:var(--r-lg);box-shadow:var(--win-shadow);transition:box-shadow var(--t2) var(--ease),transform var(--t2) var(--ease)}
+.win.over{box-shadow:0 0 0 1.5px var(--accent),0 0 0 7px color-mix(in srgb,var(--accent) 16%,transparent),var(--win-shadow);transform:translateY(-2px)}
+.win.error{box-shadow:0 0 0 1.5px var(--err),var(--win-shadow);animation:nudge var(--t3) var(--ease)}
+.win.busy .view{opacity:.55}
+.win.busy .chrome{pointer-events:none}
+.chrome{position:relative}
+.chrome::after{content:"";position:absolute;left:0;right:0;bottom:-1px;height:2px;background:linear-gradient(90deg,transparent,var(--accent) 40%,var(--accent) 60%,transparent) 0 0/40% 100% no-repeat;opacity:0;transition:opacity var(--t2) var(--ease)}
+.win.busy .chrome::after{opacity:1;animation:load 1.1s var(--ease) infinite}
+@keyframes load{from{background-position:-60% 0}to{background-position:160% 0}}
 @keyframes nudge{20%{transform:translateX(-4px)}45%{transform:translateX(4px)}70%{transform:translateX(-2px)}}
-.pick-btns{display:flex;gap:.6rem;justify-content:center;margin-top:1.5rem;flex-wrap:wrap}
+.chrome{display:flex;align-items:center;gap:.875rem;height:3.25rem;padding:0 .75rem 0 1.125rem;border-bottom:1px solid var(--line);border-radius:var(--r-lg) var(--r-lg) 0 0;background:linear-gradient(var(--surface),var(--sunken))}
+.dots{display:flex;gap:.45rem;flex:none}
+.dots i{width:.6875rem;height:.6875rem;border-radius:50%;background:var(--line-2)}
+.addr{flex:1;min-width:0;display:flex;align-items:center;gap:.5rem;height:2.125rem;padding:0 .3rem 0 .8rem;background:var(--surface);border:1px solid var(--line);border-radius:999px;box-shadow:inset 0 1px 2px rgba(18,18,17,.04);font-family:var(--mono);font-size:.8125rem;color:var(--ink);transition:border-color var(--t2) var(--ease)}
+.addr>svg{flex:none;width:.8125rem;height:.8125rem;stroke:var(--ink-3);stroke-width:2;fill:none;stroke-linecap:round;stroke-linejoin:round}
+.win.public .addr>.i-lock{display:none}
+.win:not(.public) .addr>.i-globe{display:none}
+.lk-url{flex:1;min-width:0;overflow:hidden;white-space:nowrap;letter-spacing:-.01em;-webkit-mask-image:linear-gradient(90deg,#000 calc(100% - 1.75rem),transparent);mask-image:linear-gradient(90deg,#000 calc(100% - 1.75rem),transparent)}
+.win.done .lk-url{-webkit-user-select:all;user-select:all}
+.lk-url .host{color:var(--ink-3)}
+.lk-url .pw{display:inline-block;max-width:14em;overflow:hidden;text-overflow:clip;white-space:nowrap;vertical-align:bottom;color:var(--accent);transition:max-width var(--t3) var(--ease),opacity var(--t2) var(--ease)}
+.win.public .lk-url .pw{max-width:0;opacity:0}
+.ghost{color:var(--ink-4)}
+.caret{display:inline-block;width:1.5px;height:1em;margin-left:1px;vertical-align:-.15em;background:var(--accent);animation:blink 1.1s steps(1) infinite}
+.win.done .ghost,.win.done .caret{display:none}
+@keyframes blink{50%{opacity:0}}
+.addr-copy{display:none;flex:none;place-items:center;width:1.625rem;height:1.625rem;border:0;border-radius:999px;background:none;color:var(--ink-3);cursor:pointer;transition:background-color var(--t1) var(--ease),color var(--t1) var(--ease)}
+.addr-copy:hover{background:var(--sunken);color:var(--ink)}
+.addr-copy svg{width:.875rem;height:.875rem;stroke:currentColor;stroke-width:2;fill:none;stroke-linecap:round;stroke-linejoin:round}
+.addr-copy .i-ok,.addr-copy.copied .i-copy{display:none}
+.addr-copy.copied .i-ok{display:block}
+.addr-copy.copied{color:var(--ok)}
+.win.done .addr-copy{display:grid}
+.tools{display:flex;gap:.375rem;flex:none}
+.view{position:relative;height:25rem;border-radius:0 0 var(--r-lg) var(--r-lg);overflow:hidden;transition:opacity var(--t2) var(--ease)}
+
+/* empty page: a sheet waiting to drop in */
+.field{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:1.5rem;text-align:center;cursor:pointer;transition:background-color var(--t2) var(--ease)}
+.field::before{content:"";position:absolute;inset:.75rem;border:1.5px dashed var(--accent);border-radius:calc(var(--r-lg) - .5rem);opacity:0;pointer-events:none;transition:opacity var(--t2) var(--ease)}
+body.dragging .field::before{opacity:.4}
+.art{position:relative;width:7.5rem;height:6.75rem;margin-bottom:1.5rem}
+.pg{position:absolute;left:50%;top:0;width:4.75rem;height:6rem;margin-left:-2.375rem;padding:.8rem .7rem;background:var(--surface);border:1px solid var(--line);border-radius:.6rem;box-shadow:0 1px 2px rgba(18,18,17,.06),0 10px 20px -10px rgba(18,18,17,.22);transition:transform var(--t3) cubic-bezier(.3,1.4,.5,1)}
+.pg i{display:block;height:.3rem;margin-bottom:.4rem;border-radius:.2rem;background:var(--sunken)}
+.pg i:first-child{width:60%;height:.45rem;margin-bottom:.6rem;background:var(--line-2)}
+.pg i:nth-child(3){width:85%}
+.pg i:nth-child(4){width:70%}
+.pg i:last-child{width:45%}
+.pg.back{transform:translate(-1.6rem,.45rem) rotate(-9deg);opacity:.75}
+.pg.mid{transform:translate(1.5rem,.3rem) rotate(7deg);opacity:.9}
+.pg.front{transform:translateY(.1rem)}
+.drop-badge{position:absolute;left:50%;bottom:-.25rem;display:grid;place-items:center;width:2rem;height:2rem;margin-left:1.2rem;border-radius:999px;background:var(--ink);color:var(--bg);box-shadow:0 0 0 4px var(--surface);transition:transform var(--t3) cubic-bezier(.3,1.4,.5,1),background-color var(--t2) var(--ease)}
+.drop-badge svg{width:1rem;height:1rem;stroke:currentColor;stroke-width:2.2;fill:none;stroke-linecap:round;stroke-linejoin:round}
+.field-title{display:grid;font-size:1.25rem;font-weight:620;letter-spacing:-.025em}
+.field-title span{grid-area:1/1;transition:opacity var(--t2) var(--ease),transform var(--t2) var(--ease)}
+.field-title .t-over{opacity:0;transform:translateY(5px);color:var(--accent)}
+.field-sub{margin-top:.4rem;font-size:.9375rem;color:var(--ink-3);text-wrap:balance}
+.pick-btns{display:flex;flex-wrap:wrap;justify-content:center;gap:.5rem;margin-top:1.625rem}
+.win.over>*{pointer-events:none}
+.win.over .field{background:var(--accent-soft)}
+.win.over .field::before{opacity:1}
+.win.over .pg.back{transform:translate(-2.4rem,-.1rem) rotate(-15deg)}
+.win.over .pg.mid{transform:translate(2.3rem,-.2rem) rotate(13deg)}
+.win.over .pg.front{transform:translateY(-.6rem) scale(1.04)}
+.win.over .drop-badge{background:var(--accent);transform:translateY(.25rem) scale(1.08)}
+.win.over .field-title .t-idle{opacity:0;transform:translateY(-5px)}
+.win.over .field-title .t-over{opacity:1;transform:none}
+.win.done .field{display:none}
 input[type=file]{display:none}
 
-/* settings, written under the sheet like a form's footer */
-.tray{padding:1rem 1.5rem 1rem;border-top:1px dashed var(--rule-2);display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:.75rem 1.75rem;cursor:default}
-.grp{display:inline-flex;align-items:center;gap:.7rem}
-.setting-hint{width:100%;text-align:center;font-style:italic;color:var(--ink-3);font-size:.9375rem;line-height:1.4;min-height:1.3em;transition:color var(--t2) var(--ease)}
-.setting-hint.public{color:var(--pub)}
-.setting-hint.swap{animation:rise var(--t2) var(--ease)}
+/* the page itself, live in the window */
+.thumb{position:absolute;inset:0;display:none;background:#fff;cursor:pointer}
+.win.done .thumb{display:block;animation:reveal var(--t3) var(--ease)}
+.thumb iframe{position:absolute;left:0;top:0;width:1280px;height:800px;border:0;transform-origin:0 0;pointer-events:none;background:#fff}
+.thumb::after{content:"";position:absolute;left:0;right:0;bottom:0;height:5rem;background:linear-gradient(transparent,rgba(255,255,255,.9));pointer-events:none}
+.thumb-cap{position:absolute;left:50%;bottom:1.25rem;z-index:1;display:inline-flex;align-items:center;gap:.4rem;padding:.5rem .9rem;border-radius:999px;background:rgba(18,18,17,.88);color:#fff;font-size:.8125rem;font-weight:550;transform:translate(-50%,.4rem);opacity:0;transition:opacity var(--t2) var(--ease),transform var(--t2) var(--ease);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px)}
+.thumb-cap svg{width:.8125rem;height:.8125rem;stroke:currentColor;stroke-width:2;fill:none;stroke-linecap:round;stroke-linejoin:round}
+.thumb:hover .thumb-cap,.thumb:focus-visible .thumb-cap{opacity:1;transform:translate(-50%,0)}
+.thumb-load{position:absolute;inset:0;z-index:2;display:none;align-items:center;justify-content:center;gap:.6rem;background:var(--sunken);color:var(--ink-3);font-size:.875rem}
+.thumb-load i{width:1rem;height:1rem;border:1.5px solid var(--line-2);border-top-color:var(--ink-2);border-radius:50%;animation:spin .7s linear infinite}
+.thumb.loading .thumb-load{display:flex}
+.thumb.plain{display:none}
+.win.done .thumb.plain{display:grid;place-items:center;background:var(--sunken);color:var(--ink-3);font-size:.9375rem}
+@keyframes reveal{from{opacity:0;transform:scale(.985)}to{opacity:1;transform:none}}
+.veil{position:absolute;inset:.75rem;z-index:2;display:none;align-items:center;justify-content:center;border:1.5px dashed var(--accent);border-radius:calc(var(--r-lg) - .5rem);background:color-mix(in srgb,var(--accent-soft) 94%,transparent);color:var(--accent);font-size:1.125rem;font-weight:620;letter-spacing:-.02em}
+.win.done.over .veil{display:flex}
 
-/* status notes */
-.progress,.error-msg,.md-error,.inline-info,.warn-info{display:none;width:100%;max-width:34rem;margin-top:.9rem;text-align:center;font-size:.9375rem;line-height:1.45;font-style:italic}
-.progress.show,.error-msg.show,.md-error.show,.inline-info.show,.warn-info.show{display:block;animation:rise var(--t2) var(--ease)}
-.progress{color:var(--ink-2)}
-.progress::before{content:"";display:block;width:8rem;height:2px;margin:0 auto .65rem;border-radius:2px;background:linear-gradient(90deg,transparent,var(--accent),transparent) 0 0/50% 100% no-repeat,var(--rule);animation:sweep 1.1s var(--ease) infinite}
-@keyframes sweep{from{background-position:-100% 0,0 0}to{background-position:200% 0,0 0}}
+/* under the window, once there is a link */
+.after{display:none;flex-direction:column;align-items:center;gap:1rem;margin-top:1.75rem;text-align:center}
+.after.show{display:flex;animation:rise var(--t3) var(--ease)}
+.acts{display:flex;flex-wrap:wrap;justify-content:center;gap:.625rem}
+.acts .btn{height:2.875rem;padding:0 1.375rem;font-size:.9375rem;border-radius:12px}
+#copyBtn{min-width:10rem}
+#copyBtn .lbl::after{content:"Copy link"}
+#copyBtn.copied .lbl::after{content:"Copied"}
+#copyBtn.copied{background:var(--ok);border-color:var(--ok);color:#fff}
+.meta{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:.35rem .7rem;font-size:.875rem;color:var(--ink-3)}
+.meta b{max-width:16rem;overflow:hidden;font-weight:600;color:var(--ink-2);text-overflow:ellipsis;white-space:nowrap}
+.live{width:.5rem;height:.5rem;border-radius:50%;background:var(--ok);box-shadow:0 0 0 3px color-mix(in srgb,var(--ok) 22%,transparent);animation:pulse 2.4s var(--ease) infinite}
+@keyframes pulse{50%{box-shadow:0 0 0 6px color-mix(in srgb,var(--ok) 0%,transparent)}}
+.meta .sep{color:var(--ink-4)}
+.again{display:inline-flex;align-items:center;gap:.3rem;border:0;background:none;color:var(--ink-2);font-weight:550;cursor:pointer;transition:color var(--t1) var(--ease)}
+.again:hover{color:var(--ink)}
+.again svg{width:.8125rem;height:.8125rem;stroke:currentColor;stroke-width:2.2;fill:none;stroke-linecap:round}
+.status{display:inline-flex;align-items:center;gap:.4rem}
+.status:empty{display:none}
+.status.saving::before{content:"";width:.75rem;height:.75rem;border:1.5px solid var(--line-2);border-top-color:var(--ink-2);border-radius:50%;animation:spin .7s linear infinite}
+.status.ok{color:var(--ok)}
+@keyframes spin{to{transform:rotate(360deg)}}
+.lk-edit{display:none;max-width:30rem;font-size:.8125rem;line-height:1.55;color:var(--ink-3);text-wrap:balance}
+.after.public .lk-edit{display:block}
+.lk-edit svg{width:.8125rem;height:.8125rem;margin-right:.4rem;vertical-align:-.12em;stroke:currentColor;stroke-width:2;fill:none;stroke-linecap:round;stroke-linejoin:round}
+.lk-edit span{margin-right:.4rem}
+.lk-edit button{border:0;background:none;color:var(--ink);font-weight:600;cursor:pointer;text-decoration:underline;text-decoration-color:var(--line-2);text-underline-offset:3px}
+.lk-edit button:hover{text-decoration-color:var(--ink)}
+.lk-edit button::after{content:"Copy edit link"}
+.lk-edit button.copied{color:var(--ok)}
+.lk-edit button.copied::after{content:"Copied"}
+
+/* chips and their menus */
+.menu-wrap{position:relative}
+.chip{display:inline-flex;align-items:center;gap:.4rem;height:2.125rem;padding:0 .6rem 0 .7rem;border:1px solid var(--line);border-radius:999px;background:var(--surface);font-size:.8125rem;font-weight:560;letter-spacing:-.005em;white-space:nowrap;cursor:pointer;transition:background-color var(--t1) var(--ease),border-color var(--t1) var(--ease),color var(--t1) var(--ease)}
+.chip:hover,.chip[aria-expanded="true"]{background:var(--sunken);border-color:var(--line-2)}
+.chip svg{width:.875rem;height:.875rem;flex:none;stroke:currentColor;stroke-width:1.9;fill:none;stroke-linecap:round;stroke-linejoin:round}
+.chip .chev{width:.75rem;height:.75rem;margin-left:-.1rem;color:var(--ink-3)}
+.chip .i-globe,.chip.pub .i-lock{display:none}
+.chip.pub .i-globe{display:inline}
+.chip.pub{color:var(--pub);background:var(--pub-soft);border-color:var(--pub-line)}
+.chip.pub .chev{color:currentColor;opacity:.7}
+.menu{position:absolute;top:calc(100% + .45rem);right:0;z-index:30;width:min(20rem,calc(100vw - 2.5rem));padding:.375rem;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow-lg);text-align:left;opacity:0;visibility:hidden;transform:translateY(-4px) scale(.985);transform-origin:top right;transition:opacity var(--t1) var(--ease),transform var(--t1) var(--ease),visibility 0s linear var(--t1)}
+.menu.open{opacity:1;visibility:visible;transform:none;transition-delay:0s}
+.menu button{display:grid;grid-template-columns:1.125rem 1fr 1rem;align-items:center;gap:.125rem .7rem;width:100%;padding:.625rem .7rem;border:0;border-radius:var(--r-s);background:none;color:var(--ink);font-family:var(--sans);text-align:left;cursor:pointer}
+.menu button:hover,.menu button:focus-visible{background:var(--sunken);outline:none}
+.menu .ic{display:flex;color:var(--ink-2)}
+.menu .ic svg{width:1rem;height:1rem;stroke:currentColor;stroke-width:1.9;fill:none;stroke-linecap:round;stroke-linejoin:round}
+.menu b{font-size:.875rem;font-weight:600;letter-spacing:-.01em}
+.menu small{grid-column:2;font-size:.8125rem;line-height:1.4;color:var(--ink-3)}
+.menu .ck{grid-column:3;grid-row:1;width:1rem;height:1rem;stroke:var(--accent);stroke-width:2.2;fill:none;stroke-linecap:round;stroke-linejoin:round;opacity:0}
+.menu [aria-checked="true"] .ck{opacity:1}
+.menu.days{width:14rem}
+.menu.days button{grid-template-columns:1fr auto 1rem}
+.menu.days small{grid-column:2;grid-row:1;justify-self:end;font-variant-numeric:tabular-nums}
+
+/* notes under the window */
+.notes{display:flex;flex-direction:column;align-items:center;gap:.4rem;margin-top:1rem}
+.progress,.error-msg,.md-error,.inline-info,.warn-info{display:none;align-items:center;gap:.55rem;font-size:.875rem;line-height:1.45;color:var(--ink-2);text-align:center}
+.progress.show,.error-msg.show,.md-error.show,.inline-info.show,.warn-info.show{display:flex;animation:rise var(--t2) var(--ease)}
+.progress::before{content:"";flex:none;width:.875rem;height:.875rem;border:1.5px solid var(--line-2);border-top-color:var(--ink);border-radius:50%;animation:spin .7s linear infinite}
 .error-msg{color:var(--err)}
 .md-error,.warn-info{color:var(--warn)}
-.inline-info{color:var(--ink-2)}
-@keyframes rise{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.file-picker{display:none;flex-wrap:wrap;align-items:center;justify-content:center;gap:.625rem;max-width:32rem;margin:1rem auto 0;padding:1rem;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow)}
+.file-picker.show{display:flex;animation:rise var(--t2) var(--ease)}
+.picker-label{width:100%;font-size:.875rem;color:var(--ink-2);text-align:center}
+#fileSelect{flex:1;min-width:12rem;height:2.5rem;padding:0 .75rem;background:var(--sunken);border:1px solid var(--line);border-radius:var(--r-s);font-family:var(--mono);font-size:.8125rem}
 
-/* multi-file picker */
-.file-picker{display:none;width:100%;max-width:34rem;margin-top:1rem;background:var(--paper);border:1px solid var(--rule);border-radius:var(--r);padding:1.1rem;text-align:center;box-shadow:var(--shadow)}
-.file-picker.show{display:block;animation:rise var(--t2) var(--ease)}
-.picker-label{color:var(--ink-2);font-size:.9375rem;font-style:italic;margin-bottom:.7rem}
-#fileSelect{width:100%;background:var(--paper-2);color:var(--ink);border:1px solid var(--rule);border-radius:var(--r-s);padding:.55rem .7rem;font-size:.8125rem;font-family:var(--mono);margin-bottom:.7rem}
+/* for agents: the prompt, in the kind of window it gets pasted into */
+.sec{max-width:54rem;margin:0 auto;padding:0 1.5rem}
+.agents{display:grid;grid-template-columns:minmax(0,.8fr) minmax(0,1.2fr);gap:3rem;align-items:center;margin-top:8rem;scroll-margin-top:2rem}
+.kicker{font-family:var(--mono);font-size:.75rem;font-weight:500;letter-spacing:.06em;text-transform:uppercase;color:var(--accent)}
+.sec h2{margin-top:.75rem;font-size:2rem;font-weight:660;line-height:1.08;letter-spacing:-.045em;text-wrap:balance}
+.sec-p{margin-top:.875rem;color:var(--ink-2);text-wrap:pretty}
+.cli{display:flex;flex-direction:column;align-items:flex-start;gap:.5rem;margin-top:1.75rem;font-size:.8125rem;color:var(--ink-3)}
+.cli-row{display:flex;align-items:center;gap:.25rem;padding:.25rem .25rem .25rem .75rem;background:var(--surface);border:1px solid var(--line);border-radius:var(--r-s);box-shadow:var(--shadow-sm)}
+.cli-row code{font-family:var(--mono);font-size:.8125rem;color:var(--ink);white-space:nowrap}
+.cli-row code::before{content:"$ ";color:var(--ink-4)}
+.icon-btn{display:grid;place-items:center;width:1.875rem;height:1.875rem;border:0;border-radius:7px;background:none;color:var(--ink-3);cursor:pointer;transition:background-color var(--t1) var(--ease),color var(--t1) var(--ease)}
+.icon-btn:hover{background:var(--sunken);color:var(--ink)}
+.icon-btn svg{width:.875rem;height:.875rem;stroke:currentColor;stroke-width:2;fill:none;stroke-linecap:round;stroke-linejoin:round}
+.icon-btn .i-ok,.icon-btn.copied .i-copy{display:none}
+.icon-btn.copied .i-ok{display:block}
+.icon-btn.copied{color:var(--ok)}
+.term{--t-bg:#141413;--t-line:#2a2a27;--t-ink:#ecebe6;--t-dim:#8d8c85;color:var(--t-ink);background:var(--t-bg);border-radius:var(--r-lg);box-shadow:0 0 0 1px rgba(0,0,0,.6),inset 0 1px 0 rgba(255,255,255,.06),0 30px 60px -24px rgba(18,18,17,.45)}
+.term-bar{display:flex;align-items:center;gap:.875rem;height:2.75rem;padding:0 1rem;border-bottom:1px solid var(--t-line)}
+.term .dots i{background:#3a3a36}
+.term-title{font-family:var(--mono);font-size:.75rem;color:var(--t-dim)}
+.term-body{padding:1.25rem 1.375rem .5rem;font-family:var(--mono);font-size:.875rem;line-height:1.75}
+.term-body .t::before{content:"\\203A";margin-right:.6rem;color:#7f97ff;font-weight:600}
+.blank{display:inline-block;min-width:9ch;padding:0 .3em;border-bottom:1.5px solid #55544e;color:#a9b8ff;text-align:center;outline:none;cursor:text;transition:border-color var(--t1) var(--ease)}
+.blank:hover{border-bottom-color:#8d8c85}
+.blank:focus{border-bottom-color:#7f97ff}
+.blank:empty::before{content:attr(data-ph);color:#6b6a64}
+#agOpts{color:#f0c38f}
+.term-body .dim{margin-top:.75rem;padding-left:1.15rem;color:var(--t-dim);font-size:.8125rem}
+.term-body .dim code{display:block;margin-top:.15rem;color:#bdbcb5}
+.nw{white-space:nowrap}
+.term-foot{display:flex;flex-wrap:wrap;align-items:center;gap:.375rem;padding:.75rem}
+.term .chip{background:#1d1d1b;border-color:var(--t-line);color:var(--t-ink)}
+.term .chip:hover,.term .chip[aria-expanded="true"]{background:#262624;border-color:#3a3a36}
+.term .chip .chev{color:var(--t-dim)}
+.term .chip.pub{background:#2b1d0f;border-color:#5b3c1c;color:#f0a45c}
+.term .menu{left:0;right:auto;transform-origin:top left}
+.term-foot .btn{margin-left:auto;height:2.25rem;background:var(--t-ink);border-color:var(--t-ink);color:var(--t-bg)}
+.term-foot .btn:hover{background:#fff;border-color:#fff}
+.term-foot .btn.copied{background:#4cc38a;border-color:#4cc38a;color:#0c0c0b}
+#agCopy .lbl::after{content:"Copy prompt"}
+#agCopy.copied .lbl::after{content:"Copied"}
 
-/* result */
-.result{display:none;width:100%;max-width:34rem;margin-top:1.25rem}
-.result.show{display:flex;flex-direction:column;gap:.5rem;animation:rise var(--t3) var(--ease)}
-.link-box{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:.6rem;background:var(--paper);border:1px solid var(--rule);border-radius:var(--r-s);padding:.5rem .5rem .5rem .9rem;box-shadow:var(--shadow)}
-.link-box input{min-width:0;background:none;border:0;outline:none;color:var(--ink);font-size:.8125rem;font-family:var(--mono)}
-.tag{display:inline-flex;align-items:center;gap:.35rem;white-space:nowrap;color:var(--accent)}
-.result.public .tag{color:var(--pub)}
-.result.public .edit-box .tag{color:var(--ink-2)}
-.tag svg{width:.8rem;height:.8rem;stroke:currentColor;stroke-width:2;fill:none;stroke-linecap:round;stroke-linejoin:round}
-.tag .i-globe{display:none}
-.result.public .tag .i-globe{display:inline}
-.result.public .tag .i-lock{display:none}
-.edit-box{display:none;border-style:dashed;box-shadow:none;background:var(--paper-2)}
-.edit-box.show{display:grid}
-.link-box .btn{min-height:2rem;padding:0 .7rem;font-size:.75rem}
-.meta{color:var(--ink-3);font-size:.9375rem;font-style:italic;line-height:1.5;margin-top:.25rem;text-align:center;text-wrap:balance}
+/* what happens to the file */
+.facts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1rem;margin-top:7rem}
+.fact{padding:1.375rem 1.375rem 1.5rem;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow-sm)}
+.fact .ft{display:grid;place-items:center;width:2.25rem;height:2.25rem;border-radius:10px;background:var(--sunken);color:var(--ink)}
+.fact .ft svg{width:1.0625rem;height:1.0625rem;stroke:currentColor;stroke-width:1.9;fill:none;stroke-linecap:round;stroke-linejoin:round}
+.fact h3{margin-top:1rem;font-size:1rem;font-weight:620;letter-spacing:-.02em}
+.fact p{margin-top:.35rem;font-size:.875rem;line-height:1.55;color:var(--ink-3);text-wrap:pretty}
+.foot{display:flex;flex-wrap:wrap;justify-content:space-between;gap:.75rem 1.5rem;max-width:54rem;margin:5rem auto 0;padding:1.75rem 1.5rem 3rem;border-top:1px solid var(--line);font-size:.8125rem;color:var(--ink-3)}
+.foot nav{display:flex;gap:1.25rem}
+.foot a{transition:color var(--t1) var(--ease)}
+.foot a:hover{color:var(--ink)}
 
-/* for agents: a note you fill in */
-.note{width:100%;background:var(--paper);border:1px solid var(--rule);border-radius:var(--r);box-shadow:var(--shadow);padding:1.75rem 2rem 1.35rem;text-align:left}
-.note .t{font-size:1.25rem;line-height:1.75;color:var(--ink)}
-.note .blank{display:inline-block;min-width:8ch;border-bottom:1px solid var(--ink);padding:0 .3em;outline:none;text-align:center;color:var(--accent);font-family:var(--mono);font-size:.95rem;line-height:1.2;cursor:text}
-.note .blank:focus{border-bottom-color:var(--accent)}
-.note .blank:empty::before{content:attr(data-ph);color:var(--ink-4);font-family:var(--serif);font-style:italic;font-size:1rem}
-.note .dim{color:var(--ink-3)}
-.note .dim code{font-family:var(--mono);font-size:.9rem;color:var(--ink-3)}
-.note .foot{margin-top:1.25rem;padding-top:1rem;border-top:1px dashed var(--rule-2);display:flex;align-items:center;justify-content:space-between;gap:.75rem 1.25rem;flex-wrap:wrap}
-.note .foot .btn{margin-left:auto}
-.note-sub{margin-top:.9rem;text-align:center;font-style:italic;color:var(--ink-3);font-size:.9375rem;text-wrap:balance}
-
-/* footer: what happens to the file */
-.site-foot{padding:1.5rem;display:flex;flex-wrap:wrap;justify-content:center;gap:.4rem 1.25rem;color:var(--ink-3);font-size:.9375rem;font-style:italic}
-.site-foot span+span::before{content:"·";margin-right:1.25rem;color:var(--ink-4);font-style:normal}
-.site-foot a{color:var(--ink-2)}
-
-@media(max-width:520px){
-  .top{padding:1rem}
-  main{padding:1.25rem 1rem 3rem}
-  .tabs{margin:1.5rem 0 1.1rem}
-  .field{padding:2.25rem 1rem 2rem}
-  .field::before{inset:.4rem}
-  .dz-title{font-size:1.25rem}
-  .tray{padding:.9rem 1rem;gap:.6rem 1.25rem}
-  .link-box{grid-template-columns:1fr auto;padding:.5rem .5rem .5rem .8rem}
-  .link-box .tag{grid-column:1/-1}
-  .note{padding:1.35rem 1.2rem 1.1rem}
-  .note .t{font-size:1.125rem}
-  .site-foot{gap:.35rem 1rem;padding:1.25rem 1rem;font-size:.875rem}
-  .site-foot span+span::before{margin-right:1rem}
+@media(max-width:760px){
+  .agents{grid-template-columns:minmax(0,1fr);gap:2rem;margin-top:5.5rem}
+  .facts{grid-template-columns:minmax(0,1fr);margin-top:4.5rem}
+}
+@media(max-width:560px){
+  body{font-size:14.5px}
+  .top{padding:1.125rem 1rem}
+  .nav{gap:1.1rem}
+  .hero{padding:2.25rem 1rem 0}
+  .lede{font-size:1rem;margin-top:1.125rem}
+  .stage{margin-top:2.25rem;padding:0 .875rem}
+  .chrome{flex-wrap:wrap;height:auto;gap:.5rem;padding:.625rem}
+  .dots{display:none}
+  .addr{flex-basis:100%}
+  .tools{width:100%}
+  .view{height:21rem}
+  .art{transform:scale(.88);margin-bottom:1rem}
+  .acts{width:100%}
+  .acts .btn{flex:1}
+  .sec{padding:0 1rem}
+  .sec h2{font-size:1.625rem}
+  .term-body{padding:1rem 1rem .25rem;font-size:.8125rem}
+  .term-foot .btn{width:100%;margin-left:0}
+  .foot{padding:1.5rem 1rem 2.5rem;margin-top:3.5rem}
+  .facts{gap:.625rem}
+  .fact{display:grid;grid-template-columns:2.25rem minmax(0,1fr);column-gap:.875rem;padding:1rem}
+  .fact .ft{grid-row:span 2}
+  .fact h3{margin-top:.1rem}
+  .fact p{grid-column:2}
 }
 </style>
 </head>
 <body>
 <header class="top">
-  <a class="brand" href="/"><i aria-hidden="true"></i>HTMLDrop</a>
-  <a class="gh" href="https://github.com/OrdoAI/htmldrop" title="GitHub" aria-label="GitHub"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .3a12 12 0 00-3.79 23.4c.6.1.82-.26.82-.58v-2.17c-3.34.73-4.04-1.61-4.04-1.61-.55-1.39-1.34-1.76-1.34-1.76-1.09-.75.08-.73.08-.73 1.2.08 1.84 1.24 1.84 1.24 1.07 1.84 2.81 1.31 3.5 1 .1-.78.42-1.31.76-1.61-2.67-.3-5.47-1.33-5.47-5.93 0-1.31.47-2.38 1.24-3.22-.13-.3-.54-1.52.12-3.18 0 0 1-.32 3.3 1.23a11.5 11.5 0 016.02 0c2.28-1.55 3.29-1.23 3.29-1.23.66 1.66.25 2.88.12 3.18.77.84 1.24 1.91 1.24 3.22 0 4.61-2.81 5.63-5.48 5.92.43.37.81 1.1.81 2.22v3.29c0 .32.22.7.82.58A12 12 0 0012 .3"/></svg></a>
+  <a class="brand" href="/">${MARK_SVG}HTMLDrop</a>
+  <nav class="nav"><a href="#agents">For agents</a><a class="gh" href="https://github.com/OrdoAI/htmldrop" title="Source on GitHub" aria-label="Source on GitHub">${I.gh}</a></nav>
 </header>
 
 <main>
-  <h1 class="hero">Drop a file. <em>Get a link that expires.</em></h1>
-  <p class="promise">HTML or Markdown in, a private link out. Encrypted at rest, gone in 7 to 30 days.</p>
+  <section class="hero">
+    <h1><span>Drop a file.</span><span>Get a link that <em class="fade">expires.</em></span></h1>
+    <p class="lede">Share an HTML or Markdown page through a private link. Encrypted at rest, deleted after 7, 14 or 30 days.</p>
+  </section>
 
-  <div class="tabs thumbed" id="tabs" role="tablist" aria-label="Audience">
-    <button class="tab active" data-tab="humans" role="tab" aria-selected="true" aria-controls="panel-humans">For humans</button>
-    <button class="tab" data-tab="agents" role="tab" aria-selected="false" aria-controls="panel-agents">For agents</button>
-    <span class="thumb" aria-hidden="true"></span>
-  </div>
-
-  <div class="panels">
-    <div class="panel active" id="panel-humans" role="tabpanel">
-      <div class="drop-zone" id="dropZone">
+  <section class="stage" aria-label="Upload">
+    <div class="win" id="dropZone">
+      <div class="chrome">
+        <span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>
+        <div class="addr">
+          ${I.lock}${I.globe}
+          <p class="lk-url" id="lkUrl" aria-label="Link"><span class="host" id="lkHost">baseurl.ai/</span><span id="lkId"></span><span class="pw" id="lkPw" title="The password. It travels in the link."></span><span class="ghost">your-page</span><i class="caret" aria-hidden="true"></i></p>
+          <button type="button" class="addr-copy" id="addrCopy" title="Copy link" aria-label="Copy link">${I.copy}</button>
+        </div>
+        <div class="tools" id="tray">
+          ${accessMenu("accessMenu")}
+          ${daysMenu("daysMenu", "7 days")}
+        </div>
+      </div>
+      <div class="view">
         <div class="field" id="dropField">
-          <svg class="doc" viewBox="0 0 48 56" aria-hidden="true"><path d="M8 4h22l10 10v36a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z"/><path d="M30 4v10h10"/><path d="M24 22v16m-6-6 6 6 6-6"/></svg>
-          <strong class="dz-title"><span class="t-idle">Drop a file or folder</span><span class="t-over" aria-hidden="true">Release to upload</span></strong>
-          <p>.html or .md &middot; up to 50 MB &middot; local images inlined</p>
+          <div class="art" aria-hidden="true">
+            <span class="pg back"><i></i><i></i><i></i><i></i><i></i></span>
+            <span class="pg mid"><i></i><i></i><i></i><i></i><i></i></span>
+            <span class="pg front"><i></i><i></i><i></i><i></i><i></i></span>
+            <span class="drop-badge">${I.down}</span>
+          </div>
+          <p class="field-title"><span class="t-idle">Drop an HTML or Markdown file</span><span class="t-over" aria-hidden="true">Release to upload</span></p>
+          <p class="field-sub">Or a whole folder, so its local images come along.</p>
           <div class="pick-btns">
-            <button type="button" class="btn" id="pickFile">Pick file</button>
-            <button type="button" class="btn ghost" id="pickFolder">Pick folder</button>
+            <button type="button" class="btn" id="pickFile">Choose file</button>
+            <button type="button" class="btn secondary" id="pickFolder">Choose folder</button>
           </div>
         </div>
-        <div class="tray">
-          <div class="grp"><span class="eyebrow">Access</span><button type="button" class="sw" id="swPublic" aria-pressed="false"><i aria-hidden="true"></i>Public</button></div>
-          <div class="grp"><span class="eyebrow">Expires</span><span class="pick" id="pickDays" role="radiogroup" aria-label="Expires in"><button type="button" class="on" data-days="7" aria-pressed="true">7</button><span class="sep">&middot;</span><button type="button" data-days="14" aria-pressed="false">14</button><span class="sep">&middot;</span><button type="button" data-days="30" aria-pressed="false">30</button><span class="unit">days</span></span></div>
-          <div class="setting-hint" id="settingHint" aria-live="polite">Only people with the password link can open it.</div>
-        </div>
+        <a class="thumb" id="thumb" href="#" target="_blank" rel="noopener" aria-label="Open the page"><span class="thumb-load"><i></i>Loading your page&hellip;</span><span class="thumb-cap">Open page${I.out}</span></a>
+        <div class="thumb plain" id="thumbPlain">Too large to preview here. Open it to see it.</div>
+        <div class="veil" aria-hidden="true">Release to make a new link</div>
       </div>
-      <input type="file" id="fileInput" multiple>
-      <input type="file" id="folderInput" webkitdirectory multiple>
-      <div class="file-picker" id="filePicker">
-        <p class="picker-label">Several HTML/MD files found. Pick the one to publish:</p>
-        <select id="fileSelect" aria-label="Choose the main file"></select>
-        <button type="button" class="btn" id="filePickConfirm">Upload this file</button>
+    </div>
+    <input type="file" id="fileInput" multiple>
+    <input type="file" id="folderInput" webkitdirectory multiple>
+
+    <div class="after" id="result" aria-live="polite">
+      <div class="acts">
+        <button type="button" class="btn" id="copyBtn">${I.copy}<span class="lbl"></span></button>
+        <a class="btn secondary" id="openBtn" href="#" target="_blank" rel="noopener">Open${I.out}</a>
       </div>
+      <p class="meta"><i class="live" aria-hidden="true"></i><b id="resName"></b><span>is live</span><span class="status" id="settingStatus"></span><span class="sep">&middot;</span><button type="button" class="again" id="againBtn">${I.plus}New upload</button></p>
+      <p class="lk-edit" id="editBox">${I.key}<span>Your edit link keeps the password, so only you can update this page.</span><button type="button" id="editCopyBtn"></button></p>
+    </div>
+    <div class="file-picker" id="filePicker">
+      <p class="picker-label">This folder has several pages. Which one should the link open?</p>
+      <select id="fileSelect" aria-label="Choose the main file"></select>
+      <button type="button" class="btn" id="filePickConfirm">Upload this one</button>
+    </div>
+    <div class="notes">
       <div class="progress" id="progress" role="status" aria-live="polite">Processing&hellip;</div>
       <div class="error-msg" id="errorMsg" role="alert"></div>
-      <div class="md-error" id="mdError">Markdown renderer failed to load. HTML uploads still work.</div>
+      <div class="md-error" id="mdError">The Markdown renderer did not load. HTML uploads still work.</div>
       <div class="inline-info" id="inlineInfo"></div>
       <div class="warn-info" id="warnInfo"></div>
+    </div>
+  </section>
 
-      <div class="result" id="result" aria-live="polite">
-        <div class="link-box" id="shareBox">
-          <span class="tag eyebrow">
-            <svg class="i-lock" viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
-            <svg class="i-globe" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></svg>
-            <span id="shareTag">Private link</span>
-          </span>
-          <input type="text" id="linkInput" readonly aria-label="Share link">
-          <button type="button" class="btn ghost" id="copyBtn" title="Copy"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg><span class="lbl"></span></button>
-        </div>
-        <div class="link-box edit-box" id="editBox">
-          <span class="tag eyebrow">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="8" cy="15" r="4"/><path d="M11 12l9-9M15 8l3 3M18 5l3 3"/></svg>
-            <span>Edit link &middot; keep private</span>
-          </span>
-          <input type="text" id="editInput" readonly aria-label="Edit link">
-          <button type="button" class="btn ghost" id="editCopyBtn" title="Copy edit link"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg><span class="lbl"></span></button>
-        </div>
-        <p class="meta" id="meta"></p>
+  <section class="sec agents" id="agents">
+    <div>
+      <p class="kicker">For agents</p>
+      <h2>Or let your agent do it.</h2>
+      <p class="sec-p">Paste this into Claude Code, Cursor or Codex. The HTMLDrop skill uploads the file and replies with the link.</p>
+      <div class="cli">Prefer the terminal?<span class="cli-row"><code>npx -y htmldrop-cli ./report.html</code><button type="button" class="icon-btn" id="cliCopy" title="Copy" aria-label="Copy command">${I.copy}</button></span></div>
+    </div>
+    <div class="term">
+      <div class="term-bar"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span><span class="term-title">your agent</span></div>
+      <div class="term-body">
+        <p class="t">Use the HTMLDrop skill to publish <span class="blank" id="agFile" contenteditable="true" spellcheck="false" role="textbox" aria-label="File to publish" data-ph="which file"></span> and send me the link.<span id="agOpts"></span></p>
+        <p class="dim">If the skill is missing, install it first:<code>npx -y skills add OrdoAI/htmldrop <span class="nw">--skill htmldrop</span> -g -y</code></p>
+      </div>
+      <div class="term-foot">
+        ${accessMenu("agAccess")}
+        ${daysMenu("agDays", "Keep 7 days")}
+        <button type="button" class="btn" id="agCopy">${I.copy}<span class="lbl"></span></button>
       </div>
     </div>
+  </section>
 
-    <div class="panel" id="panel-agents" role="tabpanel">
-      <div class="note">
-        <p class="t">Use the HTMLDrop skill to publish <span class="blank" id="agFile" contenteditable="true" spellcheck="false" role="textbox" aria-label="File to publish" data-ph="which file"></span> and send me the link.<span id="agOpts"></span><br><span class="dim">If the skill is missing, install it first: <code>npx -y skills add OrdoAI/htmldrop --skill htmldrop -g -y</code></span></p>
-        <div class="foot">
-          <div class="grp"><span class="eyebrow">Access</span><button type="button" class="sw" id="agPublic" aria-pressed="false"><i aria-hidden="true"></i>Public</button></div>
-          <div class="grp"><span class="eyebrow">Expires</span><span class="pick" id="agDays" role="radiogroup" aria-label="Expires in"><button type="button" class="on" data-days="7" aria-pressed="true">7</button><span class="sep">&middot;</span><button type="button" data-days="14" aria-pressed="false">14</button><span class="sep">&middot;</span><button type="button" data-days="30" aria-pressed="false">30</button><span class="unit">days</span></span></div>
-          <button type="button" class="btn" id="agCopy"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg><span class="lbl"></span> prompt</button>
-        </div>
-      </div>
-      <p class="note-sub">Fill in the blank, pick what you need, copy, paste into Claude Code, Cursor or Codex. <a href="https://github.com/OrdoAI/htmldrop/blob/main/skills/htmldrop/SKILL.md">Skill reference</a></p>
-    </div>
-  </div>
+  <section class="sec facts" aria-label="How it works">
+    <div class="fact"><span class="ft">${I.lock}</span><h3>Private by default</h3><p>The password lives in the link, and the page is encrypted with it. Nothing readable sits on the server.</p></div>
+    <div class="fact"><span class="ft">${I.clock}</span><h3>Gone on schedule</h3><p>Every page is deleted after the 7, 14 or 30 days you pick, and you can change that while the link is live.</p></div>
+    <div class="fact"><span class="ft">${I.refresh}</span><h3>Update in place</h3><p>Upload a new version to the same link. Anyone with it open is offered a refresh.</p></div>
+  </section>
 </main>
 
-<footer class="site-foot">
-  <span>Encrypted at rest</span>
-  <span>Deleted after 7&ndash;30 days</span>
-  <span>Password travels in the link</span>
-  <span><a href="https://github.com/OrdoAI/htmldrop">Source</a></span>
+<footer class="foot">
+  <span>HTMLDrop</span>
+  <nav><a href="https://github.com/OrdoAI/htmldrop/blob/main/skills/htmldrop/SKILL.md">Skill reference</a><a href="https://github.com/OrdoAI/htmldrop">Source</a></nav>
 </footer>
 
 <script id="app">
@@ -239,32 +430,6 @@ input[type=file]{display:none}
   function wrapMd(h){return '<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>'+MD_CSS+'</style></head><body>'+h+'</body></html>';}
   function convertMd(t){if(markedFailed||!markedReady||typeof marked==='undefined')return null;return wrapMd(typeof marked.parse==='function'?marked.parse(t):marked(t));}
 
-  var reduceMotion=!!(window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches);
-  function placeThumb(el){
-    var thumb=el.querySelector('.thumb'),on=el.querySelector('.seg-btn.on, .tab.active');
-    if(!thumb||!on||!on.offsetWidth)return;
-    thumb.style.width=on.offsetWidth+'px';
-    thumb.style.transform='translateX('+on.offsetLeft+'px)';
-    if(!reduceMotion&&!el.classList.contains('ready'))requestAnimationFrame(function(){el.classList.add('ready');});
-  }
-  var thumbed=Array.prototype.slice.call(document.querySelectorAll('.thumbed'));
-  function placeAll(){thumbed.forEach(placeThumb);}
-  placeAll();
-  window.addEventListener('resize',placeAll);
-  if(document.fonts&&document.fonts.ready)document.fonts.ready.then(placeAll);
-  if('ResizeObserver' in window){var ro=new ResizeObserver(placeAll);thumbed.forEach(function(el){ro.observe(el);});}
-  function flash(btn){btn.classList.add('copied');clearTimeout(btn._t);btn._t=setTimeout(function(){btn.classList.remove('copied');},1500);}
-
-  document.querySelectorAll('.tab').forEach(function(tab){tab.addEventListener('click',function(){
-    if(tab.classList.contains('active'))return;
-    document.querySelectorAll('.tab').forEach(function(t){t.classList.remove('active');t.setAttribute('aria-selected','false');});
-    document.querySelectorAll('.panel').forEach(function(p){p.classList.remove('active');});
-    tab.classList.add('active');tab.setAttribute('aria-selected','true');
-    document.getElementById('panel-'+tab.dataset.tab).classList.add('active');
-    placeThumb(document.getElementById('tabs'));
-  });});
-  document.querySelectorAll('[data-copy]').forEach(function(btn){btn.addEventListener('click',function(e){e.stopPropagation();navigator.clipboard.writeText(btn.dataset.copy).then(function(){flash(btn);});});});
-
   // Page-level drag handling: a global "something is being dragged" affordance,
   // and no browser navigation when a file is dropped outside the card. dragenter
   // must be cancelled too: when the element under the pointer changes, Chrome
@@ -276,6 +441,7 @@ input[type=file]{display:none}
   document.addEventListener('dragleave',function(e){if(!hasFiles(e))return;if(--dragDepth<=0){dragDepth=0;document.body.classList.remove('dragging');}});
   document.addEventListener('dragover',function(e){if(hasFiles(e))e.preventDefault();});
   document.addEventListener('drop',function(e){if(hasFiles(e))e.preventDefault();dragDepth=0;document.body.classList.remove('dragging');});
+  function flash(btn){btn.classList.add('copied');clearTimeout(btn._t);btn._t=setTimeout(function(){btn.classList.remove('copied');},1500);}
 
   function isRel(src){return src&&!src.startsWith('data:')&&!src.startsWith('http://')&&!src.startsWith('https://')&&!src.startsWith('//')&&!src.startsWith('#')&&!src.startsWith('javascript:');}
   function norm(p){var parts=p.split('/'),o=[];for(var i=0;i<parts.length;i++){if(parts[i]==='.'||parts[i]==='')continue;if(parts[i]==='..'&&o.length){o.pop();continue;}o.push(parts[i]);}return o.join('/');}
@@ -338,34 +504,43 @@ input[type=file]{display:none}
     async function walk(e,p){if(e.isFile)return new Promise(function(ok){e.file(function(f){Object.defineProperty(f,'fullPath',{value:p+f.name,writable:true});files.push(f);ok();});});if(e.isDirectory){var ch=await readDir(e);for(var c=0;c<ch.length;c++)await walk(ch[c],p+e.name+'/');}}
     for(var j=0;j<entries.length;j++)await walk(entries[j],'');return files;
   }
-
   var MAX=50*1024*1024;
   var dz=document.getElementById('dropZone'),fi=document.getElementById('fileInput'),fo=document.getElementById('folderInput');
   var pf=document.getElementById('pickFile'),pfr=document.getElementById('pickFolder');
   var prog=document.getElementById('progress'),err=document.getElementById('errorMsg');
   var ilInfo=document.getElementById('inlineInfo'),wInfo=document.getElementById('warnInfo');
-  var res=document.getElementById('result'),li=document.getElementById('linkInput'),cb=document.getElementById('copyBtn'),mt=document.getElementById('meta');
+  var res=document.getElementById('result'),cb=document.getElementById('copyBtn');
   var fp=document.getElementById('filePicker'),fsel=document.getElementById('fileSelect'),fpc=document.getElementById('filePickConfirm');
   var pending=null;
+  document.getElementById('lkHost').textContent=location.host+'/';
 
   pf.addEventListener('click',function(e){e.stopPropagation();fi.click();});
   pfr.addEventListener('click',function(e){e.stopPropagation();fo.click();});
   document.getElementById('dropField').addEventListener('click',function(e){if(!e.target.closest('button'))fi.click();});
   dz.addEventListener('dragenter',function(e){e.preventDefault();dz.classList.add('over');});
   dz.addEventListener('dragover',function(e){e.preventDefault();dz.classList.add('over');});
-  // Moving between the card's own children is not leaving it; dropping .over there
+  // Moving between the window's own children is not leaving it; dropping .over there
   // flips pointer-events on the children and the drag target with it.
   dz.addEventListener('dragleave',function(e){if(!dz.contains(e.relatedTarget))dz.classList.remove('over');});
   dz.addEventListener('drop',async function(e){e.preventDefault();dz.classList.remove('over');var f=await collectDrop(e.dataTransfer);if(f.length)handleFiles(f);});
-  fi.addEventListener('change',function(){if(fi.files.length)handleFiles(Array.from(fi.files));});
-  fo.addEventListener('change',function(){if(fo.files.length)handleFiles(Array.from(fo.files));});
-  cb.addEventListener('click',function(){li.select();navigator.clipboard.writeText(li.value).then(function(){flash(cb);});});
+  fi.addEventListener('change',function(){if(fi.files.length)handleFiles(Array.from(fi.files));fi.value='';});
+  fo.addEventListener('change',function(){if(fo.files.length)handleFiles(Array.from(fo.files));fo.value='';});
+  // A blocked clipboard falls back to selecting the link, ready for Cmd/Ctrl+C.
+  function selectText(el){var rg=document.createRange();rg.selectNodeContents(el);var sel=getSelection();sel.removeAllRanges();sel.addRange(rg);}
+  function copyText(text,btn,fallback){
+    var fail=function(){if(fallback)selectText(fallback);else showErr('The browser blocked the clipboard. Copy it from here: '+text);};
+    if(!navigator.clipboard)return fail();
+    navigator.clipboard.writeText(text).then(function(){flash(btn);},fail);
+  }
+  cb.addEventListener('click',function(){if(link)copyText(link.share,cb,document.getElementById('lkUrl'));});
+  var addrCopy=document.getElementById('addrCopy');
+  addrCopy.addEventListener('click',function(){if(link)copyText(link.share,addrCopy,document.getElementById('lkUrl'));});
   fpc.addEventListener('click',function(){if(!pending)return;fp.classList.remove('show');processMain(pending.candidates[parseInt(fsel.value)],pending.all);pending=null;});
 
   function showErr(m){err.textContent=m;err.classList.add('show');dz.classList.add('error');setTimeout(function(){dz.classList.remove('error');},2000);}
 
   async function handleFiles(files){
-    err.classList.remove('show');ilInfo.classList.remove('show');wInfo.classList.remove('show');res.classList.remove('show');fp.classList.remove('show');
+    err.classList.remove('show');ilInfo.classList.remove('show');wInfo.classList.remove('show');fp.classList.remove('show');
     var cands=[],all=[];
     for(var i=0;i<files.length;i++){all.push(files[i]);var ext=files[i].name.split('.').pop().toLowerCase();if(ext==='html'||ext==='htm'||ext==='md'||ext==='markdown')cands.push(files[i]);}
     if(!cands.length){showErr('No .html or .md file found');return;}
@@ -386,7 +561,7 @@ input[type=file]{display:none}
       var c=convertMd(text);if(!c){prog.classList.remove('show');showErr('Markdown conversion failed');return;}text=c;
     }
     var rels=findRels(text);
-    if(rels.length>0&&assets.length===0){prog.classList.remove('show');wInfo.textContent='Found '+rels.length+' local asset(s). Use "Pick folder" to auto-inline them.';wInfo.classList.add('show');}
+    if(rels.length>0&&assets.length===0){prog.classList.remove('show');wInfo.textContent='Found '+rels.length+' local asset(s). Use "Choose folder" to auto-inline them.';wInfo.classList.add('show');}
     if(assets.length>0){
       prog.textContent='Inlining assets\\u2026';
       try{var r=await inlineAssets(text,assets,main);text=r.html;if(r.inlined>0||r.missing.length>0){ilInfo.textContent=r.inlined+' inlined'+(r.missing.length?', '+r.missing.length+' not found':'');ilInfo.classList.add('show');}}
@@ -395,28 +570,146 @@ input[type=file]{display:none}
     if(new Blob([text]).size>MAX){prog.classList.remove('show');showErr('Too large after inlining (max 50 MB)');return;}
     upload(text,main.name);
   }
+  // Menus: a chip that opens a short list of choices.
+  var openMenu=null;
+  function closeMenu(){if(!openMenu)return;openMenu.menu.classList.remove('open');openMenu.chip.setAttribute('aria-expanded','false');openMenu=null;}
+  function initMenu(wrap,onPick){
+    var chip=wrap.querySelector('.chip'),menu=wrap.querySelector('.menu');
+    chip.addEventListener('click',function(e){
+      e.stopPropagation();var mine=openMenu&&openMenu.menu===menu;closeMenu();if(mine)return;
+      menu.classList.add('open');chip.setAttribute('aria-expanded','true');openMenu={chip:chip,menu:menu};
+      // Keyboard users land on the current choice; a mouse click leaves focus alone.
+      if(!e.detail)(menu.querySelector('[aria-checked="true"]')||menu.querySelector('button')).focus();
+    });
+    menu.querySelectorAll('button').forEach(function(b){b.addEventListener('click',function(e){e.stopPropagation();closeMenu();if(!e.detail)chip.focus();onPick(b);});});
+    menu.addEventListener('keydown',function(e){
+      var items=Array.prototype.slice.call(menu.querySelectorAll('button')),i=items.indexOf(document.activeElement);
+      if(e.key==='ArrowDown'){e.preventDefault();items[(i+1)%items.length].focus();}
+      else if(e.key==='ArrowUp'){e.preventDefault();items[(i-1+items.length)%items.length].focus();}
+    });
+  }
+  document.addEventListener('click',function(e){if(openMenu&&!openMenu.menu.contains(e.target))closeMenu();});
+  document.addEventListener('keydown',function(e){if(e.key==='Escape'&&openMenu){var c=openMenu.chip;closeMenu();c.focus();}});
 
-  var opts={public:false,days:7},hint=document.getElementById('settingHint');
-  function renderHint(){var t=opts.public?'Anyone with the URL can read it. You also get a separate edit link for updates.':'Only people with the password link can open it.';if(hint.textContent===t)return;hint.classList.remove('swap');void hint.offsetWidth;hint.textContent=t;hint.classList.toggle('public',opts.public);hint.classList.add('swap');}
-  function switchInit(id,onChange){var sw=document.getElementById(id);sw.addEventListener('click',function(e){e.stopPropagation();var on=!sw.classList.contains('on');sw.classList.toggle('on',on);sw.classList.toggle('pub-on',on);sw.setAttribute('aria-pressed',String(on));onChange(on);});}
-  function pickInit(id,onChange){var root=document.getElementById(id);root.querySelectorAll('button').forEach(function(b){b.addEventListener('click',function(e){e.stopPropagation();root.querySelectorAll('button').forEach(function(x){x.classList.remove('on');x.setAttribute('aria-pressed','false');});b.classList.add('on');b.setAttribute('aria-pressed','true');onChange(Number(b.dataset.days)||7);});});}
-  switchInit('swPublic',function(on){opts.public=on;renderHint();});
-  pickInit('pickDays',function(d){opts.days=d;});
+  var DAY=86400000;
+  function fmtDate(t){return new Date(t).toLocaleDateString(undefined,{month:'short',day:'numeric'});}
+  function renderAccess(wrap,pub){
+    var chip=wrap.querySelector('.chip');chip.classList.toggle('pub',pub);chip.querySelector('.v').textContent=pub?'Public':'Private';
+    wrap.querySelectorAll('.menu button').forEach(function(b){b.setAttribute('aria-checked',String((b.dataset.pub==='1')===pub));});
+  }
+  function renderDays(wrap,days,label){
+    var now=Date.now();
+    wrap.querySelectorAll('.menu button').forEach(function(b){var d=Number(b.dataset.days);b.setAttribute('aria-checked',String(d===days));b.querySelector('small').textContent=fmtDate(now+d*DAY);});
+    wrap.querySelector('.chip .v').textContent=label;
+  }
 
-  // For agents: the note is the prompt; the controls edit its sentences.
+  // The chips shape the next link; once a link is in the window they edit it.
+  var opts={public:false,days:7},link=null,statusTimer=0,pwTimer=0;
+  var accessWrap=document.getElementById('accessMenu'),daysWrap=document.getElementById('daysMenu'),statusEl=document.getElementById('settingStatus');
+  function renderTray(){
+    renderAccess(accessWrap,opts.public);
+    renderDays(daysWrap,opts.days,link?(link.expiresAt?'Expires '+fmtDate(link.expiresAt):'Never expires'):opts.days+' days');
+  }
+  function status(text,kind){clearTimeout(statusTimer);statusEl.className='status'+(kind?' '+kind:'');statusEl.textContent=text||'';}
+  initMenu(accessWrap,function(b){var pub=b.dataset.pub==='1',was=opts.public;if(pub===was)return;opts.public=pub;renderTray();if(link)saveSettings({public:pub},function(){opts.public=was;});});
+  initMenu(daysWrap,function(b){var d=Number(b.dataset.days),was=opts.days;if(d===was)return;opts.days=d;renderTray();if(link)saveSettings({expiresInDays:d},function(){opts.days=was;});});
+  renderTray();
+
+  // The page itself, live in the window: the real preview, scripts and all,
+  // which only this site may frame and which runs sandboxed. Scaled down from
+  // a desktop width; a very large page gets a note instead of a second download.
+  var thumb=document.getElementById('thumb'),thumbPlain=document.getElementById('thumbPlain'),PREVIEW_MAX=8*1024*1024;
+  // A desktop-width render on a wide window, the page's own phone layout on a narrow one.
+  function fitThumb(){
+    var f=thumb.querySelector('iframe');if(!f||!thumb.clientWidth)return;
+    var w=thumb.clientWidth<560?420:1280,k=thumb.clientWidth/w;
+    f.style.width=w+'px';f.style.height=Math.ceil(thumb.clientHeight/k)+'px';f.style.transform='scale('+k+')';
+  }
+  if('ResizeObserver' in window)new ResizeObserver(fitThumb).observe(thumb);
+  function showPreview(url,bytes){
+    var old=thumb.querySelector('iframe');if(old)old.remove();
+    var big=bytes>PREVIEW_MAX;
+    thumb.style.display=big?'none':'';thumbPlain.style.display=big?'':'none';
+    if(big)return;
+    var f=document.createElement('iframe');
+    f.setAttribute('tabindex','-1');f.setAttribute('aria-hidden','true');f.setAttribute('referrerpolicy','no-referrer');f.setAttribute('scrolling','no');
+    thumb.classList.add('loading');f.addEventListener('load',function(){thumb.classList.remove('loading');});
+    f.src=url;thumb.insertBefore(f,thumb.firstChild);fitThumb();
+  }
+
+  var reduceMotion=!!(window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches),typeTimer=0;
+  // Writes the id and password into the address bar a few characters at a time.
+  function typeLink(idEl,pwEl,id,pw){
+    clearInterval(typeTimer);
+    if(reduceMotion){idEl.textContent=id;pwEl.textContent=pw;return;}
+    var full=id+pw,n=0;idEl.textContent='';pwEl.textContent='';
+    typeTimer=setInterval(function(){
+      n=Math.min(full.length,n+2);
+      idEl.textContent=full.slice(0,Math.min(n,id.length));pwEl.textContent=n>id.length?full.slice(id.length,n):'';
+      if(n>=full.length)clearInterval(typeTimer);
+    },28);
+  }
+  function showLink(d,name,html){
+    var isPub=!!(d.public&&d.publicUrl),u=new URL(d.url);
+    link={id:d.id,url:d.url,share:isPub?d.publicUrl:d.url,password:d.password,expiresAt:d.expiresAt};
+    opts.public=isPub;
+    if(name)document.getElementById('resName').textContent=name;
+    if(html!==undefined)showPreview(d.url,html.length);
+    document.getElementById('lkHost').textContent=u.host+'/';
+    var fresh=html!==undefined;
+    if(!fresh)document.getElementById('lkId').textContent=d.id;
+    document.getElementById('openBtn').href=link.share;thumb.href=link.share;
+    // The password collapses out of the shared link when it goes public, and
+    // its text is then removed, so selecting the visible link never copies it.
+    var pw=document.getElementById('lkPw');clearTimeout(pwTimer);
+    if(isPub){
+      var animate=dz.classList.contains('done')&&!dz.classList.contains('public');
+      dz.classList.add('public');res.classList.add('public');
+      if(animate)pwTimer=setTimeout(function(){pw.textContent='';},460);else pw.textContent='';
+    }else if(fresh){
+      dz.classList.remove('public');res.classList.remove('public');
+    }else{
+      pw.textContent='?p='+d.password;void pw.offsetWidth;dz.classList.remove('public');res.classList.remove('public');
+    }
+    if(fresh)typeLink(document.getElementById('lkId'),pw,d.id,isPub?'':'?p='+d.password);
+    dz.classList.add('done');res.classList.add('show');
+    renderTray();
+  }
+  function saveSettings(change,revert){
+    var body={id:link.id,password:link.password};for(var k in change)body[k]=change[k];
+    err.classList.remove('show');status('Saving\\u2026','saving');
+    fetch('/api/settings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})
+    .then(function(r){if(!r.ok)return r.text().then(function(t){throw new Error(t);});return r.json();})
+    .then(function(d){showLink(d,'');status('Saved','ok');statusTimer=setTimeout(function(){status('');},2200);})
+    .catch(function(e){revert();renderTray();status('');showErr(e.message||'Saving failed');});
+  }
+  document.getElementById('againBtn').addEventListener('click',function(){
+    link=null;clearInterval(typeTimer);dz.classList.remove('done','public');res.classList.remove('show','public');
+    document.getElementById('lkId').textContent='';document.getElementById('lkPw').textContent='';document.getElementById('lkHost').textContent=location.host+'/';
+    var f=thumb.querySelector('iframe');if(f)f.remove();
+    err.classList.remove('show');ilInfo.classList.remove('show');wInfo.classList.remove('show');status('');renderTray();
+    dz.scrollIntoView({behavior:'smooth',block:'center'});
+  });
+
+  // For agents: the prompt is the product; the chips write its last sentences.
   var INSTALL='npx -y skills add OrdoAI/htmldrop --skill htmldrop -g -y';
   var ag={file:'',pub:false,days:7};
   var agFile=document.getElementById('agFile'),agOpts=document.getElementById('agOpts'),agCopy=document.getElementById('agCopy');
+  var agAccess=document.getElementById('agAccess'),agDays=document.getElementById('agDays');
   function agSentences(){return (ag.pub?' Make it public.':'')+(ag.days!==7?' Keep it for '+ag.days+' days.':'');}
   function agText(){return 'Use the HTMLDrop skill to publish '+(ag.file||'the file we are working on')+' and send me the link.'+agSentences()+' If the skill is missing, install it first: '+INSTALL;}
-  agFile.addEventListener('input',function(){ag.file=agFile.textContent.replace(/\s+/g,' ').trim();if(!agFile.textContent.trim())agFile.textContent='';});
+  function renderAg(){renderAccess(agAccess,ag.pub);renderDays(agDays,ag.days,'Keep '+ag.days+' days');agOpts.textContent=agSentences();}
+  agFile.addEventListener('input',function(){ag.file=agFile.textContent.replace(/\\s+/g,' ').trim();if(!agFile.textContent.trim())agFile.textContent='';});
   agFile.addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();agFile.blur();}});
-  switchInit('agPublic',function(on){ag.pub=on;agOpts.textContent=agSentences();});
-  pickInit('agDays',function(d){ag.days=d;agOpts.textContent=agSentences();});
-  agCopy.addEventListener('click',function(){if(!navigator.clipboard)return;navigator.clipboard.writeText(agText()).then(function(){flash(agCopy);});});
+  initMenu(agAccess,function(b){ag.pub=b.dataset.pub==='1';renderAg();});
+  initMenu(agDays,function(b){ag.days=Number(b.dataset.days);renderAg();});
+  renderAg();
+  agCopy.addEventListener('click',function(){copyText(agText(),agCopy,null);});
+  var cliCopy=document.getElementById('cliCopy');
+  cliCopy.addEventListener('click',function(){copyText('npx -y htmldrop-cli ./report.html',cliCopy,null);});
 
   var ecb=document.getElementById('editCopyBtn');
-  ecb.addEventListener('click',function(){var v=document.getElementById('editInput').value;if(v&&navigator.clipboard)navigator.clipboard.writeText(v).then(function(){flash(ecb);});});
+  ecb.addEventListener('click',function(){if(link)copyText(link.url,ecb,null);});
 
   function upload(html,fn){
     prog.textContent='Uploading\\u2026';prog.classList.add('show');dz.classList.add('busy');
@@ -424,17 +717,7 @@ input[type=file]{display:none}
     var meta={filename:fn,bytes:page.size,expiresInDays:opts.days};if(opts.public)meta.public=true;
     fetch('/api/upload',{method:'POST',headers:{'Content-Type':'application/x-htmldrop-upload'},body:new Blob([JSON.stringify(meta)+'\\n',page])})
     .then(function(r){if(!r.ok)return r.text().then(function(t){throw new Error(t);});return r.json();})
-    .then(function(d){
-      var eb=document.getElementById('editBox'),ei=document.getElementById('editInput'),tag=document.getElementById('shareTag');
-      var isPub=!!(d.public&&d.publicUrl);
-      res.classList.toggle('public',isPub);
-      tag.textContent=isPub?'Public link':'Private link';
-      if(isPub){li.value=d.publicUrl;ei.value=d.url;eb.classList.add('show');}
-      else{li.value=d.url;ei.value='';eb.classList.remove('show');}
-      var exp=d.expiresAt?new Date(d.expiresAt).toLocaleDateString(undefined,{month:'short',day:'numeric'}):'never';
-      mt.textContent=(isPub?'Anyone with the link can read it. The edit link updates it.':'The password is in the link. Share it like a secret.')+' \\u00b7 Expires '+exp+' \\u00b7 '+d.id;
-      res.classList.add('show');
-    })
+    .then(function(d){showLink(d,fn,html);status('');})
     .catch(function(e){showErr(e.message||'Upload failed');})
     .finally(function(){prog.classList.remove('show');dz.classList.remove('busy');});
   }

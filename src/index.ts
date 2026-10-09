@@ -1,4 +1,5 @@
-import { handleUpload } from "./upload";
+import { handleSettings, handleUpload } from "./upload";
+import { handleFont } from "./fonts";
 import { handleServe, handleAuthForm, handleVersion } from "./serve";
 import { handleComments, handleCommentMutate } from "./comments";
 import { purgeExpired } from "./cleanup";
@@ -43,6 +44,11 @@ export default {
       });
     }
 
+    if (path.startsWith("/_fonts/")) {
+      const font = handleFont(request, path);
+      if (font) return font;
+    }
+
     if (path === "/cli/install" && request.method === "GET") {
       const response = Response.redirect(
         "https://raw.githubusercontent.com/OrdoAI/htmldrop/main/cli/install.sh",
@@ -58,6 +64,10 @@ export default {
 
     if (path === "/api/upload") {
       return handleUpload(request, env);
+    }
+
+    if (path === "/api/settings") {
+      return handleSettings(request, env);
     }
 
     // POST /:id/auth
