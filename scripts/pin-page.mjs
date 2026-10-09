@@ -6,6 +6,7 @@
 //   ... --renew                                                                   # restart the expiry window
 //   ... --public | --private                                                      # bare-URL readable or not
 //   ... --expires <days>                                                          # window length, 1-30
+//   ... --renew-on-view | --no-renew-on-view                                      # visits restart the window, or not
 //   flags combine; add --local to act on wrangler's local store (testing)
 //
 // Needs the full link. Pages are sealed under a key derived from the password
@@ -16,7 +17,15 @@
 // so open previews see no stale notice.
 //
 // Works on both storage formats: a v3 object (binary, chunked) is re-sealed
-// whole, a v2 JSON record through the older path.
+// whole, a v2 JSON record through the older path. Renew-on-view exists only
+// in v3; a v2 page has to be re-uploaded (or have its settings changed once
+// through the API, which rewrites it as v3) before --renew-on-view applies.
+// The last visit lives in a separate `seen:<id>` object this script never
+// writes. --no-renew-on-view on its own reads it and, like POST /api/settings,
+// moves createdAt to the current window start, so a page that visits kept
+// alive past createdAt + ttlDays keeps the date it was showing instead of
+// being purged at the next read. --pin, --unpin and --renew set createdAt to
+// now instead, which also puts it past any recorded visit.
 //
 // Requires a logged-in wrangler and Node 22.18+ (imports src/envelope.ts under
 // native type stripping).
@@ -38,18 +47,21 @@ const link = args.find((a, i) => !a.startsWith("--") && !valueIdx.has(i));
 
 function usage(msg) {
   if (msg) console.error(msg);
-  console.error('usage: node scripts/pin-page.mjs "https://baseurl.ai/<id>?p=<password>" (--pin|--unpin|--renew|--public|--private|--expires <days>)... [--bucket <name>] [--local]');
+  console.error('usage: node scripts/pin-page.mjs "https://baseurl.ai/<id>?p=<password>" (--pin|--unpin|--renew|--public|--private|--expires <days>|--renew-on-view|--no-renew-on-view)... [--bucket <name>] [--local]');
   process.exit(2);
 }
 
 const patch = {};
 if (has("--pin") && has("--unpin")) usage("--pin and --unpin are mutually exclusive");
 if (has("--public") && has("--private")) usage("--public and --private are mutually exclusive");
+if (has("--renew-on-view") && has("--no-renew-on-view")) usage("--renew-on-view and --no-renew-on-view are mutually exclusive");
 if (has("--pin")) { patch.pinned = true; patch.createdAt = new Date().toISOString(); }
 if (has("--unpin")) { patch.pinned = false; patch.createdAt = new Date().toISOString(); }
 if (has("--renew")) patch.createdAt = new Date().toISOString();
 if (has("--public")) patch.public = true;
 if (has("--private")) patch.public = false;
+if (has("--renew-on-view")) patch.renew = true;
+if (has("--no-renew-on-view")) patch.renew = false;
 if (expiresIdx >= 0) {
   const days = Number(args[expiresIdx + 1]);
   if (!Number.isInteger(days) || days < 1 || days > 30) usage("--expires must be a whole number of days from 1 to 30");
@@ -93,7 +105,48 @@ try {
   process.exit(1);
 }
 
-const summary = (h) => ({ pinned: h.pinned === true, public: typeof h.open === "string", ttlDays: h.ttlDays ?? 7 });
+const DAY_MS = 24 * 60 * 60 * 1000;
+const RENEW_CAP_DAYS = 365; // RENEW_CAP_DAYS in src/auth.ts
+
+// The page's last visit, from its `seen:<id>` sidecar: undefined when there is
+// none or it is malformed (the Worker reads it the same way). Any other
+// wrangler failure stops the script: guessing "never visited" would fix the
+// expiry at createdAt + ttlDays, possibly already past.
+function readLastSeen() {
+  const file = join(dir, "seen.txt");
+  try {
+    execFileSync("npx", ["wrangler", "r2", "object", "get", `${bucket}/seen:${id}`, target, "--file", file], {
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+  } catch (err) {
+    const out = `${err.stdout ?? ""}${err.stderr ?? ""}`;
+    if (out.includes("The specified key does not exist")) return undefined;
+    process.stderr.write(out);
+    fail(`seen:${id}: could not read the last visit; nothing changed (pass --renew to restart the window from now instead)`);
+  }
+  const text = readFileSync(file, "utf8").trim();
+  return text.length <= 64 && !Number.isNaN(Date.parse(text)) ? text : undefined;
+}
+
+// Where the window shown before turning renew off starts, as handleSettings
+// in src/upload.ts computes it: the later of createdAt and the last visit,
+// pulled back so the window ends no later than the one-year cap.
+function fixedWindowStart(header, lastSeen) {
+  const created = Date.parse(header.createdAt);
+  const seen = lastSeen === undefined ? Number.NaN : Date.parse(lastSeen);
+  const start = seen > created ? seen : created;
+  const ttl = (header.ttlDays ?? 7) * DAY_MS;
+  const end = Math.min(start + ttl, created + RENEW_CAP_DAYS * DAY_MS);
+  return new Date(end - ttl).toISOString();
+}
+
+const summary = (h) => ({
+  pinned: h.pinned === true,
+  public: typeof h.open === "string",
+  ttlDays: h.ttlDays ?? 7,
+  renewOnView: h.renew === true,
+});
 let before;
 let after;
 let nextBytes;
@@ -104,6 +157,10 @@ try {
     const parsed = parseV3Header(bytes);
     if (!parsed) fail(`page:${id}: unrecognised v3 object`);
     before = summary(parsed.header);
+    const h = parsed.header;
+    if (patch.renew === false && patch.createdAt === undefined && h.renew && !h.pinned) {
+      patch.createdAt = fixedWindowStart(h, readLastSeen());
+    }
     const next = await resealPageV3(id, password, bytes, patch);
     if (!next) fail(`page:${id}: password does not match this page (or the stored object is corrupt)`);
     after = { ...summary(parseV3Header(next).header), createdAt: parseV3Header(next).header.createdAt };
@@ -118,6 +175,7 @@ try {
       fail(`page:${id}: not JSON`);
     }
     if (!isStoredPage(record) && !isLegacyPage(record)) fail(`page:${id}: unrecognised record shape`);
+    if (patch.renew) fail(`page:${id}: --renew-on-view needs a v3 page; change its settings once through the site or re-upload it first`);
     before = summary(record);
     const next = await resealPage(id, password, record, patch);
     if (!next) fail(`page:${id}: password does not match this page (or the stored record is corrupt)`);
@@ -138,4 +196,4 @@ function fail(msg) {
 }
 
 const show = (k) => (before[k] === after[k] ? `${k}=${after[k]}` : `${k} ${before[k]} -> ${after[k]}`);
-console.log(`page:${id}: ${show("pinned")}; ${show("public")}; ${show("ttlDays")}; createdAt ${after.createdAt}; sealed ${format}`);
+console.log(`page:${id}: ${show("pinned")}; ${show("public")}; ${show("ttlDays")}; ${show("renewOnView")}; createdAt ${after.createdAt}; sealed ${format}`);

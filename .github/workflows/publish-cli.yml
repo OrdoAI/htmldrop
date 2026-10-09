@@ -91,7 +91,7 @@ jobs:
               data = json.load(f)
 
           files = {f["path"] for item in data for f in item["files"]}
-          required = {"package.json", "index.mjs", "compress.mjs", "skill-tree.json", "htmldrop", "install.sh"}
+          required = {"package.json", "index.mjs", "markdown-page.mjs", "compress.mjs", "status-line.mjs", "skill-tree.json", "htmldrop", "install.sh"}
           missing = required - files
           if missing:
               raise SystemExit(f"tarball missing: {sorted(missing)}")

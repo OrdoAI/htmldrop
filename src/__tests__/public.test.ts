@@ -118,10 +118,12 @@ describe("public pages", () => {
 });
 
 describe("expiresInDays", () => {
-  it("defaults to 7 days and accepts 1 to 30", async () => {
+  it("defaults to 14 days, written explicitly, and accepts 1 to 30", async () => {
     const d = await create();
-    expect(new Date(d.expiresAt!).getTime() - Date.now()).toBeGreaterThan(6.9 * DAY);
-    expect((await stored(d.id)).ttlDays).toBeUndefined();
+    const left = new Date(d.expiresAt!).getTime() - Date.now();
+    expect(left).toBeGreaterThan(13.9 * DAY);
+    expect(left).toBeLessThan(14.1 * DAY);
+    expect((await stored(d.id)).ttlDays).toBe(14);
 
     const long = await create({ expiresInDays: 30 });
     expect(new Date(long.expiresAt!).getTime() - Date.now()).toBeGreaterThan(29.9 * DAY);

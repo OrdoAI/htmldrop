@@ -28,7 +28,7 @@ p{margin-top:.5rem;font-size:.9375rem;color:var(--ink-2);text-wrap:pretty}
 <main class="card">
   <span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg></span>
   <h1>This link has expired</h1>
-  <p>Or it never existed. Pages on HTMLDrop are deleted after 7 to 30 days, and whoever shared it can upload it again.</p>
+  <p>Or it never existed. Pages on HTMLDrop are deleted once nobody opens them for 7 to 30 days, or on a date the sharer picked. Whoever shared it can upload it again.</p>
   <div class="act"><a class="btn" href="/">Make a new link</a></div>
 </main>
 <a class="brand" href="/">${MARK_SVG}HTMLDrop</a>

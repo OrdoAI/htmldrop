@@ -9,6 +9,7 @@ import {
   openPublic,
   openWithKey,
   recordVersion,
+  recordVisit,
   setAuthCookieHeader,
   validateCookie,
   verifyNoticeToken,
@@ -261,6 +262,8 @@ async function previewResponse(
     ETag: etag,
   }, request);
   if (request.headers.get("If-None-Match") === etag) {
+    // A revalidated GET is a viewer reopening the page from cache: a visit.
+    if (request.method === "GET") await recordVisit(env.BUCKET, id, record);
     return new Response(null, { status: 304, headers });
   }
   const token = await mintNoticeToken(env.AUTH_SECRET, id, record.verifier);
@@ -271,6 +274,10 @@ async function previewResponse(
   // HEAD never opens the page; only a GET streams it.
   if (request.method === "HEAD") return new Response(null, { status: 200, headers });
   const { stream } = await record.body();
+  // A renew page's window restarts on a GET that hands a viewer the page
+  // (throttled to about once a day). HEAD, the /v probe, comment calls and
+  // every refusal never get here.
+  await recordVisit(env.BUCKET, id, record);
   return new Response(pipeThrough(stream, injectAtBodyEnd(new TextEncoder().encode(inject))), {
     status: 200,
     headers,

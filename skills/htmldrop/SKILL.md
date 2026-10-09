@@ -73,16 +73,30 @@ job ad, anything meant to be forwarded freely), pass `--public`:
 npx -y htmldrop-cli --public "<file>"
 ```
 
-Previews expire after 7 days by default. `--expires <days>` sets 1 to 30
-days; use it when the user asks for a longer (or shorter) lifetime:
+By default a preview renews when opened: it is deleted after 14 days without
+a visit, and each visit restarts those 14 days, up to at most one year after
+the upload. `--expires <days>` sets the window to 1 to 30 days; use it when the
+user asks for a longer (or shorter) lifetime:
 
 ```bash
 npx -y htmldrop-cli --expires 30 "<file>"
 ```
 
-Both flags also work with `update`; `update --private` makes a public preview
-private again. Do not pass `--public` unless the user asked for a public or
-password-free link.
+When the user needs the page gone on a date whether or not anyone opens it
+("delete it in 3 days", "make sure it disappears after the meeting", anything
+time-boxed), or says not to renew it on visits, add `--no-renew`. The preview
+is then deleted on the date, opened or not:
+
+```bash
+npx -y htmldrop-cli --expires 3 --no-renew "<file>"
+```
+
+These flags also work with `update`; `update --private` makes a public preview
+private again, and `update --renew` (or `settings --renew`) turns renew-on-visit back on after
+`--no-renew`. Without a renew flag, `update` keeps the preview's current
+setting. Do not pass `--public` unless the user asked for a public or
+password-free link, and do not pass `--no-renew` unless the user asked for a
+fixed deletion date or for no renewal on visits.
 
 To change who can open a live preview, or how long it lives, without uploading
 it again, use `settings` with the full password-bearing URL:
@@ -91,10 +105,12 @@ it again, use `settings` with the full password-bearing URL:
 npx -y htmldrop-cli settings "https://baseurl.ai/<id>?p=<password>" --public
 npx -y htmldrop-cli settings "https://baseurl.ai/<id>?p=<password>" --private
 npx -y htmldrop-cli settings "https://baseurl.ai/<id>?p=<password>" --expires 30
+npx -y htmldrop-cli settings "https://baseurl.ai/<id>?p=<password>" --no-renew
 ```
 
-`settings` needs at least one of `--public`, `--private` or `--expires`. A new
-`--expires` counts from now; changing only visibility keeps the current expiry.
+`settings` needs at least one of `--public`, `--private`, `--expires`,
+`--renew` or `--no-renew`. A new `--expires` counts from now; changing only
+visibility or the renew setting keeps the current expiry date.
 The page content and its URLs stay the same, and nothing is overwritten, so
 `settings` does not need the update confirmation gate below. Prefer it over
 `update` whenever the user only wants to change access or lifetime.
@@ -197,26 +213,30 @@ relies on text-quote fallback, orphaning anchors it can no longer locate).
   inlining). Asset inlining and Markdown rendering can make the final payload
   larger than the original file.
 - The upload response contains a URL shaped like
-  `https://baseurl.ai/<id>?p=<password>`. Links expire after 7 days by default,
-  or after the `--expires <days>` value (1 to 30), according to the service
-  response.
+  `https://baseurl.ai/<id>?p=<password>`. By default a link is deleted after
+  14 days without a visit (or the `--expires <days>` value, 1 to 30), each
+  visit restarts that window, and it is kept at most one year after the
+  upload. With `--no-renew` it is deleted on the date, opened or not.
 - With `--public` the CLI prints two stdout lines: first the bare
   `https://baseurl.ai/<id>` that anyone can open, then the password link, which
   is the edit link (needed for `update` and `comments`).
 - `update <url> <file>` sends the `id` and password from that URL with the new
   content, returns the same URL, restarts the expiry window, and keeps the
-  preview's visibility and lifetime unless `--public`, `--private`, or
-  `--expires` say otherwise.
-- `settings <url>` changes visibility and/or expiry in place and prints the
-  same lines as an upload: the shareable URL first, then the edit link if the
-  preview is public.
+  preview's visibility, lifetime, and renew setting unless `--public`,
+  `--private`, `--expires`, `--renew`, or `--no-renew` say otherwise.
+- `settings <url>` changes visibility, expiry, and/or the renew setting in
+  place (`--public`, `--private`, `--expires`, `--renew`, `--no-renew`) and
+  prints the same lines as an upload: the shareable URL first, then the edit
+  link if the preview is public.
 - `--version` prints the installed `htmldrop-cli` version and exits without
   uploading.
 - Unknown options fail before upload. Use `--` before the file path when a local
   filename starts with `-`.
 - In non-interactive shells the CLI prints the URL on stdout. In an interactive
-  TTY it also prints `id`, an expiry date, and a clipboard note when `pbcopy`
-  succeeds.
+  TTY it also prints `id`, an expiry, and a clipboard note when `pbcopy`
+  succeeds. The expiry reads `expires: <date> if unopened (renews on visit,
+  until <date>)` for a renewing preview, `expires: <date>` for a fixed one, and
+  `expires: never` for a pinned one.
 
 ## Handling Output
 
@@ -229,13 +249,19 @@ Read both stdout and stderr from the command.
   forward.
 - If you used `update`, say the existing preview was overwritten at the same
   URL.
-- If you used `settings`, say what changed (now public, now private, or the new
-  expiry) and that the content and link are unchanged. After `--private`, the
-  bare public URL no longer opens the page.
-- Mention the expiry: 7 days unless `--expires` was used. If the CLI printed
-  an exact expiry date, relay that date. If it did not print one, do not
-  invent an exact timestamp. If it printed `expires: never`, the page was
-  pinned by an operator: say the link does not expire and skip the expiry note.
+- If you used `settings`, say what changed (now public, now private, the new
+  expiry, or renew on/off) and that the content and link are unchanged. After
+  `--private`, the bare public URL no longer opens the page.
+- Mention the expiry in plain words, using the days you asked for (14 unless
+  `--expires` was used):
+  - Default (renews on visit): "deleted after 14 days without a visit; each
+    visit restarts that." If the CLI printed `if unopened (renews on visit,
+    until <date>)`, you may add that it is kept at most until that last date.
+  - With `--no-renew`: "deleted on <date>, opened or not." Relay the exact date
+    only if the CLI printed one; otherwise say "in N days".
+  - Do not invent an exact timestamp the CLI did not print.
+  - If it printed `expires: never`, the page was pinned by an operator: say the
+    link does not expire and skip the expiry note.
 - For a private preview, say the link is self-authenticating because the
   password is already in the URL. Do not print the password separately unless
   the user asks.
@@ -249,8 +275,8 @@ Suggested final response:
 
 ```text
 Uploaded: <url>
-The link includes the access password and can be forwarded as-is. HTMLDrop
-links expire after 7 days.
+The link includes the access password and can be forwarded as-is. It is
+deleted after 14 days without a visit; each visit restarts that.
 ```
 
 Add a short warning line when relevant:
