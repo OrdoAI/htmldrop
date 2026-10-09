@@ -84,6 +84,21 @@ Both flags also work with `update`; `update --private` makes a public preview
 private again. Do not pass `--public` unless the user asked for a public or
 password-free link.
 
+To change who can open a live preview, or how long it lives, without uploading
+it again, use `settings` with the full password-bearing URL:
+
+```bash
+npx -y htmldrop-cli settings "https://baseurl.ai/<id>?p=<password>" --public
+npx -y htmldrop-cli settings "https://baseurl.ai/<id>?p=<password>" --private
+npx -y htmldrop-cli settings "https://baseurl.ai/<id>?p=<password>" --expires 30
+```
+
+`settings` needs at least one of `--public`, `--private` or `--expires`. A new
+`--expires` counts from now; changing only visibility keeps the current expiry.
+The page content and its URLs stay the same, and nothing is overwritten, so
+`settings` does not need the update confirmation gate below. Prefer it over
+`update` whenever the user only wants to change access or lifetime.
+
 Use `--no-inline` only when the user explicitly wants references left as-is or
 when the default inlining makes the upload too large:
 
@@ -192,6 +207,9 @@ relies on text-quote fallback, orphaning anchors it can no longer locate).
   content, returns the same URL, restarts the expiry window, and keeps the
   preview's visibility and lifetime unless `--public`, `--private`, or
   `--expires` say otherwise.
+- `settings <url>` changes visibility and/or expiry in place and prints the
+  same lines as an upload: the shareable URL first, then the edit link if the
+  preview is public.
 - `--version` prints the installed `htmldrop-cli` version and exits without
   uploading.
 - Unknown options fail before upload. Use `--` before the file path when a local
@@ -211,6 +229,9 @@ Read both stdout and stderr from the command.
   forward.
 - If you used `update`, say the existing preview was overwritten at the same
   URL.
+- If you used `settings`, say what changed (now public, now private, or the new
+  expiry) and that the content and link are unchanged. After `--private`, the
+  bare public URL no longer opens the page.
 - Mention the expiry: 7 days unless `--expires` was used. If the CLI printed
   an exact expiry date, relay that date. If it did not print one, do not
   invent an exact timestamp. If it printed `expires: never`, the page was
@@ -249,9 +270,12 @@ be missing those images or styles.
 - `File too large` or HTTP `413`: the final HTML payload exceeded the service
   limit. Try `--no-inline`, reduce embedded assets, split the report, or create
   a smaller summary page.
-- `update` with a malformed URL, missing `?p=...`, or HTTP `403`: re-check
-  that the user provided the original full HTMLDrop URL. Do not try to recover
-  the password from a clean preview URL.
+- `update` or `settings` with a malformed URL, missing `?p=...`, or HTTP
+  `403`: re-check that the user provided the original full HTMLDrop URL (for a
+  public preview, the edit link, not the bare public one). Do not try to
+  recover the password from a clean preview URL.
+- `settings failed (409)`: the page was re-uploaded while its settings were
+  being saved. Run the same `settings` command again.
 - Old `--update <url> <file>` examples fail on the 0.2 CLI. Rewrite them as
   `update <url> <file>`.
 - If the CLI says the installed htmldrop skill is outdated, run

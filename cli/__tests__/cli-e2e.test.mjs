@@ -28,7 +28,11 @@ function withServer(handler) {
         const nl = raw.indexOf(0x0a);
         let meta = {};
         let html = raw.toString("utf8");
-        if (nl >= 0) {
+        if (req.url === "/api/settings") {
+          // settings is plain JSON: credentials plus the requested changes.
+          try { meta = JSON.parse(raw.toString("utf8")); } catch {}
+          html = "";
+        } else if (nl >= 0) {
           try { meta = JSON.parse(raw.subarray(0, nl).toString("utf8")); } catch {}
           html = raw.subarray(nl + 1).toString("utf8");
         }
@@ -667,5 +671,70 @@ test("bad --expires, --private on create, and --public --private fail before any
     });
   } finally {
     rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("settings <url> --public --expires sends only the changes and prints both links", async () => {
+  await withServer(async (endpoint, requests) => {
+    const result = await runCli(["settings", "http://preview.test/abc?p=secret", "--public", "--expires", "14"], endpoint);
+    assert.equal(result.code, 0, result.stderr);
+    assert.equal(requests.length, 1);
+    assert.equal(requests[0].url, "/api/settings");
+    assert.equal(requests[0].headers["content-type"], "application/json");
+    assert.deepEqual(requests[0].meta, { id: "abc", password: "secret", public: true, expiresInDays: 14 });
+    assert.deepEqual(result.stdout.trim().split("\n"), ["http://preview.test/abc", "http://preview.test/abc?p=secret"]);
+  });
+});
+
+test("settings --private sends public:false and prints the one private link", async () => {
+  await withServer(async (endpoint, requests) => {
+    const result = await runCli(["settings", "--private", "http://preview.test/abc?p=secret"], endpoint);
+    assert.equal(result.code, 0, result.stderr);
+    assert.deepEqual(requests[0].meta, { id: "abc", password: "secret", public: false });
+    assert.deepEqual(result.stdout.trim().split("\n"), ["http://preview.test/abc?p=secret"]);
+  });
+});
+
+test("settings --expires alone leaves visibility out", async () => {
+  await withServer(async (endpoint, requests) => {
+    const result = await runCli(["settings", "http://preview.test/abc?p=secret", "--expires=30"], endpoint);
+    assert.equal(result.code, 0, result.stderr);
+    assert.deepEqual(requests[0].meta, { id: "abc", password: "secret", expiresInDays: 30 });
+  });
+});
+
+test("settings with nothing to change, a bad link, or stray arguments fails before any request", async () => {
+  await withServer(async (endpoint, requests) => {
+    for (const args of [
+      ["settings", "http://preview.test/abc?p=secret"],
+      ["settings", "--public"],
+      ["settings", "http://preview.test/abc", "--public"],
+      ["settings", "not a url", "--public"],
+      ["settings", "http://preview.test/abc?p=secret", "page.html", "--public"],
+      ["settings", "http://preview.test/abc?p=secret", "--public", "--private"],
+      ["settings", "http://preview.test/abc?p=secret", "--expires", "31"],
+      ["settings", "http://preview.test/abc?p=secret", "--public", "--no-inline"],
+      ["settings", "http://preview.test/abc?p=secret", "--public", "--comment-anchors", "a.json"],
+    ]) {
+      const result = await runCli(args, endpoint);
+      assert.equal(result.code, 1, `expected failure for ${args.join(" ")}`);
+    }
+    assert.equal(requests.length, 0);
+  });
+});
+
+test("settings reports the service's refusal and exits 1", async () => {
+  const server = createServer((req, res) => {
+    req.resume();
+    req.on("end", () => { res.statusCode = 403; res.end("Invalid id or password"); });
+  });
+  await new Promise(r => server.listen(0, "127.0.0.1", r));
+  try {
+    const result = await runCli(["settings", "http://preview.test/abc?p=wrong", "--public"], `http://127.0.0.1:${server.address().port}`);
+    assert.equal(result.code, 1);
+    assert.match(result.stderr, /settings failed \(403\): Invalid id or password/);
+    assert.equal(result.stdout, "");
+  } finally {
+    await new Promise(r => server.close(r));
   }
 });

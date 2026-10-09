@@ -17,6 +17,7 @@ function die(msg) {
 function usage() {
   console.log(`Usage: htmldrop [create] <file>
        htmldrop update <url> <file>
+       htmldrop settings <url> [--public | --private] [--expires <days>]
        htmldrop comments <url>
 
 Upload an HTML or Markdown file and get a shareable link.
@@ -25,6 +26,7 @@ Relative images, CSS, and JS are automatically inlined as base64.
   htmldrop ./report.html                 create a new preview
   htmldrop create ~/Documents/notes.md   create, explicit
   htmldrop update <url> ./report.html    overwrite an existing preview
+  htmldrop settings <url> --public       change access or expiry, no re-upload
   htmldrop comments <url>                fetch the preview's comments as JSON
 
 <url> is the full password-bearing link from a previous upload; the
@@ -34,8 +36,9 @@ Options:
   --public                  Anyone with the bare URL can read; no password
                             (default: private). Prints the public URL first,
                             then the edit link.
-  --private                 (update) Make a public preview private again
-  --expires <days>          Days until expiry, 1-30 (default 7)
+  --private                 (update, settings) Make a public preview private again
+  --expires <days>          Days until expiry, 1-30 (default 7). With update
+                            or settings, counts from now.
   --no-inline               Skip asset inlining, upload HTML as-is
   --comment-anchors <file>  (update) JSON array of {cid, anchor} remaps applied
                             to existing comments after the document changes
@@ -283,7 +286,7 @@ const { values, positionals } = parsed;
 // the first operand; a file actually named that needs an explicit verb or path.
 let mode = "create";
 let operands = positionals;
-if (positionals[0] === "create" || positionals[0] === "update" || positionals[0] === "comments") {
+if (["create", "update", "settings", "comments"].includes(positionals[0])) {
   mode = positionals[0];
   operands = positionals.slice(1);
 }
@@ -292,7 +295,10 @@ if (values["comment-anchors"] && mode !== "update") {
   die("--comment-anchors is only valid with 'update'");
 }
 if (values.public && values.private) die("--public and --private are mutually exclusive");
-if (values.private && mode !== "update") die("--private is only valid with 'update' (new previews are private by default)");
+if (values.private && mode !== "update" && mode !== "settings") {
+  die("--private is only valid with 'update' or 'settings' (new previews are private by default)");
+}
+if (values["no-inline"] && mode === "settings") die("--no-inline is not valid with 'settings'");
 let expiresInDays;
 if (values.expires !== undefined) {
   expiresInDays = Number(values.expires);
@@ -313,6 +319,29 @@ if (mode === "comments") {
   if (!res.ok) die(`fetch comments failed (${res.status}): ${await res.text()}`);
   const data = await res.json();
   process.stdout.write(`${JSON.stringify(data.comments ?? [], null, 2)}\n`);
+  process.exit(0);
+}
+
+// settings: change who can open a live preview and when it expires, without
+// uploading it again. Same credential as update: the password-bearing link.
+if (mode === "settings") {
+  const usageLine = "usage: htmldrop settings <url> [--public | --private] [--expires <days>]";
+  if (operands.length < 1) die(usageLine);
+  if (operands.length > 1) die(`unexpected argument: ${operands[1]}`);
+  if (!values.public && !values.private && expiresInDays === undefined) {
+    die(`nothing to change: pass --public, --private and/or --expires <days>\n       ${usageLine}`);
+  }
+  const body = { ...parsePreviewUrl(operands[0]) };
+  if (values.public) body.public = true;
+  if (values.private) body.public = false;
+  if (expiresInDays !== undefined) body.expiresInDays = expiresInDays;
+  const res = await fetch(`${ENDPOINT}/api/settings`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) die(`settings failed (${res.status}): ${await res.text()}`);
+  report(await res.json(), " | settings changed");
   process.exit(0);
 }
 
@@ -406,16 +435,17 @@ if (!res.ok) {
   die(`upload failed (${res.status}): ${text}`);
 }
 
-const data = await res.json();
-// A public preview has two links: the bare one to share, and the password
-// link that still gates update/comments. Shareable first, so line 1 of stdout
-// is always "the URL to hand out".
-const shareUrl = data.public && data.publicUrl ? data.publicUrl : data.url;
-console.log(shareUrl);
-if (shareUrl !== data.url) console.log(data.url);
+report(await res.json(), updateCreds ? " | updated in place" : "");
 
-if (process.stdout.isTTY) {
-  let note = updateCreds ? " | updated in place" : "";
+// Prints a link result from upload or settings. A public preview has two
+// links: the bare one to share, and the password link that still gates
+// update/settings/comments. Shareable first, so line 1 of stdout is always
+// "the URL to hand out".
+function report(data, note) {
+  const shareUrl = data.public && data.publicUrl ? data.publicUrl : data.url;
+  console.log(shareUrl);
+  if (shareUrl !== data.url) console.log(data.url);
+  if (!process.stdout.isTTY) return;
   if (data.public) note += " | public";
   // `expiresAt` is null for an operator-pinned page, which never expires.
   const expires = data.expiresAt ? data.expiresAt.split("T")[0] : "never";
