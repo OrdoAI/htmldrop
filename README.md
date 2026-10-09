@@ -16,6 +16,7 @@ npx -y htmldrop-cli ./report.html
 npx -y htmldrop-cli create ./report.html
 npx -y htmldrop-cli ./notes.md
 npx -y htmldrop-cli update "https://baseurl.ai/<id>?p=<password>" ./report.html
+npx -y htmldrop-cli settings "https://baseurl.ai/<id>?p=<password>" --public --expires 30
 ```
 
 The CLI accepts relative paths, absolute paths, `~/...`, and `file://` URIs.
@@ -24,7 +25,9 @@ JavaScript files are inlined by default. PNG and JPEG assets are re-encoded to
 same-dimension WebP when that reduces the upload payload.
 
 The bare form and `create` make a new preview. `update <url> <file>` overwrites
-an existing preview while keeping the same password-bearing URL.
+an existing preview while keeping the same password-bearing URL. `settings <url>`
+changes a live preview's visibility (`--public` / `--private`) and expiry
+(`--expires <days>`, counted from now) without uploading it again.
 
 Useful options:
 
