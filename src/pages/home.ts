@@ -260,7 +260,9 @@ input[type=file]{display:none}
 .ask-inner{min-height:0;overflow:hidden;margin:0 -1.5rem;padding:0 1.5rem;opacity:0;transition:opacity var(--t2) var(--ease)}
 .ask.open .ask-inner{opacity:1}
 .ask.settled .ask-inner{overflow:visible}
-.ask .term{margin-top:1rem}
+.ask .term{margin-top:1rem;transition:box-shadow var(--t2) var(--ease)}
+/* .ask-inner clips while the panel grows; the wide shadow fades in once it stops clipping */
+.ask:not(.settled) .term{box-shadow:var(--shadow-sm)}
 /* the terminal follows the theme, a sibling of the browser window above */
 .term{color:var(--ink);background:var(--surface);border-radius:var(--r-lg);box-shadow:var(--win-shadow)}
 .term-bar{display:flex;align-items:center;gap:.875rem;height:2.75rem;padding:0 1rem;border-bottom:1px solid var(--line);border-radius:var(--r-lg) var(--r-lg) 0 0;background:linear-gradient(var(--surface),var(--sunken))}
@@ -729,11 +731,26 @@ input[type=file]{display:none}
   function agText(){return 'Use the HTMLDrop skill to publish this and send me the link.'+agSentences()+' If the skill is missing, install it first: '+INSTALL;}
   function renderPrompt(){var el=document.getElementById('agOpts');if(el)el.textContent=agSentences();}
   agCopy.addEventListener('click',function(){copyText(agText(),agCopy,null);});
-  var ask=document.getElementById('agents'),askBtn=document.getElementById('askBtn'),askPanel=document.getElementById('askPanel'),askTimer=0;
+  var ask=document.getElementById('agents'),askBtn=document.getElementById('askBtn'),askPanel=document.getElementById('askPanel'),askTimer=0,askScroll=0;
+  // The panel grows below the button, often past the fold. Scroll with it,
+  // on the same 400ms curve as the panel (--t3, --ease), so the prompt rises
+  // into view instead of the page jumping when focus lands on Copy prompt.
+  function ease(t){var lo=0,hi=1,u;for(var i=0;i<18;i++){u=(lo+hi)/2;if(3*.2*u*(1-u)*(1-u)+3*.2*u*u*(1-u)+u*u*u<t)lo=u;else hi=u;}u=(lo+hi)/2;return 3*.7*u*(1-u)*(1-u)+3*u*u*(1-u)+u*u*u;}
+  function stopScroll(){cancelAnimationFrame(askScroll);askScroll=0;}
+  ['wheel','touchstart','keydown'].forEach(function(t){addEventListener(t,stopScroll,{passive:true});});
+  function revealAsk(){
+    var b=askBtn.getBoundingClientRect(),inner=askPanel.firstElementChild;
+    var by=Math.min(b.bottom+inner.scrollHeight+24-innerHeight,b.top-16);
+    if(by<=0)return;
+    var from=scrollY;
+    if(matchMedia('(prefers-reduced-motion: reduce)').matches){scrollTo(0,from+by);return;}
+    var t0=performance.now();stopScroll();
+    (function step(now){var t=Math.min(1,(now-t0)/400);scrollTo(0,from+by*ease(t));askScroll=t<1?requestAnimationFrame(step):0;})(t0);
+  }
   function setAsk(open,focus){
-    clearTimeout(askTimer);ask.classList.remove('settled');
+    clearTimeout(askTimer);stopScroll();ask.classList.remove('settled');
     ask.classList.toggle('open',open);askBtn.setAttribute('aria-expanded',String(open));
-    if(open){askPanel.removeAttribute('inert');askTimer=setTimeout(function(){ask.classList.add('settled');if(focus)agCopy.focus();},420);}
+    if(open){askPanel.removeAttribute('inert');if(focus)revealAsk();askTimer=setTimeout(function(){ask.classList.add('settled');if(focus)agCopy.focus({preventScroll:true});},420);}
     else askPanel.setAttribute('inert','');
   }
   askBtn.addEventListener('click',function(){setAsk(!ask.classList.contains('open'),true);});
