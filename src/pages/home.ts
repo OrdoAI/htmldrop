@@ -332,7 +332,7 @@ input[type=file]{display:none}
 <main>
   <section class="hero">
     <h1><span>Drop a file.</span><span>Get a link that <em class="fade">expires.</em></span></h1>
-    <p class="lede">Private and encrypted. Gone after 14 days without a visit.</p>
+    <p class="lede" id="lede">Private and encrypted. Gone after 14 days without a visit.</p>
   </section>
 
   <section class="stage" aria-label="Upload">
@@ -621,8 +621,11 @@ input[type=file]{display:none}
   // The chips shape the next link; once a link is in the window they edit it.
   var opts={public:false,days:14,renew:true},link=null,statusTimer=0,pwTimer=0;
   var accessWrap=document.getElementById('accessMenu'),daysWrap=document.getElementById('daysMenu'),statusEl=document.getElementById('settingStatus');
+  // The lede under the headline says what the chips will do with the next link.
+  var lede=document.getElementById('lede');
   function renderTray(){
     renderPrompt();
+    lede.textContent=(opts.public?'Open to anyone with the link.':'Private and encrypted.')+' Gone after '+opts.days+' days'+(opts.renew?' without a visit.':'.');
     renderAccess(accessWrap,opts.public);
     var label=opts.days+' days',tip='';
     if(link&&!link.expiresAt)label='Never expires';
