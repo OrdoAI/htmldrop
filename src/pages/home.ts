@@ -266,10 +266,13 @@ input[type=file]{display:none}
   document.querySelectorAll('[data-copy]').forEach(function(btn){btn.addEventListener('click',function(e){e.stopPropagation();navigator.clipboard.writeText(btn.dataset.copy).then(function(){flash(btn);});});});
 
   // Page-level drag handling: a global "something is being dragged" affordance,
-  // and no browser navigation when a file is dropped outside the card.
+  // and no browser navigation when a file is dropped outside the card. dragenter
+  // must be cancelled too: when the element under the pointer changes, Chrome
+  // fires only dragenter and decides from it whether the page takes the drop, so
+  // a release right after crossing an element would open the file in a new tab.
   function hasFiles(e){var t=e.dataTransfer&&e.dataTransfer.types;return !!t&&Array.prototype.indexOf.call(t,'Files')!==-1;}
   var dragDepth=0;
-  document.addEventListener('dragenter',function(e){if(!hasFiles(e))return;dragDepth++;document.body.classList.add('dragging');});
+  document.addEventListener('dragenter',function(e){if(!hasFiles(e))return;e.preventDefault();dragDepth++;document.body.classList.add('dragging');});
   document.addEventListener('dragleave',function(e){if(!hasFiles(e))return;if(--dragDepth<=0){dragDepth=0;document.body.classList.remove('dragging');}});
   document.addEventListener('dragover',function(e){if(hasFiles(e))e.preventDefault();});
   document.addEventListener('drop',function(e){if(hasFiles(e))e.preventDefault();dragDepth=0;document.body.classList.remove('dragging');});
@@ -348,8 +351,11 @@ input[type=file]{display:none}
   pf.addEventListener('click',function(e){e.stopPropagation();fi.click();});
   pfr.addEventListener('click',function(e){e.stopPropagation();fo.click();});
   document.getElementById('dropField').addEventListener('click',function(e){if(!e.target.closest('button'))fi.click();});
+  dz.addEventListener('dragenter',function(e){e.preventDefault();dz.classList.add('over');});
   dz.addEventListener('dragover',function(e){e.preventDefault();dz.classList.add('over');});
-  dz.addEventListener('dragleave',function(){dz.classList.remove('over');});
+  // Moving between the card's own children is not leaving it; dropping .over there
+  // flips pointer-events on the children and the drag target with it.
+  dz.addEventListener('dragleave',function(e){if(!dz.contains(e.relatedTarget))dz.classList.remove('over');});
   dz.addEventListener('drop',async function(e){e.preventDefault();dz.classList.remove('over');var f=await collectDrop(e.dataTransfer);if(f.length)handleFiles(f);});
   fi.addEventListener('change',function(){if(fi.files.length)handleFiles(Array.from(fi.files));});
   fo.addEventListener('change',function(){if(fo.files.length)handleFiles(Array.from(fo.files));});
