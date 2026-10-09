@@ -38,6 +38,9 @@ export interface PageRecord {
   public: boolean;
   key: Uint8Array;
   verifier: string;
+  // R2 etag of the object this record was read from, so a rewrite can be made
+  // conditional on nothing having changed since.
+  etag: string;
   body: () => Promise<PageBody>;
 }
 
@@ -83,8 +86,8 @@ const COMMENT_NS = "comments";
 const NOTICE_NS = "update-notice:v2";
 
 type Stored =
-  | { kind: "v2"; stored: StoredPage }
-  | { kind: "legacy"; stored: LegacyPage }
+  | { kind: "v2"; stored: StoredPage; etag: string }
+  | { kind: "legacy"; stored: LegacyPage; etag: string }
   | { kind: "v3"; header: StoredPageV3; end: number; etag: string };
 
 const enc = (s: string): Uint8Array => new TextEncoder().encode(s);
@@ -122,8 +125,8 @@ async function loadStored(bucket: R2Bucket, id: string): Promise<Stored | null> 
     } catch {
       return null;
     }
-    if (isStoredPage(parsed)) loaded = { kind: "v2", stored: parsed };
-    else if (isLegacyPage(parsed)) loaded = { kind: "legacy", stored: parsed };
+    if (isStoredPage(parsed)) loaded = { kind: "v2", stored: parsed, etag: head.etag };
+    else if (isLegacyPage(parsed)) loaded = { kind: "legacy", stored: parsed, etag: head.etag };
     else return null;
   }
   const { createdAt, ttlDays, pinned } = expiryOf(loaded);
@@ -190,6 +193,7 @@ async function openStoredV3(
     public: h.open !== undefined,
     key,
     verifier: h.verifier,
+    etag: s.etag,
     body: () => v3Body(bucket, id, s, opened),
   };
 }
@@ -204,6 +208,7 @@ function textBody(html: string): () => Promise<PageBody> {
 async function openStoredV2(
   id: string,
   stored: StoredPage,
+  etag: string,
   key: Uint8Array,
 ): Promise<PageRecord | null> {
   const payload = await openPage(key, id, stored);
@@ -217,11 +222,12 @@ async function openStoredV2(
     public: stored.open !== undefined,
     key,
     verifier: stored.verifier,
+    etag,
     body: textBody(payload.html),
   };
 }
 
-function fromLegacy(id: string, legacy: LegacyPage, pageKey: PageKey): PageRecord {
+function fromLegacy(id: string, legacy: LegacyPage, etag: string, pageKey: PageKey): PageRecord {
   const meta = legacyMeta(id, legacy);
   return {
     filename: legacy.filename,
@@ -231,6 +237,7 @@ function fromLegacy(id: string, legacy: LegacyPage, pageKey: PageKey): PageRecor
     public: false,
     key: pageKey.key,
     verifier: pageKey.verifier,
+    etag,
     body: textBody(legacy.html),
   };
 }
@@ -273,10 +280,10 @@ export async function verifyPassword(
   }
   if (s.kind === "v2") {
     if (!stringsEqual(pageKey.verifier, s.stored.verifier)) return null;
-    return openStoredV2(id, s.stored, pageKey.key);
+    return openStoredV2(id, s.stored, s.etag, pageKey.key);
   }
   if (!stringsEqual(password, s.stored.password)) return null;
-  return fromLegacy(id, s.stored, pageKey);
+  return fromLegacy(id, s.stored, s.etag, pageKey);
 }
 
 // The key (from a cookie or comment token) is the credential: a wrong key
@@ -289,10 +296,10 @@ export async function openWithKey(
   const s = await loadStored(bucket, id);
   if (!s) return null;
   if (s.kind === "v3") return openStoredV3(bucket, id, s, key);
-  if (s.kind === "v2") return openStoredV2(id, s.stored, key);
+  if (s.kind === "v2") return openStoredV2(id, s.stored, s.etag, key);
   const pageKey = await derivePageKey(id, s.stored.password);
   if (!bytesEqual(pageKey.key, key)) return null;
-  return fromLegacy(id, s.stored, pageKey);
+  return fromLegacy(id, s.stored, s.etag, pageKey);
 }
 
 // A public page opens with the key stored beside it; no credential needed.
@@ -305,7 +312,7 @@ export async function openPublic(bucket: R2Bucket, id: string): Promise<PageReco
   }
   if (s.kind === "v2") {
     const key = publicKeyOf(s.stored);
-    return key ? openStoredV2(id, s.stored, key) : null;
+    return key ? openStoredV2(id, s.stored, s.etag, key) : null;
   }
   return null;
 }

@@ -23,7 +23,7 @@ describe("GET /version", () => {
   it("is reserved: never treated as a page id", async () => {
     const res = await SELF.fetch("http://localhost/version?p=whatever");
     expect(res.status).toBe(200);
-    expect(await res.text()).not.toContain("Password Required");
+    expect(await res.text()).not.toContain("This page is private");
     const post = await SELF.fetch("http://localhost/version", { method: "POST" });
     expect(post.status).toBe(405);
   });

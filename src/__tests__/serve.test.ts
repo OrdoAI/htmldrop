@@ -50,7 +50,7 @@ describe("Auth bootstrap via ?p=", () => {
     expect(res.status).toBe(403);
     expect(res.headers.get("Set-Cookie")).toBeNull();
     const body = await res.text();
-    expect(body).toContain("Password Required");
+    expect(body).toContain("This page is private");
   });
 
   it("shows password form for missing/expired ID with wrong password", async () => {
@@ -92,10 +92,10 @@ describe("Cookie-authenticated preview", () => {
       headers: { Cookie: cookie! },
     });
     expect(res.headers.get("Content-Type")).toBe("text/html; charset=utf-8");
-    expect(res.headers.get("X-Frame-Options")).toBe("DENY");
+    expect(res.headers.get("X-Frame-Options")).toBe("SAMEORIGIN");
     expect(res.headers.get("X-Content-Type-Options")).toBe("nosniff");
     expect(res.headers.get("Referrer-Policy")).toBe("no-referrer");
-    expect(res.headers.get("Content-Security-Policy")).toBe("sandbox allow-scripts");
+    expect(res.headers.get("Content-Security-Policy")).toBe("sandbox allow-scripts; frame-ancestors 'self'");
   });
 
   it("rejects tampered cookie", async () => {
@@ -105,7 +105,7 @@ describe("Cookie-authenticated preview", () => {
     });
     expect(res.status).toBe(401);
     const body = await res.text();
-    expect(body).toContain("Password Required");
+    expect(body).toContain("This page is private");
   });
 
   it("rejects cookie from a different ID", async () => {
@@ -283,7 +283,7 @@ describe("Password form (no auth)", () => {
     const res = await SELF.fetch(`http://localhost/${page.id}`);
     expect(res.status).toBe(401);
     const body = await res.text();
-    expect(body).toContain("Password Required");
+    expect(body).toContain("This page is private");
     expect(body).not.toContain(page.password);
   });
 
@@ -322,7 +322,7 @@ describe("HEAD /:id", () => {
 
     expect(res.status).toBe(200);
     expect(res.headers.get("Content-Type")).toBe("text/html; charset=utf-8");
-    expect(res.headers.get("Content-Security-Policy")).toBe("sandbox allow-scripts");
+    expect(res.headers.get("Content-Security-Policy")).toBe("sandbox allow-scripts; frame-ancestors 'self'");
     expect(res.headers.get("Strict-Transport-Security")).toBeTruthy();
     expect(await res.text()).toBe("");
   });
@@ -379,7 +379,7 @@ describe("POST /:id/auth", () => {
     expect(res.status).toBe(403);
     expect(res.headers.get("Set-Cookie")).toBeNull();
     const body = await res.text();
-    expect(body).toContain("Incorrect password");
+    expect(body).toContain("That password does not open this page");
   });
 
   it("does not echo password in error response", async () => {
@@ -470,7 +470,7 @@ describe("Missing/expired pages", () => {
     const res = await SELF.fetch("http://localhost/zZzZzZzZ");
     expect(res.status).toBe(401);
     const body = await res.text();
-    expect(body).toContain("Password Required");
+    expect(body).toContain("This page is private");
   });
 
   it("purges an unpinned record past the 7-day TTL", async () => {
@@ -511,7 +511,8 @@ describe("Homepage", () => {
     expect(res.status).toBe(200);
     const body = await res.text();
     expect(body).toContain("HTMLDrop");
-    expect(body).toContain("drop-zone");
+    expect(body).toContain('id="dropZone"');
+    expect(body).toContain('id="fileInput"');
   });
 
   it("uses app headers", async () => {
@@ -554,5 +555,26 @@ describe("Security: password not in preview URL", () => {
     // The URL the page is served at has no ?p= — verify by checking the request URL
     const requestUrl = new URL(`http://localhost/${page.id}`);
     expect(requestUrl.searchParams.has("p")).toBe(false);
+  });
+});
+
+describe("preview framing", () => {
+  it("only this site may frame a preview, and it stays sandboxed", async () => {
+    const page = await createPage();
+    const res = await SELF.fetch(`http://localhost/${page.id}?p=${page.password}`, { redirect: "manual" });
+    const cookie = getCookieFromHeaders(res.headers);
+    const view = await SELF.fetch(`http://localhost/${page.id}`, { headers: { Cookie: cookie! } });
+    const csp = view.headers.get("Content-Security-Policy")!;
+    expect(csp.split(";")[0].trim()).toBe("sandbox allow-scripts");
+    expect(csp).toContain("frame-ancestors 'self'");
+    expect(csp).not.toContain("allow-same-origin");
+    expect(view.headers.get("X-Frame-Options")).toBe("SAMEORIGIN");
+  });
+
+  it("app pages still refuse to be framed at all", async () => {
+    const home = await SELF.fetch("http://localhost/");
+    expect(home.headers.get("X-Frame-Options")).toBe("DENY");
+    const missing = await SELF.fetch("http://localhost/nosuchid");
+    expect(missing.headers.get("X-Frame-Options")).toBe("DENY");
   });
 });

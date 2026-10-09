@@ -6,6 +6,13 @@ compatibility_date = "2024-12-01"
 binding = "BUCKET"
 bucket_name = "htmldrop-pages"
 
+# The site's typeface (Geist, SIL OFL; see src/fonts/OFL.txt), served from
+# the Worker so the pages' default-src 'self' covers it.
+[[rules]]
+type = "Data"
+globs = ["**/*.woff2"]
+fallthrough = false
+
 [[routes]]
 pattern = "baseurl.ai"
 custom_domain = true

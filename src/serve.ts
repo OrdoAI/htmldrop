@@ -25,12 +25,15 @@ interface Env {
   AUTH_SECRET: string;
 }
 
+// Framing is limited to this site: the home page shows the page just uploaded
+// in a small window. Any other site still cannot frame a preview, and neither
+// can another preview, since each runs sandboxed in an opaque origin.
 const PREVIEW_HEADERS: HeadersInit = {
   "Content-Type": "text/html; charset=utf-8",
-  "X-Frame-Options": "DENY",
+  "X-Frame-Options": "SAMEORIGIN",
   "X-Content-Type-Options": "nosniff",
   "Referrer-Policy": "no-referrer",
-  "Content-Security-Policy": "sandbox allow-scripts",
+  "Content-Security-Policy": "sandbox allow-scripts; frame-ancestors 'self'",
 };
 
 const VERSION_HEADERS: HeadersInit = {
@@ -242,6 +245,9 @@ async function previewResponse(
   record: PageRecord,
   withWidget: boolean,
 ): Promise<Response> {
+  // Framed (only this site's home page may frame a preview, as its upload
+  // thumbnail): the page is shown, not read, so no comment widget.
+  if (request.headers.get("Sec-Fetch-Dest") === "iframe") withWidget = false;
   // `version` changes on every write, so it doubles as the cache validator.
   // `no-cache` forces revalidation, so a plain refresh never serves a stale
   // local copy. The widget variant gets its own validator so a browser that
