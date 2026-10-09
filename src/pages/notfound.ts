@@ -1,4 +1,4 @@
-import { FONT_PRELOAD, MARK_SVG, THEME_CSS } from "./theme";
+import { FAVICON_LINK, FONT_PRELOAD, MARK_SVG, THEME_CSS } from "./theme";
 
 export function notFoundPage(): string {
   return `<!DOCTYPE html>
@@ -8,6 +8,7 @@ export function notFoundPage(): string {
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="light dark">
 <title>Not found · HTMLDrop</title>
+${FAVICON_LINK}
 ${FONT_PRELOAD}
 <style>
 ${THEME_CSS}

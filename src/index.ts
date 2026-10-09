@@ -1,5 +1,6 @@
 import { handleSettings, handleUpload } from "./upload";
 import { handleFont } from "./fonts";
+import { handleFavicon } from "./favicon";
 import { handleServe, handleAuthForm, handleVersion } from "./serve";
 import { handleComments, handleCommentMutate } from "./comments";
 import { purgeExpired } from "./cleanup";
@@ -48,6 +49,9 @@ export default {
       const font = handleFont(request, path);
       if (font) return font;
     }
+
+    const favicon = handleFavicon(request, path);
+    if (favicon) return favicon;
 
     if (path === "/cli/install" && request.method === "GET") {
       const response = Response.redirect(

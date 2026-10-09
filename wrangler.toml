@@ -6,11 +6,12 @@ compatibility_date = "2024-12-01"
 binding = "BUCKET"
 bucket_name = "htmldrop-pages"
 
-# The site's typeface (Geist, SIL OFL; see src/fonts/OFL.txt), served from
-# the Worker so the pages' default-src 'self' covers it.
+# The site's typeface (Geist, SIL OFL; see src/fonts/OFL.txt) and the PNG
+# icons (src/icons/), served from the Worker so the pages' default-src 'self'
+# covers them.
 [[rules]]
 type = "Data"
-globs = ["**/*.woff2"]
+globs = ["**/*.woff2", "**/*.png"]
 fallthrough = false
 
 [[routes]]

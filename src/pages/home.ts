@@ -1,4 +1,4 @@
-import { FONT_PRELOAD, MARK_SVG, THEME_CSS } from "./theme";
+import { FAVICON_LINK, FONT_PRELOAD, MARK_SVG, THEME_CSS } from "./theme";
 
 const I = {
   lock: '<svg class="i-lock" viewBox="0 0 24 24" aria-hidden="true"><rect x="4.5" y="10.5" width="15" height="10" rx="2.5"/><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3"/></svg>',
@@ -47,6 +47,7 @@ export function homePage(): string {
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="light dark">
 <title>HTMLDrop: share a page with a link that expires</title>
+${FAVICON_LINK}
 ${FONT_PRELOAD}
 <style>${THEME_CSS}
 :root{--dot:rgba(18,18,17,.14);--glow:rgba(44,83,232,.16);--win-shadow:0 0 0 1px rgba(18,18,17,.07),0 1px 2px rgba(18,18,17,.05),0 12px 24px -12px rgba(18,18,17,.12),0 40px 80px -32px rgba(18,18,17,.22),0 80px 140px -60px rgba(44,83,232,.28)}

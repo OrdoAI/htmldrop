@@ -1,4 +1,4 @@
-import { FONT_PRELOAD, MARK_SVG, THEME_CSS } from "./theme";
+import { FAVICON_LINK, FONT_PRELOAD, MARK_SVG, THEME_CSS } from "./theme";
 
 // Shown when a private page is opened without its password: normally because
 // the link lost its `?p=` part on the way.
@@ -15,6 +15,7 @@ export function passwordPage(id: string, showError: boolean): string {
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="light dark">
 <title>Password required · HTMLDrop</title>
+${FAVICON_LINK}
 ${FONT_PRELOAD}
 <style>
 ${THEME_CSS}

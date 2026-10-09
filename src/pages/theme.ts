@@ -6,6 +6,13 @@
 export const FONT_PRELOAD =
   '<link rel="preload" href="/_fonts/geist-1.7.2.woff2" as="font" type="font/woff2" crossorigin>';
 
+// Served by src/favicon.ts. Browsers that read SVG icons take the SVG; the
+// PNGs cover older Safari and the iOS home screen.
+export const FAVICON_LINK =
+  '<link rel="icon" href="/favicon.ico" sizes="32x32">' +
+  '<link rel="icon" href="/favicon.svg" type="image/svg+xml">' +
+  '<link rel="apple-touch-icon" href="/apple-touch-icon.png">';
+
 export const THEME_CSS = `
 @font-face{font-family:"Geist";src:url(/_fonts/geist-1.7.2.woff2) format("woff2");font-weight:100 900;font-style:normal;font-display:swap}
 @font-face{font-family:"Geist Mono";src:url(/_fonts/geist-mono-1.7.2.woff2) format("woff2");font-weight:100 900;font-style:normal;font-display:swap}
