@@ -257,10 +257,6 @@ input[type=file]{display:none}
 .term-title{font-family:var(--mono);font-size:.75rem;color:var(--ink-3)}
 .term-body{padding:1.25rem 1.375rem .5rem;font-family:var(--mono);font-size:.875rem;line-height:1.75}
 .term-body .t::before{content:"\\203A";margin-right:.6rem;color:var(--accent);font-weight:600}
-.blank{display:inline-block;min-width:9ch;padding:0 .3em;border-bottom:1.5px solid var(--ink-4);color:var(--accent);text-align:center;outline:none;cursor:text;transition:border-color var(--t1) var(--ease)}
-.blank:hover{border-bottom-color:var(--ink-3)}
-.blank:focus{border-bottom-color:var(--accent)}
-.blank:empty::before{content:attr(data-ph);color:var(--ink-4)}
 #agOpts{color:var(--pub)}
 .term-note{font-size:.8125rem;color:var(--ink-3)}
 .term-body .dim{margin-top:.75rem;padding-left:1.15rem;color:var(--ink-3);font-size:.8125rem}
@@ -394,7 +390,7 @@ input[type=file]{display:none}
           <div class="term">
             <div class="term-bar"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span><span class="term-title">your agent</span></div>
             <div class="term-body">
-              <p class="t">Use the HTMLDrop skill to publish <span class="blank" id="agFile" contenteditable="true" spellcheck="false" role="textbox" aria-label="File to publish" data-ph="which file"></span> and send me the link.<span id="agOpts"></span></p>
+              <p class="t">Use the HTMLDrop skill to publish this and send me the link.<span id="agOpts"></span></p>
               <p class="dim">If the skill is missing, install it first:<code>npx -y skills add OrdoAI/htmldrop <span class="nw">--skill htmldrop</span> -g -y</code></p>
             </div>
             <div class="term-foot">
@@ -701,19 +697,17 @@ input[type=file]{display:none}
   });
 
   // For agents: the prompt the window's chips would produce, opened in place.
-  var INSTALL='npx -y skills add OrdoAI/htmldrop --skill htmldrop -g -y',agFileText='';
-  var agFile=document.getElementById('agFile'),agCopy=document.getElementById('agCopy');
+  var INSTALL='npx -y skills add OrdoAI/htmldrop --skill htmldrop -g -y';
+  var agCopy=document.getElementById('agCopy');
   function agSentences(){return (opts.public?' Make it public.':'')+(opts.days!==7?' Keep it for '+opts.days+' days.':'');}
-  function agText(){return 'Use the HTMLDrop skill to publish '+(agFileText||'the file we are working on')+' and send me the link.'+agSentences()+' If the skill is missing, install it first: '+INSTALL;}
+  function agText(){return 'Use the HTMLDrop skill to publish this and send me the link.'+agSentences()+' If the skill is missing, install it first: '+INSTALL;}
   function renderPrompt(){var el=document.getElementById('agOpts');if(el)el.textContent=agSentences();}
-  agFile.addEventListener('input',function(){agFileText=agFile.textContent.replace(/\\s+/g,' ').trim();if(!agFile.textContent.trim())agFile.textContent='';});
-  agFile.addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();agFile.blur();}});
   agCopy.addEventListener('click',function(){copyText(agText(),agCopy,null);});
   var ask=document.getElementById('agents'),askBtn=document.getElementById('askBtn'),askPanel=document.getElementById('askPanel'),askTimer=0;
   function setAsk(open,focus){
     clearTimeout(askTimer);ask.classList.remove('settled');
     ask.classList.toggle('open',open);askBtn.setAttribute('aria-expanded',String(open));
-    if(open){askPanel.removeAttribute('inert');askTimer=setTimeout(function(){ask.classList.add('settled');if(focus)agFile.focus();},420);}
+    if(open){askPanel.removeAttribute('inert');askTimer=setTimeout(function(){ask.classList.add('settled');if(focus)agCopy.focus();},420);}
     else askPanel.setAttribute('inert','');
   }
   askBtn.addEventListener('click',function(){setAsk(!ask.classList.contains('open'),true);});
