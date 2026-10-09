@@ -626,7 +626,7 @@ input[type=file]{display:none}
     renderAccess(accessWrap,opts.public);
     var label=opts.days+' days',tip='';
     if(link&&!link.expiresAt)label='Never expires';
-    else if(link&&link.renew){label=opts.days+' days after last visit';tip='If nobody opens it, deleted on '+fmtDate(link.expiresAt)+'.'+(link.renewUntil?' Kept at most until '+fmtDate(link.renewUntil)+'.':'');}
+    else if(link&&link.renew){label=opts.days+' days';tip='If nobody opens it, deleted on '+fmtDate(link.expiresAt)+'.'+(link.renewUntil?' Kept at most until '+fmtDate(link.renewUntil)+'.':'');}
     else if(link)label='Expires '+fmtDate(link.expiresAt);
     renderDays(daysWrap,opts.days,opts.renew,label,tip);
   }
