@@ -11,6 +11,7 @@ const I = {
   plus: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>',
   key: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="8" cy="15" r="4"/><path d="m11 12 8.5-8.5M16 6.5l2.5 2.5M18.5 4l2 2"/></svg>',
   down: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v12M7 12.5l5 5 5-5"/></svg>',
+  term: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 8 4 4-4 4M12 16h7"/></svg>',
   refresh: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19.5 10.5A7.5 7.5 0 0 0 6 6.6L4.5 8M4.5 4v4h4M4.5 13.5A7.5 7.5 0 0 0 18 17.4l1.5-1.4M19.5 20v-4h-4"/></svg>',
   gh: '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .3a12 12 0 00-3.79 23.4c.6.1.82-.26.82-.58v-2.17c-3.34.73-4.04-1.61-4.04-1.61-.55-1.39-1.34-1.76-1.34-1.76-1.09-.75.08-.73.08-.73 1.2.08 1.84 1.24 1.84 1.24 1.07 1.84 2.81 1.31 3.5 1 .1-.78.42-1.31.76-1.61-2.67-.3-5.47-1.33-5.47-5.93 0-1.31.47-2.38 1.24-3.22-.13-.3-.54-1.52.12-3.18 0 0 1-.32 3.3 1.23a11.5 11.5 0 016.02 0c2.28-1.55 3.29-1.23 3.29-1.23.66 1.66.25 2.88.12 3.18.77.84 1.24 1.91 1.24 3.22 0 4.61-2.81 5.63-5.48 5.92.43.37.81 1.1.81 2.22v3.29c0 .32.22.7.82.58A12 12 0 0012 .3"/></svg>',
 };
@@ -223,13 +224,24 @@ input[type=file]{display:none}
 .picker-label{width:100%;font-size:.875rem;color:var(--ink-2);text-align:center}
 #fileSelect{flex:1;min-width:12rem;height:2.5rem;padding:0 .75rem;background:var(--sunken);border:1px solid var(--line);border-radius:var(--r-s);font-family:var(--mono);font-size:.8125rem}
 
-/* for agents: the prompt, in the kind of window it gets pasted into */
+/* for agents: one line under the window opens the prompt in place. It takes
+   its access and expiry from the window's chips, so there is one set. */
 .sec{max-width:54rem;margin:0 auto;padding:0 1.5rem}
-.agents{display:grid;grid-template-columns:minmax(0,.8fr) minmax(0,1.2fr);gap:3rem;align-items:center;margin-top:8rem;scroll-margin-top:2rem}
-.kicker{font-family:var(--mono);font-size:.75rem;font-weight:500;letter-spacing:.06em;text-transform:uppercase;color:var(--accent)}
-.sec h2{margin-top:.75rem;font-size:2rem;font-weight:660;line-height:1.08;letter-spacing:-.045em;text-wrap:balance}
-.sec-p{margin-top:.875rem;color:var(--ink-2);text-wrap:pretty}
-.cli{display:flex;flex-direction:column;align-items:flex-start;gap:.5rem;margin-top:1.75rem;font-size:.8125rem;color:var(--ink-3)}
+.ask{display:flex;flex-direction:column;align-items:center;margin-top:1.75rem;scroll-margin-top:2rem}
+.ask-btn{display:inline-flex;align-items:center;gap:.5rem;height:2.375rem;padding:0 .8rem 0 .85rem;border:1px solid var(--line);border-radius:999px;background:var(--surface);box-shadow:var(--shadow-sm);color:var(--ink-2);font-size:.875rem;cursor:pointer;transition:border-color var(--t1) var(--ease),background-color var(--t1) var(--ease)}
+.ask-btn:hover{border-color:var(--line-2);background:var(--sunken)}
+.ask-btn b{font-weight:600;color:var(--ink);white-space:nowrap}
+.ask-btn .q-short{display:none}
+.ask-btn svg{width:.9rem;height:.9rem;flex:none;stroke:currentColor;stroke-width:2;fill:none;stroke-linecap:round;stroke-linejoin:round}
+.ask-btn .chev{color:var(--ink-3);transition:transform var(--t2) var(--ease)}
+.ask.open .ask-btn .chev{transform:rotate(180deg)}
+.ask-panel{display:grid;grid-template-rows:0fr;width:100%;transition:grid-template-rows var(--t3) var(--ease)}
+.ask.open .ask-panel{grid-template-rows:1fr}
+.ask-inner{min-height:0;overflow:hidden;margin:0 -1.5rem;padding:0 1.5rem;opacity:0;transition:opacity var(--t2) var(--ease)}
+.ask.open .ask-inner{opacity:1}
+.ask.settled .ask-inner{overflow:visible}
+.ask .term{margin-top:1rem}
+.ask-inner .cli{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:.5rem .75rem;margin:1.25rem 0 .5rem;font-size:.8125rem;color:var(--ink-3)}
 .cli-row{display:flex;align-items:center;gap:.25rem;padding:.25rem .25rem .25rem .75rem;background:var(--surface);border:1px solid var(--line);border-radius:var(--r-s);box-shadow:var(--shadow-sm)}
 .cli-row code{font-family:var(--mono);font-size:.8125rem;color:var(--ink);white-space:nowrap}
 .cli-row code::before{content:"$ ";color:var(--ink-4)}
@@ -239,29 +251,24 @@ input[type=file]{display:none}
 .icon-btn .i-ok,.icon-btn.copied .i-copy{display:none}
 .icon-btn.copied .i-ok{display:block}
 .icon-btn.copied{color:var(--ok)}
-.term{--t-bg:#141413;--t-line:#2a2a27;--t-ink:#ecebe6;--t-dim:#8d8c85;color:var(--t-ink);background:var(--t-bg);border-radius:var(--r-lg);box-shadow:0 0 0 1px rgba(0,0,0,.6),inset 0 1px 0 rgba(255,255,255,.06),0 30px 60px -24px rgba(18,18,17,.45)}
-.term-bar{display:flex;align-items:center;gap:.875rem;height:2.75rem;padding:0 1rem;border-bottom:1px solid var(--t-line)}
-.term .dots i{background:#3a3a36}
-.term-title{font-family:var(--mono);font-size:.75rem;color:var(--t-dim)}
+/* the terminal follows the theme, a sibling of the browser window above */
+.term{color:var(--ink);background:var(--surface);border-radius:var(--r-lg);box-shadow:var(--win-shadow)}
+.term-bar{display:flex;align-items:center;gap:.875rem;height:2.75rem;padding:0 1rem;border-bottom:1px solid var(--line);border-radius:var(--r-lg) var(--r-lg) 0 0;background:linear-gradient(var(--surface),var(--sunken))}
+.term-title{font-family:var(--mono);font-size:.75rem;color:var(--ink-3)}
 .term-body{padding:1.25rem 1.375rem .5rem;font-family:var(--mono);font-size:.875rem;line-height:1.75}
-.term-body .t::before{content:"\\203A";margin-right:.6rem;color:#7f97ff;font-weight:600}
-.blank{display:inline-block;min-width:9ch;padding:0 .3em;border-bottom:1.5px solid #55544e;color:#a9b8ff;text-align:center;outline:none;cursor:text;transition:border-color var(--t1) var(--ease)}
-.blank:hover{border-bottom-color:#8d8c85}
-.blank:focus{border-bottom-color:#7f97ff}
-.blank:empty::before{content:attr(data-ph);color:#6b6a64}
-#agOpts{color:#f0c38f}
-.term-body .dim{margin-top:.75rem;padding-left:1.15rem;color:var(--t-dim);font-size:.8125rem}
-.term-body .dim code{display:block;margin-top:.15rem;color:#bdbcb5}
+.term-body .t::before{content:"\\203A";margin-right:.6rem;color:var(--accent);font-weight:600}
+.blank{display:inline-block;min-width:9ch;padding:0 .3em;border-bottom:1.5px solid var(--ink-4);color:var(--accent);text-align:center;outline:none;cursor:text;transition:border-color var(--t1) var(--ease)}
+.blank:hover{border-bottom-color:var(--ink-3)}
+.blank:focus{border-bottom-color:var(--accent)}
+.blank:empty::before{content:attr(data-ph);color:var(--ink-4)}
+#agOpts{color:var(--pub)}
+.term-note{font-size:.8125rem;color:var(--ink-3)}
+.term-body .dim{margin-top:.75rem;padding-left:1.15rem;color:var(--ink-3);font-size:.8125rem}
+.term-body .dim code{display:block;margin-top:.15rem;color:var(--ink-2)}
 .nw{white-space:nowrap}
-.term-foot{display:flex;flex-wrap:wrap;align-items:center;gap:.375rem;padding:.75rem}
-.term .chip{background:#1d1d1b;border-color:var(--t-line);color:var(--t-ink)}
-.term .chip:hover,.term .chip[aria-expanded="true"]{background:#262624;border-color:#3a3a36}
-.term .chip .chev{color:var(--t-dim)}
-.term .chip.pub{background:#2b1d0f;border-color:#5b3c1c;color:#f0a45c}
-.term .menu{left:0;right:auto;transform-origin:top left}
-.term-foot .btn{margin-left:auto;height:2.25rem;background:var(--t-ink);border-color:var(--t-ink);color:var(--t-bg)}
-.term-foot .btn:hover{background:#fff;border-color:#fff}
-.term-foot .btn.copied{background:#4cc38a;border-color:#4cc38a;color:#0c0c0b}
+.term-foot{display:flex;flex-wrap:wrap;align-items:center;gap:.75rem;padding:.75rem .75rem .75rem 1.375rem}
+.term-foot .btn{margin-left:auto;height:2.375rem}
+.term-foot .btn.copied{background:var(--ok);border-color:var(--ok);color:#fff}
 #agCopy .lbl::after{content:"Copy prompt"}
 #agCopy.copied .lbl::after{content:"Copied"}
 
@@ -278,7 +285,6 @@ input[type=file]{display:none}
 .foot a:hover{color:var(--ink)}
 
 @media(max-width:760px){
-  .agents{grid-template-columns:minmax(0,1fr);gap:2rem;margin-top:5.5rem}
   .facts{grid-template-columns:minmax(0,1fr);margin-top:4.5rem}
 }
 @media(max-width:560px){
@@ -297,8 +303,10 @@ input[type=file]{display:none}
   .acts{width:100%}
   .acts .btn{flex:1}
   .sec{padding:0 1rem}
-  .sec h2{font-size:1.625rem}
   .term-body{padding:1rem 1rem .25rem;font-size:.8125rem}
+  .term-foot{padding:.875rem}
+  .ask-btn .q-long{display:none}
+  .ask-btn .q-short{display:inline}
   .term-foot .btn{width:100%;margin-left:0}
   .foot{padding:1.5rem 1rem 2.5rem;margin-top:3.5rem}
   .facts{gap:.625rem}
@@ -312,7 +320,7 @@ input[type=file]{display:none}
 <body>
 <header class="top">
   <a class="brand" href="/">${MARK_SVG}HTMLDrop</a>
-  <nav class="nav"><a href="#agents">For agents</a><a class="gh" href="https://github.com/OrdoAI/htmldrop" title="Source on GitHub" aria-label="Source on GitHub">${I.gh}</a></nav>
+  <nav class="nav"><a class="gh" href="https://github.com/OrdoAI/htmldrop" title="Source on GitHub" aria-label="Source on GitHub">${I.gh}</a></nav>
 </header>
 
 <main>
@@ -378,28 +386,28 @@ input[type=file]{display:none}
       <div class="inline-info" id="inlineInfo"></div>
       <div class="warn-info" id="warnInfo"></div>
     </div>
+
+    <div class="ask" id="agents">
+      <button type="button" class="ask-btn" id="askBtn" aria-expanded="false" aria-controls="askPanel">${I.term}<span class="q-long">Using Claude Code, Cursor or Codex?</span><span class="q-short">Using an agent?</span><b>Copy a prompt</b>${I.chev}</button>
+      <div class="ask-panel" id="askPanel" inert>
+        <div class="ask-inner">
+          <div class="term">
+            <div class="term-bar"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span><span class="term-title">your agent</span></div>
+            <div class="term-body">
+              <p class="t">Use the HTMLDrop skill to publish <span class="blank" id="agFile" contenteditable="true" spellcheck="false" role="textbox" aria-label="File to publish" data-ph="which file"></span> and send me the link.<span id="agOpts"></span></p>
+              <p class="dim">If the skill is missing, install it first:<code>npx -y skills add OrdoAI/htmldrop <span class="nw">--skill htmldrop</span> -g -y</code></p>
+            </div>
+            <div class="term-foot">
+              <span class="term-note">Uses the access and expiry set above.</span>
+              <button type="button" class="btn" id="agCopy">${I.copy}<span class="lbl"></span></button>
+            </div>
+          </div>
+          <p class="cli">Prefer the terminal?<span class="cli-row"><code>npx -y htmldrop-cli ./report.html</code><button type="button" class="icon-btn" id="cliCopy" title="Copy" aria-label="Copy command">${I.copy}</button></span></p>
+        </div>
+      </div>
+    </div>
   </section>
 
-  <section class="sec agents" id="agents">
-    <div>
-      <p class="kicker">For agents</p>
-      <h2>Or let your agent do it.</h2>
-      <p class="sec-p">Paste this into Claude Code, Cursor or Codex. The HTMLDrop skill uploads the file and replies with the link.</p>
-      <div class="cli">Prefer the terminal?<span class="cli-row"><code>npx -y htmldrop-cli ./report.html</code><button type="button" class="icon-btn" id="cliCopy" title="Copy" aria-label="Copy command">${I.copy}</button></span></div>
-    </div>
-    <div class="term">
-      <div class="term-bar"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span><span class="term-title">your agent</span></div>
-      <div class="term-body">
-        <p class="t">Use the HTMLDrop skill to publish <span class="blank" id="agFile" contenteditable="true" spellcheck="false" role="textbox" aria-label="File to publish" data-ph="which file"></span> and send me the link.<span id="agOpts"></span></p>
-        <p class="dim">If the skill is missing, install it first:<code>npx -y skills add OrdoAI/htmldrop <span class="nw">--skill htmldrop</span> -g -y</code></p>
-      </div>
-      <div class="term-foot">
-        ${accessMenu("agAccess")}
-        ${daysMenu("agDays", "Keep 7 days")}
-        <button type="button" class="btn" id="agCopy">${I.copy}<span class="lbl"></span></button>
-      </div>
-    </div>
-  </section>
 
   <section class="sec facts" aria-label="How it works">
     <div class="fact"><span class="ft">${I.lock}</span><h3>Private by default</h3><p>The password lives in the link, and the page is encrypted with it. Nothing readable sits on the server.</p></div>
@@ -607,6 +615,7 @@ input[type=file]{display:none}
   var opts={public:false,days:7},link=null,statusTimer=0,pwTimer=0;
   var accessWrap=document.getElementById('accessMenu'),daysWrap=document.getElementById('daysMenu'),statusEl=document.getElementById('settingStatus');
   function renderTray(){
+    renderPrompt();
     renderAccess(accessWrap,opts.public);
     renderDays(daysWrap,opts.days,link?(link.expiresAt?'Expires '+fmtDate(link.expiresAt):'Never expires'):opts.days+' days');
   }
@@ -691,20 +700,25 @@ input[type=file]{display:none}
     dz.scrollIntoView({behavior:'smooth',block:'center'});
   });
 
-  // For agents: the prompt is the product; the chips write its last sentences.
-  var INSTALL='npx -y skills add OrdoAI/htmldrop --skill htmldrop -g -y';
-  var ag={file:'',pub:false,days:7};
-  var agFile=document.getElementById('agFile'),agOpts=document.getElementById('agOpts'),agCopy=document.getElementById('agCopy');
-  var agAccess=document.getElementById('agAccess'),agDays=document.getElementById('agDays');
-  function agSentences(){return (ag.pub?' Make it public.':'')+(ag.days!==7?' Keep it for '+ag.days+' days.':'');}
-  function agText(){return 'Use the HTMLDrop skill to publish '+(ag.file||'the file we are working on')+' and send me the link.'+agSentences()+' If the skill is missing, install it first: '+INSTALL;}
-  function renderAg(){renderAccess(agAccess,ag.pub);renderDays(agDays,ag.days,'Keep '+ag.days+' days');agOpts.textContent=agSentences();}
-  agFile.addEventListener('input',function(){ag.file=agFile.textContent.replace(/\\s+/g,' ').trim();if(!agFile.textContent.trim())agFile.textContent='';});
+  // For agents: the prompt the window's chips would produce, opened in place.
+  var INSTALL='npx -y skills add OrdoAI/htmldrop --skill htmldrop -g -y',agFileText='';
+  var agFile=document.getElementById('agFile'),agCopy=document.getElementById('agCopy');
+  function agSentences(){return (opts.public?' Make it public.':'')+(opts.days!==7?' Keep it for '+opts.days+' days.':'');}
+  function agText(){return 'Use the HTMLDrop skill to publish '+(agFileText||'the file we are working on')+' and send me the link.'+agSentences()+' If the skill is missing, install it first: '+INSTALL;}
+  function renderPrompt(){var el=document.getElementById('agOpts');if(el)el.textContent=agSentences();}
+  agFile.addEventListener('input',function(){agFileText=agFile.textContent.replace(/\\s+/g,' ').trim();if(!agFile.textContent.trim())agFile.textContent='';});
   agFile.addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();agFile.blur();}});
-  initMenu(agAccess,function(b){ag.pub=b.dataset.pub==='1';renderAg();});
-  initMenu(agDays,function(b){ag.days=Number(b.dataset.days);renderAg();});
-  renderAg();
   agCopy.addEventListener('click',function(){copyText(agText(),agCopy,null);});
+  var ask=document.getElementById('agents'),askBtn=document.getElementById('askBtn'),askPanel=document.getElementById('askPanel'),askTimer=0;
+  function setAsk(open,focus){
+    clearTimeout(askTimer);ask.classList.remove('settled');
+    ask.classList.toggle('open',open);askBtn.setAttribute('aria-expanded',String(open));
+    if(open){askPanel.removeAttribute('inert');askTimer=setTimeout(function(){ask.classList.add('settled');if(focus)agFile.focus();},420);}
+    else askPanel.setAttribute('inert','');
+  }
+  askBtn.addEventListener('click',function(){setAsk(!ask.classList.contains('open'),true);});
+  // Old links to #agents land on the prompt, open.
+  if(location.hash==='#agents')setAsk(true,false);
   var cliCopy=document.getElementById('cliCopy');
   cliCopy.addEventListener('click',function(){copyText('npx -y htmldrop-cli ./report.html',cliCopy,null);});
 
