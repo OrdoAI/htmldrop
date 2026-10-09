@@ -107,11 +107,11 @@ export default {
   },
 
   // Cron trigger (see wrangler.toml): sweep expired pages and orphaned
-  // comments that no read has purged.
+  // comments and visit sidecars that no read has purged.
   async scheduled(_controller: ScheduledController, env: Env): Promise<void> {
     const r = await purgeExpired(env.BUCKET);
     console.log(
-      `cleanup: scanned ${r.scanned} pages, purged ${r.purgedPages} pages and ${r.purgedComments} comments`,
+      `cleanup: scanned ${r.scanned} pages, purged ${r.purgedPages} pages, ${r.purgedComments} comments and ${r.purgedSeen} visit records`,
     );
   },
 };

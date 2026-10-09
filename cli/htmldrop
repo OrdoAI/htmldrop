@@ -5,6 +5,7 @@ ENDPOINT="${HTMLDROP_URL:-https://baseurl.ai}"
 NO_INLINE=false
 PUBLIC=false
 EXPIRES=""
+NO_RENEW=false
 
 usage() {
   cat <<'EOF'
@@ -19,7 +20,9 @@ Relative images, CSS, and JS are automatically inlined as base64.
 
 Options:
   --public             Anyone with the bare URL can read; no password (default: private)
-  --expires <days>     Days until expiry, 1-30 (default 7)
+  --expires <days>     Days the preview is kept, 1-30 (default 14); each visit
+                       restarts the window unless --no-renew is set
+  --no-renew           Delete on the date even if the preview is opened
   --no-inline          Skip asset inlining, upload HTML as-is
   -e, --endpoint URL   Override upload endpoint (default: https://baseurl.ai)
   -h, --help           Show this help
@@ -38,6 +41,7 @@ while [[ $# -gt 0 ]]; do
     -h|--help) usage ;;
     --no-inline) NO_INLINE=true; shift ;;
     --public) PUBLIC=true; shift ;;
+    --no-renew) NO_RENEW=true; shift ;;
     --expires)
       [[ "${2:-}" =~ ^[0-9]+$ ]] && (( 10#$2 >= 1 && 10#$2 <= 30 )) || die "--expires must be a whole number of days from 1 to 30"
       EXPIRES="$2"; shift 2 ;;
@@ -196,9 +200,11 @@ PAYLOAD_TMP="$(mktemp)"
 trap 'rm -f "$HTML_TMP" "$PAYLOAD_TMP"' EXIT
 printf '%s' "$CONTENT" > "$HTML_TMP"
 jq -n --rawfile html "$HTML_TMP" --arg filename "$FILENAME" --argjson public "$PUBLIC" --arg expires "$EXPIRES" \
+  --argjson norenew "$NO_RENEW" \
   '{html: $html, filename: $filename}
    + (if $public then {public: true} else {} end)
-   + (if $expires != "" then {expiresInDays: ($expires | tonumber)} else {} end)' > "$PAYLOAD_TMP"
+   + (if $expires != "" then {expiresInDays: ($expires | tonumber)} else {} end)
+   + (if $norenew then {renewOnView: false} else {} end)' > "$PAYLOAD_TMP"
 
 RESPONSE="$(curl -sf -X POST "${ENDPOINT}/api/upload" \
   -H "Content-Type: application/json" \
@@ -208,6 +214,13 @@ URL="$(echo "$RESPONSE" | jq -r '.url')"
 PUBLIC_URL="$(echo "$RESPONSE" | jq -r '.publicUrl // empty')"
 ID="$(echo "$RESPONSE" | jq -r '.id')"
 EXPIRES_AT="$(echo "$RESPONSE" | jq -r '.expiresAt // "never"')"
+EXPIRES_NOTE="${EXPIRES_AT%T*}"
+# A renew-on-view page: expiresAt is the date it goes if nobody opens it, and
+# renewUntil the cap no visit extends past. Pinned pages (null) never expire.
+if [[ "$EXPIRES_AT" != "never" && "$(echo "$RESPONSE" | jq -r '.renewOnView == true')" == "true" ]]; then
+  RENEW_UNTIL="$(echo "$RESPONSE" | jq -r '.renewUntil // empty')"
+  EXPIRES_NOTE+=" if unopened (renews on visit${RENEW_UNTIL:+, until ${RENEW_UNTIL%T*}})"
+fi
 
 # Public: the bare URL first (share it), then the edit link (keep it).
 SHARE_URL="${PUBLIC_URL:-$URL}"
@@ -215,7 +228,7 @@ echo "$SHARE_URL"
 [[ -n "$PUBLIC_URL" ]] && echo "$URL"
 
 if [[ -t 1 ]]; then
-  echo "  id: $ID · expires: ${EXPIRES_AT%T*}${PUBLIC_URL:+ · public (second line is the edit link)}" >&2
+  echo "  id: $ID · expires: ${EXPIRES_NOTE}${PUBLIC_URL:+ · public (second line is the edit link)}" >&2
   if command -v pbcopy &>/dev/null; then
     echo -n "$SHARE_URL" | pbcopy
     echo "  (copied to clipboard)" >&2

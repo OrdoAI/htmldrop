@@ -26,6 +26,10 @@ export interface PageMeta {
   // definition readable, and with bucket access also editable; only private
   // pages get the operator-cannot-read/modify guarantee.
   public?: boolean;
+  // Renew when opened (v3 only): each visit restarts the ttlDays window, up to
+  // a hard cap counted from createdAt. The last visit is not part of the page;
+  // it lives in a plaintext `seen:<id>` sidecar (see auth.ts).
+  renew?: boolean;
 }
 
 export interface PagePayload {
@@ -353,7 +357,7 @@ export async function resealPage(
   id: string,
   password: string,
   stored: StoredPage | LegacyPage,
-  patch: { createdAt?: string; pinned?: boolean; public?: boolean; ttlDays?: number },
+  patch: { createdAt?: string; pinned?: boolean; public?: boolean; ttlDays?: number; renew?: boolean },
 ): Promise<StoredPage | null> {
   const pageKey = await derivePageKey(id, password);
   let payload: PagePayload;
@@ -372,6 +376,9 @@ export async function resealPage(
   const next: PageMeta = { ...meta, ...patch };
   if (!next.pinned) delete next.pinned;
   if (!next.public) delete next.public;
+  // v2 records have no renew flag; turning it on needs the v3 format.
+  if (next.renew) throw new Error("renew-on-view needs a v3 page; re-upload it first");
+  delete next.renew;
   return sealPage(pageKey, next, payload);
 }
 
@@ -412,6 +419,7 @@ export interface StoredPageV3 {
   version: string;
   pinned?: boolean;
   ttlDays?: number;
+  renew?: true; // renew when opened; present only when on
   open?: string; // base64url page key; present only on public pages
   bytes: number; // UTF-8 length of the page
   chunk: number; // plaintext bytes per frame
@@ -429,6 +437,7 @@ export function isStoredPageV3(value: unknown): value is StoredPageV3 {
     && typeof r.version === "string" && r.version.length > 0 && r.version.length <= 128
     && (r.pinned === undefined || r.pinned === true)
     && (r.ttlDays === undefined || (Number.isInteger(r.ttlDays) && (r.ttlDays as number) > 0 && (r.ttlDays as number) <= 3650))
+    && (r.renew === undefined || r.renew === true)
     && (r.open === undefined || (typeof r.open === "string" && r.open.length === 43))
     && Number.isInteger(r.bytes) && (r.bytes as number) >= 0 && (r.bytes as number) <= V3_MAX_PAGE_BYTES
     && Number.isInteger(r.chunk) && (r.chunk as number) >= V3_MIN_CHUNK && (r.chunk as number) <= V3_MAX_CHUNK
@@ -482,6 +491,7 @@ export function storedMetaV3(id: string, h: StoredPageV3): PageMeta {
     ...(h.pinned ? { pinned: true } : {}),
     ...(h.ttlDays !== undefined ? { ttlDays: h.ttlDays } : {}),
     ...(h.open ? { public: true } : {}),
+    ...(h.renew ? { renew: true } : {}),
   };
 }
 
@@ -492,9 +502,12 @@ export function publicKeyOfV3(h: StoredPageV3): Uint8Array | null {
 }
 
 // Every header field, in a fixed order. Bound into the filename and every frame.
+// `renew` is appended only when set, so objects sealed before the field
+// existed keep a byte-identical AAD and still open.
 function pageAadV3(id: string, h: Omit<StoredPageV3, "meta">): string {
   return `htmldrop:page:v3|${id}|${h.createdAt}|${h.version}|${h.pinned ? 1 : 0}|ttl=${h.ttlDays ?? ""}`
-    + `|open=${h.open ?? ""}|verifier=${h.verifier}|seal=${h.seal}|bytes=${h.bytes}|chunk=${h.chunk}`;
+    + `|open=${h.open ?? ""}|verifier=${h.verifier}|seal=${h.seal}|bytes=${h.bytes}|chunk=${h.chunk}`
+    + (h.renew ? "|renew=1" : "");
 }
 
 async function v3Subkeys(pageKey: Uint8Array, seal: string): Promise<{ content: Uint8Array; meta: Uint8Array }> {
@@ -573,6 +586,7 @@ export async function sealPageV3(
     version: meta.version,
     ...(meta.pinned ? { pinned: true } : {}),
     ...(meta.ttlDays !== undefined ? { ttlDays: meta.ttlDays } : {}),
+    ...(meta.renew ? { renew: true } : {}),
     ...(meta.public ? { open: toBase64Url(pageKey.key) } : {}),
     bytes,
     chunk,
@@ -799,7 +813,7 @@ export async function resealPageV3(
   id: string,
   password: string,
   object: Uint8Array,
-  patch: { createdAt?: string; pinned?: boolean; public?: boolean; ttlDays?: number },
+  patch: { createdAt?: string; pinned?: boolean; public?: boolean; ttlDays?: number; renew?: boolean },
 ): Promise<Uint8Array | null> {
   const pageKey = await derivePageKey(id, password);
   const parsed = parseV3Header(object);
@@ -809,5 +823,6 @@ export async function resealPageV3(
   const next: PageMeta = { ...storedMetaV3(id, parsed.header), ...patch };
   if (!next.pinned) delete next.pinned;
   if (!next.public) delete next.public;
+  if (!next.renew) delete next.renew;
   return sealPageV3Bytes(pageKey, next, opened.filename, opened.html);
 }

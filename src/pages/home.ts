@@ -27,13 +27,15 @@ function accessMenu(id: string): string {
 </div>`;
 }
 
-// A chip that opens the expiry choices; the script fills in the dates.
+// A chip that opens the expiry choices and the renew switch; the script fills
+// in the dates and the line under the switch. The switch keeps the menu open.
 function daysMenu(id: string, label: string): string {
   const item = (d: number) =>
-    `<button type="button" role="menuitemradio" aria-checked="${d === 7}" data-days="${d}"><b>${d} days</b><small></small>${I.check}</button>`;
+    `<button type="button" role="menuitemradio" aria-checked="${d === 14}" data-days="${d}"><b>${d} days</b><small></small>${I.check}</button>`;
+  const icons = I.clock.replace("<svg ", '<svg class="i-clock" ') + I.refresh.replace("<svg ", '<svg class="i-renew" ');
   return `<div class="menu-wrap" id="${id}">
-  <button type="button" class="chip" aria-haspopup="menu" aria-expanded="false">${I.clock}<span class="v">${label}</span>${I.chev}</button>
-  <div class="menu days" role="menu">${item(7)}${item(14)}${item(30)}</div>
+  <button type="button" class="chip renew" aria-haspopup="menu" aria-expanded="false">${icons}<span class="v">${label}</span>${I.chev}</button>
+  <div class="menu days" role="menu">${item(7)}${item(14)}${item(30)}<div class="msep" role="separator"></div><button type="button" class="rn" role="menuitemcheckbox" aria-checked="true" data-renew data-keep><b>Renew when opened</b><span class="sw" aria-hidden="true"></span><small></small></button></div>
 </div>`;
 }
 
@@ -213,9 +215,20 @@ input[type=file]{display:none}
 .menu small{grid-column:2;font-size:.8125rem;line-height:1.4;color:var(--ink-3)}
 .menu .ck{grid-column:3;grid-row:1;width:1rem;height:1rem;stroke:var(--accent);stroke-width:2.2;fill:none;stroke-linecap:round;stroke-linejoin:round;opacity:0}
 .menu [aria-checked="true"] .ck{opacity:1}
-.menu.days{width:14rem}
+.menu.days{width:min(17rem,calc(100vw - 2.5rem))}
 .menu.days button{grid-template-columns:1fr auto 1rem}
 .menu.days small{grid-column:2;grid-row:1;justify-self:end;font-variant-numeric:tabular-nums}
+.msep{height:1px;margin:.375rem .35rem;background:var(--line)}
+.menu.days .rn{grid-template-columns:1fr auto;gap:.2rem .7rem}
+.menu.days .rn small{grid-column:1;grid-row:2;justify-self:start;font-variant-numeric:normal}
+.sw{grid-column:2;grid-row:1/span 2;position:relative;width:1.875rem;height:1.125rem;border-radius:999px;background:var(--line-2);transition:background-color var(--t1) var(--ease)}
+.sw::after{content:"";position:absolute;top:.1875rem;left:.1875rem;width:.75rem;height:.75rem;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.25);transition:transform var(--t1) var(--ease)}
+.rn[aria-checked="true"] .sw{background:var(--accent)}
+.rn[aria-checked="true"] .sw::after{transform:translateX(.75rem)}
+.chip .i-renew,.chip.renew .i-clock{display:none}
+.chip.renew .i-renew{display:inline}
+.chip.renew{border-color:var(--accent-line)}
+.chip.renew:hover,.chip.renew[aria-expanded="true"]{border-color:var(--accent)}
 
 /* notes under the window */
 .notes{display:flex;flex-direction:column;align-items:center;gap:.4rem;margin-top:1rem}
@@ -288,7 +301,9 @@ input[type=file]{display:none}
   .chrome{flex-wrap:wrap;height:auto;gap:.5rem;padding:.625rem}
   .dots{display:none}
   .addr{flex-basis:100%}
-  .tools{width:100%}
+  .tools{position:relative;width:100%}
+  .tools .menu-wrap{position:static}
+  .tools .menu{left:0;right:auto;transform-origin:top left}
   .view{height:21rem}
   .art{transform:scale(.88);margin-bottom:1rem}
   .acts{width:100%}
@@ -317,7 +332,7 @@ input[type=file]{display:none}
 <main>
   <section class="hero">
     <h1><span>Drop a file.</span><span>Get a link that <em class="fade">expires.</em></span></h1>
-    <p class="lede">Share an HTML or Markdown page through a private link. Encrypted at rest, deleted after 7, 14 or 30 days.</p>
+    <p class="lede">Private and encrypted. Gone after 14 days without a visit.</p>
   </section>
 
   <section class="stage" aria-label="Upload">
@@ -331,7 +346,7 @@ input[type=file]{display:none}
         </div>
         <div class="tools" id="tray">
           ${accessMenu("accessMenu")}
-          ${daysMenu("daysMenu", "7 days")}
+          ${daysMenu("daysMenu", "14 days")}
         </div>
       </div>
       <div class="view">
@@ -401,7 +416,7 @@ input[type=file]{display:none}
 
   <section class="sec facts" aria-label="How it works">
     <div class="fact"><span class="ft">${I.lock}</span><h3>Private by default</h3><p>The password lives in the link, and the page is encrypted with it. Nothing readable sits on the server.</p></div>
-    <div class="fact"><span class="ft">${I.clock}</span><h3>Gone on schedule</h3><p>Every page is deleted after the 7, 14 or 30 days you pick, and you can change that while the link is live.</p></div>
+    <div class="fact"><span class="ft">${I.clock}</span><h3>Gone when unused</h3><p>A page is deleted once nobody opens it for 7, 14 or 30 days, or on a fixed date if you prefer. You can change that while the link is live.</p></div>
     <div class="fact"><span class="ft">${I.refresh}</span><h3>Update in place</h3><p>Upload a new version to the same link. Anyone with it open is offered a refresh.</p></div>
   </section>
 </main>
@@ -579,7 +594,7 @@ input[type=file]{display:none}
       // Keyboard users land on the current choice; a mouse click leaves focus alone.
       if(!e.detail)(menu.querySelector('[aria-checked="true"]')||menu.querySelector('button')).focus();
     });
-    menu.querySelectorAll('button').forEach(function(b){b.addEventListener('click',function(e){e.stopPropagation();closeMenu();if(!e.detail)chip.focus();onPick(b);});});
+    menu.querySelectorAll('button').forEach(function(b){b.addEventListener('click',function(e){e.stopPropagation();if(!b.hasAttribute('data-keep')){closeMenu();if(!e.detail)chip.focus();}onPick(b);});});
     menu.addEventListener('keydown',function(e){
       var items=Array.prototype.slice.call(menu.querySelectorAll('button')),i=items.indexOf(document.activeElement);
       if(e.key==='ArrowDown'){e.preventDefault();items[(i+1)%items.length].focus();}
@@ -590,28 +605,37 @@ input[type=file]{display:none}
   document.addEventListener('keydown',function(e){if(e.key==='Escape'&&openMenu){var c=openMenu.chip;closeMenu();c.focus();}});
 
   var DAY=86400000;
-  function fmtDate(t){return new Date(t).toLocaleDateString(undefined,{month:'short',day:'numeric'});}
+  function fmtDate(t){var d=new Date(t),o={month:'short',day:'numeric'};if(d.getFullYear()!==new Date().getFullYear())o.year='numeric';return d.toLocaleDateString(undefined,o);}
   function renderAccess(wrap,pub){
     var chip=wrap.querySelector('.chip');chip.classList.toggle('pub',pub);chip.querySelector('.v').textContent=pub?'Public':'Private';
     wrap.querySelectorAll('.menu button').forEach(function(b){b.setAttribute('aria-checked',String((b.dataset.pub==='1')===pub));});
   }
-  function renderDays(wrap,days,label){
-    var now=Date.now();
-    wrap.querySelectorAll('.menu button').forEach(function(b){var d=Number(b.dataset.days);b.setAttribute('aria-checked',String(d===days));b.querySelector('small').textContent=fmtDate(now+d*DAY);});
-    wrap.querySelector('.chip .v').textContent=label;
+  function renderDays(wrap,days,renew,label,tip){
+    var now=Date.now(),chip=wrap.querySelector('.chip'),rn=wrap.querySelector('.rn');
+    wrap.querySelectorAll('.menu [data-days]').forEach(function(b){var d=Number(b.dataset.days);b.setAttribute('aria-checked',String(d===days));b.querySelector('small').textContent=fmtDate(now+d*DAY);});
+    rn.setAttribute('aria-checked',String(renew));rn.querySelector('small').textContent=renew?'Each visit restarts the '+days+' days.':'Deleted on the date above.';
+    chip.classList.toggle('renew',renew);chip.querySelector('.v').textContent=label;
+    if(tip)chip.title=tip;else chip.removeAttribute('title');
   }
 
   // The chips shape the next link; once a link is in the window they edit it.
-  var opts={public:false,days:7},link=null,statusTimer=0,pwTimer=0;
+  var opts={public:false,days:14,renew:true},link=null,statusTimer=0,pwTimer=0;
   var accessWrap=document.getElementById('accessMenu'),daysWrap=document.getElementById('daysMenu'),statusEl=document.getElementById('settingStatus');
   function renderTray(){
     renderPrompt();
     renderAccess(accessWrap,opts.public);
-    renderDays(daysWrap,opts.days,link?(link.expiresAt?'Expires '+fmtDate(link.expiresAt):'Never expires'):opts.days+' days');
+    var label=opts.days+' days',tip='';
+    if(link&&!link.expiresAt)label='Never expires';
+    else if(link&&link.renew){label=opts.days+' days after last visit';tip='If nobody opens it, deleted on '+fmtDate(link.expiresAt)+'.'+(link.renewUntil?' Kept at most until '+fmtDate(link.renewUntil)+'.':'');}
+    else if(link)label='Expires '+fmtDate(link.expiresAt);
+    renderDays(daysWrap,opts.days,opts.renew,label,tip);
   }
   function status(text,kind){clearTimeout(statusTimer);statusEl.className='status'+(kind?' '+kind:'');statusEl.textContent=text||'';}
   initMenu(accessWrap,function(b){var pub=b.dataset.pub==='1',was=opts.public;if(pub===was)return;opts.public=pub;renderTray();if(link)saveSettings({public:pub},function(){opts.public=was;});});
-  initMenu(daysWrap,function(b){var d=Number(b.dataset.days),was=opts.days;if(d===was)return;opts.days=d;renderTray();if(link)saveSettings({expiresInDays:d},function(){opts.days=was;});});
+  initMenu(daysWrap,function(b){
+    if(b.hasAttribute('data-renew')){var on=opts.renew;opts.renew=!on;renderTray();if(link)saveSettings({renewOnView:!on},function(){opts.renew=on;});return;}
+    var d=Number(b.dataset.days),was=opts.days;if(d===was)return;opts.days=d;renderTray();if(link)saveSettings({expiresInDays:d},function(){opts.days=was;});
+  });
   renderTray();
 
   // The page itself, live in the window: the real preview, scripts and all,
@@ -650,8 +674,8 @@ input[type=file]{display:none}
   }
   function showLink(d,name,html){
     var isPub=!!(d.public&&d.publicUrl),u=new URL(d.url);
-    link={id:d.id,url:d.url,share:isPub?d.publicUrl:d.url,password:d.password,expiresAt:d.expiresAt};
-    opts.public=isPub;
+    link={id:d.id,url:d.url,share:isPub?d.publicUrl:d.url,password:d.password,expiresAt:d.expiresAt,renew:!!d.renewOnView,renewUntil:d.renewUntil||null};
+    opts.public=isPub;if(typeof d.renewOnView==='boolean')opts.renew=d.renewOnView;
     if(name)document.getElementById('resName').textContent=name;
     if(html!==undefined)showPreview(d.url,html.length);
     document.getElementById('lkHost').textContent=u.host+'/';
@@ -695,7 +719,7 @@ input[type=file]{display:none}
   // For agents: the prompt the window's chips would produce, opened in place.
   var INSTALL='npx -y skills add OrdoAI/htmldrop --skill htmldrop -g -y';
   var agCopy=document.getElementById('agCopy');
-  function agSentences(){return (opts.public?' Make it public.':'')+(opts.days!==7?' Keep it for '+opts.days+' days.':'');}
+  function agSentences(){return (opts.public?' Make it public.':'')+(opts.days!==14?' Keep it for '+opts.days+' days.':'')+(opts.renew?'':" Don't renew it on visits.");}
   function agText(){return 'Use the HTMLDrop skill to publish this and send me the link.'+agSentences()+' If the skill is missing, install it first: '+INSTALL;}
   function renderPrompt(){var el=document.getElementById('agOpts');if(el)el.textContent=agSentences();}
   agCopy.addEventListener('click',function(){copyText(agText(),agCopy,null);});
@@ -716,7 +740,7 @@ input[type=file]{display:none}
   function upload(html,fn){
     prog.textContent='Uploading\\u2026';prog.classList.add('show');dz.classList.add('busy');
     var page=new Blob([html]);
-    var meta={filename:fn,bytes:page.size,expiresInDays:opts.days};if(opts.public)meta.public=true;
+    var meta={filename:fn,bytes:page.size,expiresInDays:opts.days,renewOnView:opts.renew};if(opts.public)meta.public=true;
     fetch('/api/upload',{method:'POST',headers:{'Content-Type':'application/x-htmldrop-upload'},body:new Blob([JSON.stringify(meta)+'\\n',page])})
     .then(function(r){if(!r.ok)return r.text().then(function(t){throw new Error(t);});return r.json();})
     .then(function(d){showLink(d,fn,html);status('');})

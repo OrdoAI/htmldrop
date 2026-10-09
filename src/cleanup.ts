@@ -1,10 +1,11 @@
-import { isExpired } from "./auth";
+import { type ExpiryState, isPageExpired, readLastSeen, seenKey } from "./auth";
 import { V3_PREFIX_BYTES, isV3Prefix, parseV3Header } from "./envelope";
 
 // Expired pages are purged on read, so a page nobody opens again lingers until
 // something sweeps it. The daily cron in wrangler.toml calls purgeExpired to
-// delete those pages and any comment whose page is gone. It never decrypts:
-// only the plaintext createdAt / pinned metadata is consulted.
+// delete those pages and any comment or `seen:` sidecar whose page is gone. It
+// never decrypts: only the plaintext createdAt / ttlDays / pinned / renew
+// header fields are consulted, plus the sidecar of a renew page.
 
 // A v3 object (see envelope.ts) is described entirely by its header, which
 // the first V3_PREFIX_BYTES always cover; a corrupt one is left alone rather
@@ -17,13 +18,10 @@ export interface PurgeResult {
   scanned: number;
   purgedPages: number;
   purgedComments: number;
+  purgedSeen: number;
 }
 
-interface ExpiryMeta {
-  createdAt: string;
-  ttlDays: number | undefined;
-  pinned: boolean;
-}
+type ExpiryMeta = ExpiryState;
 
 async function listAll(bucket: R2Bucket, prefix: string): Promise<string[]> {
   const keys: string[] = [];
@@ -50,8 +48,8 @@ async function readExpiryMeta(bucket: R2Bucket, key: string): Promise<ExpiryMeta
   if (isV3Prefix(bytes)) {
     const parsed = parseV3Header(bytes);
     if (!parsed) return null;
-    const { createdAt, ttlDays, pinned } = parsed.header;
-    return { createdAt, ttlDays, pinned: pinned === true };
+    const { createdAt, ttlDays, pinned, renew } = parsed.header;
+    return { createdAt, ttlDays, pinned: pinned === true, renew: renew === true };
   }
   const text = new TextDecoder().decode(bytes);
   const created = text.match(/"createdAt":"([^"]+)"/);
@@ -90,7 +88,7 @@ export async function purgeExpired(
   bucket: R2Bucket,
   now: number = Date.now(),
 ): Promise<PurgeResult> {
-  const result: PurgeResult = { scanned: 0, purgedPages: 0, purgedComments: 0 };
+  const result: PurgeResult = { scanned: 0, purgedPages: 0, purgedComments: 0, purgedSeen: 0 };
 
   const live = new Set<string>();
   for (const key of await listAll(bucket, "page:")) {
@@ -98,11 +96,22 @@ export async function purgeExpired(
     const id = key.slice("page:".length);
     const meta = await readExpiryMeta(bucket, key);
     if (!meta) continue; // unreadable: leave it for a human
-    if (!isExpired(meta.createdAt, meta.ttlDays, meta.pinned, now)) {
+    // Only v3 headers carry renew, and only a renew page needs its last visit.
+    // A failed sidecar read leaves the page for the next sweep, the same as an
+    // unreadable header: its visits are unknown, so it may still be alive.
+    if (meta.renew && !meta.pinned) {
+      try {
+        meta.lastSeen = await readLastSeen(bucket, id);
+      } catch {
+        live.add(id);
+        continue;
+      }
+    }
+    if (!isPageExpired(meta, now)) {
       live.add(id);
       continue;
     }
-    await bucket.delete(key);
+    await bucket.delete([key, seenKey(id)]);
     result.purgedPages++;
   }
 
@@ -121,6 +130,21 @@ export async function purgeExpired(
     if (exists) continue;
     await bucket.delete(key);
     result.purgedComments++;
+  }
+
+  // Visit sidecars whose page is gone, with the same race guard: a page
+  // created (and visited) after the listing keeps its sidecar.
+  for (const key of await listAll(bucket, "seen:")) {
+    const id = key.slice("seen:".length);
+    if (live.has(id)) continue;
+    let exists = present.get(id);
+    if (exists === undefined) {
+      exists = (await bucket.head(`page:${id}`)) !== null;
+      present.set(id, exists);
+    }
+    if (exists) continue;
+    await bucket.delete(key);
+    result.purgedSeen++;
   }
 
   return result;

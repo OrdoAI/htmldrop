@@ -738,3 +738,95 @@ test("settings reports the service's refusal and exits 1", async () => {
     await new Promise(r => server.close(r));
   }
 });
+
+test("--no-renew sends renewOnView:false on create and update", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "htmldrop-cli-norenew-"));
+  try {
+    const pagePath = makePage(dir);
+    await withServer(async (endpoint, requests) => {
+      const create = await runCli(["--no-renew", pagePath], endpoint);
+      assert.equal(create.code, 0, create.stderr);
+      const update = await runCli(["update", "http://preview.test/abc?p=secret", pagePath, "--no-renew"], endpoint);
+      assert.equal(update.code, 0, update.stderr);
+      assert.equal(requests.length, 2);
+      for (const req of requests) assert.equal(req.meta.renewOnView, false);
+    });
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("without a renew flag, renewOnView is not sent (the service default applies)", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "htmldrop-cli-renewdefault-"));
+  try {
+    const pagePath = makePage(dir);
+    await withServer(async (endpoint, requests) => {
+      const create = await runCli(["--expires", "30", pagePath], endpoint);
+      assert.equal(create.code, 0, create.stderr);
+      const update = await runCli(["update", "http://preview.test/abc?p=secret", pagePath], endpoint);
+      assert.equal(update.code, 0, update.stderr);
+      assert.equal(requests.length, 2);
+      for (const req of requests) assert.equal("renewOnView" in req.meta, false);
+      assert.equal(requests[0].meta.expiresInDays, 30);
+    });
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("update --renew sends renewOnView:true", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "htmldrop-cli-renew-"));
+  try {
+    const pagePath = makePage(dir);
+    await withServer(async (endpoint, requests) => {
+      const result = await runCli(["update", "http://preview.test/abc?p=secret", "--renew", pagePath], endpoint);
+      assert.equal(result.code, 0, result.stderr);
+      assert.equal(requests[0].meta.renewOnView, true);
+    });
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("--renew on create and --renew --no-renew fail before any upload", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "htmldrop-cli-badrenew-"));
+  try {
+    const pagePath = makePage(dir);
+    await withServer(async (endpoint, requests) => {
+      for (const args of [
+        ["--renew", pagePath],
+        ["update", "http://preview.test/abc?p=secret", "--renew", "--no-renew", pagePath],
+        ["--no-renew=yes", pagePath],
+      ]) {
+        const result = await runCli(args, endpoint);
+        assert.equal(result.code, 1, `expected failure for ${args.join(" ")}`);
+      }
+      assert.equal(requests.length, 0);
+    });
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("--help documents the 14-day default and --no-renew", async () => {
+  const result = await runCli(["--help"], "http://127.0.0.1:1");
+  assert.equal(result.code, 0, result.stderr);
+  assert.match(result.stdout, /--expires <days>.*default 14/);
+  assert.match(result.stdout, /--no-renew/);
+});
+
+test("settings --no-renew and --renew send renewOnView; either alone is a change", async () => {
+  await withServer(async (endpoint, requests) => {
+    const off = await runCli(["settings", "http://preview.test/abc?p=secret", "--no-renew"], endpoint);
+    assert.equal(off.code, 0, off.stderr);
+    const on = await runCli(["settings", "--renew", "http://preview.test/abc?p=secret"], endpoint);
+    assert.equal(on.code, 0, on.stderr);
+    assert.deepEqual(requests.map((r) => r.meta), [
+      { id: "abc", password: "secret", renewOnView: false },
+      { id: "abc", password: "secret", renewOnView: true },
+    ]);
+    const both = await runCli(["settings", "http://preview.test/abc?p=secret", "--renew", "--no-renew"], endpoint);
+    assert.equal(both.code, 1);
+    assert.equal(requests.length, 2);
+  });
+});

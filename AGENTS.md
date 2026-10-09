@@ -8,9 +8,10 @@ and Markdown previews at `baseurl.ai`.
 - `src/index.ts` is the Worker entrypoint and route dispatcher.
 - `src/upload.ts`, `src/serve.ts`, `src/auth.ts`, `src/security.ts`, and `src/utils.ts` hold core behavior.
 - `src/envelope.ts` is the dependency-free encryption-at-rest layer (page key derivation, the chunked v3 page object that upload and serve stream through, the older v2 JSON records, sealed comment records, cookie/token key wrapping). `scripts/pin-page.mjs` and `scripts/migrate-encrypt.mjs` import it directly under Node type stripping, so it must keep erasable-syntax TypeScript and no relative imports.
-- `src/cleanup.ts` is the daily cron sweep of expired pages and orphaned comments; the schedule lives under `[triggers]` in `wrangler.toml`.
+- `src/cleanup.ts` is the daily cron sweep of expired pages, orphaned comments and orphaned `seen:<id>` visit records; the schedule lives under `[triggers]` in `wrangler.toml`.
 - `src/widget.ts` builds the injected comment widget script; `src/anchor.ts` owns quote anchoring and the Copy-for-LLM formatter it injects.
 - `src/serve.ts` also handles `GET /:id/v` version probes and injects the stale-preview refresh notice; `src/auth.ts` owns the `PageRecord.version` field used for revalidation.
+- Expiry: `src/auth.ts` holds the pure expiry helpers (`windowStartOf`, `expiresAtMs`, `isPageExpired`, `expiryFields`) and the renew-on-view visit record. A renew page's last counted visit lives in a plaintext `seen:<id>` R2 object, read only for renew pages and written by `src/serve.ts` at most about once a day. `DEFAULT_TTL_DAYS` (7) is what a record without `ttlDays` means; new pages write `NEW_PAGE_TTL_DAYS` (14) explicitly.
 - `src/pages/` contains server-rendered HTML pages.
 - `src/__tests__/` contains Vitest tests that run with the Cloudflare Workers test pool.
 - `cli/` contains the published `htmldrop-cli` package and install script.

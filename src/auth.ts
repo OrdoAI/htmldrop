@@ -36,6 +36,10 @@ export interface PageRecord {
   pinned?: boolean;
   ttlDays?: number;
   public: boolean;
+  // Renew when opened (v3 only), and the last counted visit from the
+  // `seen:<id>` sidecar, read only for renew pages.
+  renew: boolean;
+  lastSeen?: string;
   key: Uint8Array;
   verifier: string;
   // R2 etag of the object this record was read from, so a rewrite can be made
@@ -57,10 +61,82 @@ export interface PageMetaOnly {
   pinned?: boolean;
 }
 
+// What a record without `ttlDays` means. Pages stored before new creates
+// wrote their window explicitly rely on it, so it stays 7.
 export const DEFAULT_TTL_DAYS = 7;
+// The window every new page is created with unless the request picks one.
+export const NEW_PAGE_TTL_DAYS = 14;
 export const MAX_TTL_DAYS = 30;
+// A renew-on-view page is deleted this long after createdAt however often it
+// is opened. createdAt restarts on upload and on a new expiresInDays.
+export const RENEW_CAP_DAYS = 365;
+// A visit is written to the sidecar at most this often per page.
+export const SEEN_THROTTLE_MS = 24 * 60 * 60 * 1000;
 const DAY_MS = 24 * 60 * 60 * 1000;
 
+// The plaintext sidecar holding a renew page's last counted visit (an ISO
+// timestamp). Kept out of the page so a view never re-seals up to 50 MiB.
+// It can only move expiry within the authenticated cap: someone with bucket
+// access could keep a renew page alive until createdAt + RENEW_CAP_DAYS, or
+// delete it so the page expires a window after its last write.
+export function seenKey(id: string): string {
+  return `seen:${id}`;
+}
+
+export interface ExpiryState {
+  createdAt: string;
+  ttlDays?: number;
+  pinned?: boolean;
+  renew?: boolean;
+  lastSeen?: string | null;
+}
+
+function timeOf(iso: string | null | undefined): number | null {
+  if (!iso) return null;
+  const t = Date.parse(iso);
+  return Number.isNaN(t) ? null : t;
+}
+
+// When the current window started: the later of createdAt and the last
+// counted visit for a renew page, createdAt otherwise.
+export function windowStartOf(e: ExpiryState): number {
+  const created = Date.parse(e.createdAt);
+  if (!e.renew) return created;
+  const seen = timeOf(e.lastSeen);
+  return seen !== null && seen > created ? seen : created;
+}
+
+// Last moment a renew page may exist, or null for a fixed or pinned page.
+export function renewUntilMs(e: ExpiryState): number | null {
+  if (e.pinned || !e.renew) return null;
+  return Date.parse(e.createdAt) + RENEW_CAP_DAYS * DAY_MS;
+}
+
+// When the page is deleted if nobody opens it again; null when pinned.
+export function expiresAtMs(e: ExpiryState): number | null {
+  if (e.pinned) return null;
+  const end = windowStartOf(e) + (e.ttlDays ?? DEFAULT_TTL_DAYS) * DAY_MS;
+  const cap = renewUntilMs(e);
+  return cap !== null && cap < end ? cap : end;
+}
+
+export function isPageExpired(e: ExpiryState, now: number = Date.now()): boolean {
+  const at = expiresAtMs(e);
+  return at !== null && now > at;
+}
+
+// ISO forms for API responses.
+export function expiryFields(e: ExpiryState): { expiresAt: string | null; renewOnView: boolean; renewUntil?: string } {
+  const at = expiresAtMs(e);
+  const until = renewUntilMs(e);
+  return {
+    expiresAt: at === null ? null : new Date(at).toISOString(),
+    renewOnView: e.renew === true,
+    ...(until !== null ? { renewUntil: new Date(until).toISOString() } : {}),
+  };
+}
+
+// Fixed-window forms, kept for callers that have no renew state.
 export function expiresAtOf(createdAt: string, ttlDays: number | undefined): string {
   return new Date(new Date(createdAt).getTime() + (ttlDays ?? DEFAULT_TTL_DAYS) * DAY_MS).toISOString();
 }
@@ -71,7 +147,47 @@ export function isExpired(
   pinned: boolean | undefined,
   now: number = Date.now(),
 ): boolean {
-  return !pinned && now > new Date(expiresAtOf(createdAt, ttlDays)).getTime();
+  return isPageExpired({ createdAt, ttlDays, pinned }, now);
+}
+
+// Reads a renew page's last visit. A missing, oversized or malformed sidecar
+// counts as no visit, so the window runs from createdAt. A failed read
+// throws: taking it for "never opened" would delete a page that visits are
+// keeping alive, so callers must not decide expiry without it.
+const MAX_SEEN_BYTES = 64;
+
+export async function readLastSeen(bucket: R2Bucket, id: string): Promise<string | undefined> {
+  // Not a ranged read: R2 rejects a range on an empty object, which would turn
+  // a harmless empty sidecar into a permanent read failure.
+  const obj = await bucket.get(seenKey(id));
+  if (!obj) return undefined;
+  if (obj.size > MAX_SEEN_BYTES) {
+    await obj.body.cancel();
+    return undefined;
+  }
+  const text = (await obj.text()).trim();
+  return timeOf(text) !== null ? text : undefined;
+}
+
+// Counts a visit to a renew page: writes the sidecar only when the current
+// window started more than SEEN_THROTTLE_MS ago, so a busy page costs at most
+// about one small put a day. A failed write never fails the view.
+export async function recordVisit(
+  bucket: R2Bucket,
+  id: string,
+  record: Pick<PageRecord, "createdAt" | "ttlDays" | "pinned" | "renew" | "lastSeen">,
+  now: number = Date.now(),
+): Promise<boolean> {
+  if (!record.renew || record.pinned) return false;
+  if (now - windowStartOf(record) <= SEEN_THROTTLE_MS) return false;
+  try {
+    await bucket.put(seenKey(id), new Date(now).toISOString(), {
+      httpMetadata: { contentType: "text/plain" },
+    });
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 // Wrapping namespaces. Bound into the ciphertext so a cookie never works as a
@@ -88,7 +204,7 @@ const NOTICE_NS = "update-notice:v2";
 type Stored =
   | { kind: "v2"; stored: StoredPage; etag: string }
   | { kind: "legacy"; stored: LegacyPage; etag: string }
-  | { kind: "v3"; header: StoredPageV3; end: number; etag: string };
+  | { kind: "v3"; header: StoredPageV3; end: number; etag: string; lastSeen?: string };
 
 const enc = (s: string): Uint8Array => new TextEncoder().encode(s);
 
@@ -107,7 +223,11 @@ async function loadStored(bucket: R2Bucket, id: string): Promise<Stored | null> 
     if (!parsed) return null;
     const { header, end } = parsed;
     if (v3ObjectLength(end - 8, header.bytes, header.chunk) !== head.size) return null;
-    loaded = { kind: "v3", header, end, etag: head.etag };
+    // Only a renew page needs its last visit; a fixed page costs no extra read.
+    // A failed sidecar read propagates and fails the request rather than
+    // purging a page whose visits could not be checked.
+    const lastSeen = header.renew && !header.pinned ? await readLastSeen(bucket, id) : undefined;
+    loaded = { kind: "v3", header, end, etag: head.etag, ...(lastSeen ? { lastSeen } : {}) };
   } else {
     let text: string;
     if (head.size <= prefix.length) {
@@ -129,18 +249,23 @@ async function loadStored(bucket: R2Bucket, id: string): Promise<Stored | null> 
     else if (isLegacyPage(parsed)) loaded = { kind: "legacy", stored: parsed, etag: head.etag };
     else return null;
   }
-  const { createdAt, ttlDays, pinned } = expiryOf(loaded);
-  if (isExpired(createdAt, ttlDays, pinned)) {
-    await bucket.delete(key);
+  if (isPageExpired(expiryOf(loaded))) {
+    await bucket.delete([key, seenKey(id)]);
     return null;
   }
   return loaded;
 }
 
-function expiryOf(s: Stored): { createdAt: string; ttlDays: number | undefined; pinned: boolean | undefined } {
+function expiryOf(s: Stored): ExpiryState {
   switch (s.kind) {
     case "v3":
-      return { createdAt: s.header.createdAt, ttlDays: s.header.ttlDays, pinned: s.header.pinned };
+      return {
+        createdAt: s.header.createdAt,
+        ttlDays: s.header.ttlDays,
+        pinned: s.header.pinned,
+        renew: s.header.renew === true,
+        lastSeen: s.lastSeen,
+      };
     case "v2":
       return { createdAt: s.stored.createdAt, ttlDays: s.stored.ttlDays, pinned: s.stored.pinned };
     case "legacy":
@@ -178,7 +303,7 @@ async function v3Body(
 async function openStoredV3(
   bucket: R2Bucket,
   id: string,
-  s: { header: StoredPageV3; end: number; etag: string },
+  s: { header: StoredPageV3; end: number; etag: string; lastSeen?: string },
   key: Uint8Array,
 ): Promise<PageRecord | null> {
   const opened = await openPageV3(key, id, s.header);
@@ -191,6 +316,8 @@ async function openStoredV3(
     ...(h.pinned ? { pinned: true } : {}),
     ...(h.ttlDays !== undefined ? { ttlDays: h.ttlDays } : {}),
     public: h.open !== undefined,
+    renew: h.renew === true,
+    ...(s.lastSeen ? { lastSeen: s.lastSeen } : {}),
     key,
     verifier: h.verifier,
     etag: s.etag,
@@ -220,6 +347,7 @@ async function openStoredV2(
     ...(stored.pinned ? { pinned: true } : {}),
     ...(stored.ttlDays !== undefined ? { ttlDays: stored.ttlDays } : {}),
     public: stored.open !== undefined,
+    renew: false,
     key,
     verifier: stored.verifier,
     etag,
@@ -235,6 +363,7 @@ function fromLegacy(id: string, legacy: LegacyPage, etag: string, pageKey: PageK
     version: meta.version,
     ...(meta.pinned ? { pinned: true } : {}),
     public: false,
+    renew: false,
     key: pageKey.key,
     verifier: pageKey.verifier,
     etag,

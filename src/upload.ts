@@ -1,8 +1,19 @@
 import { generateId as defaultGenerateId, generatePassword } from "./utils";
-import { MAX_TTL_DAYS, PageChangedError, expiresAtOf, verifyPassword } from "./auth";
+import {
+  DEFAULT_TTL_DAYS,
+  MAX_TTL_DAYS,
+  NEW_PAGE_TTL_DAYS,
+  PageChangedError,
+  expiresAtMs,
+  expiryFields,
+  verifyPassword,
+  windowStartOf,
+} from "./auth";
 import { type PageKey, type PageMeta, V3_MAX_PAGE_BYTES, derivePageKey, sealPageV3 } from "./envelope";
 import { applyAnchorRemaps, resealLegacyComments, validateAnchorRemaps } from "./comments";
 import { publicOrigin, withTransportSecurity } from "./security";
+
+const DAY_MS = 24 * 60 * 60 * 1000;
 
 // Two request shapes share one handler.
 //
@@ -37,10 +48,11 @@ interface UploadMeta {
   password?: unknown;
   // Optional agent-assisted anchor migration on the update path.
   commentAnchors?: unknown;
-  // Visibility and lifetime. Both default to private / 7 days on create and
-  // to the stored values on update.
+  // Visibility and lifetime. They default to private / 14 days / renew on
+  // view on create and to the stored values on update.
   public?: unknown;
   expiresInDays?: unknown;
+  renewOnView?: unknown;
   // Streaming shape only: UTF-8 length of the page that follows the newline.
   bytes?: unknown;
 }
@@ -50,10 +62,13 @@ interface PageContent {
   bytes: number;
 }
 
-function readPublic(v: unknown): boolean | undefined | "invalid" {
+function readBoolean(v: unknown): boolean | undefined | "invalid" {
   if (v === undefined) return undefined;
   return typeof v === "boolean" ? v : "invalid";
 }
+
+const readPublic = readBoolean;
+const readRenew = readBoolean;
 
 function readTtl(v: unknown): number | undefined | "invalid" {
   if (v === undefined) return undefined;
@@ -346,6 +361,10 @@ export async function handleUpload(
       request,
     );
   }
+  const wantRenew = readRenew(meta.renewOnView);
+  if (wantRenew === "invalid") {
+    return textResponse("'renewOnView' must be a boolean", { status: 400 }, request);
+  }
 
   // Update path: a holder of the existing id + password overwrites that page in
   // place, keeping the same URL. Anything other than both-present-and-valid is
@@ -373,6 +392,7 @@ export async function handleUpload(
     // Visibility and lifetime keep their stored values unless the body says so.
     const isPublic = wantPublic ?? existing.public;
     const ttlDays = wantTtl ?? existing.ttlDays;
+    const renew = wantRenew ?? existing.renew;
     const createdAt = new Date().toISOString(); // the expiry window restarts on update
     try {
       await storePage(
@@ -386,6 +406,7 @@ export async function handleUpload(
           ...(existing.pinned ? { pinned: true } : {}),
           ...(ttlDays !== undefined ? { ttlDays } : {}),
           ...(isPublic ? { public: true } : {}),
+          ...(renew ? { renew: true } : {}),
         },
         filename,
         content,
@@ -401,7 +422,9 @@ export async function handleUpload(
       url: `${publicOrigin(request)}/${updateId}?p=${updatePassword}`,
       id: updateId,
       password: updatePassword,
-      expiresAt: existing.pinned ? null : expiresAtOf(createdAt, ttlDays),
+      // A stale `seen:` sidecar is older than the new createdAt, so it no
+      // longer counts; the window runs from now.
+      ...expiryFields({ createdAt, ttlDays, pinned: existing.pinned, renew }),
       public: isPublic,
       ...(isPublic ? { publicUrl: `${publicOrigin(request)}/${updateId}` } : {}),
     }, {
@@ -427,6 +450,9 @@ export async function handleUpload(
 
   const createdAt = new Date().toISOString();
   const isPublic = wantPublic === true;
+  // Written explicitly: a record without ttlDays means the older 7 days.
+  const ttlDays = wantTtl ?? NEW_PAGE_TTL_DAYS;
+  const renew = wantRenew ?? true;
   try {
     await storePage(
       env.BUCKET,
@@ -436,8 +462,9 @@ export async function handleUpload(
         id,
         createdAt,
         version: crypto.randomUUID(),
-        ...(wantTtl !== undefined ? { ttlDays: wantTtl } : {}),
+        ttlDays,
         ...(isPublic ? { public: true } : {}),
+        ...(renew ? { renew: true } : {}),
       },
       filename,
       content,
@@ -450,7 +477,7 @@ export async function handleUpload(
     url: `${publicOrigin(request)}/${id}?p=${password}`,
     id,
     password,
-    expiresAt: expiresAtOf(createdAt, wantTtl),
+    ...expiryFields({ createdAt, ttlDays, renew }),
     public: isPublic,
     ...(isPublic ? { publicUrl: `${publicOrigin(request)}/${id}` } : {}),
   }, {
@@ -460,10 +487,15 @@ export async function handleUpload(
 
 // POST /api/settings: change an existing page's visibility and lifetime
 // without uploading it again. Same credential as an update (id + password),
-// JSON body `{id, password, public?, expiresInDays?}`. A new `expiresInDays`
-// counts from now, like an update; changing only `public` keeps the current
-// expiry. Content, filename and `version` stay as they are, so open previews
-// see no update notice. The page is re-sealed as a stream, because the header
+// JSON body `{id, password, public?, expiresInDays?, renewOnView?}`. A new
+// `expiresInDays` counts from now, like an update; changing only `public` or
+// `renewOnView` keeps the current window. Turning renew off fixes the expiry
+// at the date it showed, so a page kept alive by visits is not cut short; it
+// does that by moving createdAt to the current window start (the last visit,
+// or earlier at the one-year cap). Turning renew back on later therefore
+// counts the cap from that start: never later than a new `expiresInDays`
+// would put it, which the owner can always send. Content, filename and
+// `version` stay as they are, so open previews see no update notice. The page is re-sealed as a stream, because the header
 // is bound into every frame, and the write only lands if no upload replaced
 // the page in the meantime.
 const MAX_SETTINGS_BODY_BYTES = 4096;
@@ -486,7 +518,7 @@ export async function handleSettings(request: Request, env: Env): Promise<Respon
   if (!body || typeof body !== "object") {
     return textResponse("Invalid body", { status: 400 }, request);
   }
-  const { id, password, public: pub, expiresInDays } = body as Record<string, unknown>;
+  const { id, password, public: pub, expiresInDays, renewOnView } = body as Record<string, unknown>;
   if (typeof id !== "string" || typeof password !== "string") {
     return textResponse("Both 'id' and 'password' are required", { status: 400 }, request);
   }
@@ -502,8 +534,16 @@ export async function handleSettings(request: Request, env: Env): Promise<Respon
       request,
     );
   }
-  if (wantPublic === undefined && wantTtl === undefined) {
-    return textResponse("Nothing to change: give 'public', 'expiresInDays', or both", { status: 400 }, request);
+  const wantRenew = readRenew(renewOnView);
+  if (wantRenew === "invalid") {
+    return textResponse("'renewOnView' must be a boolean", { status: 400 }, request);
+  }
+  if (wantPublic === undefined && wantTtl === undefined && wantRenew === undefined) {
+    return textResponse(
+      "Nothing to change: give 'public', 'expiresInDays', 'renewOnView', or a combination",
+      { status: 400 },
+      request,
+    );
   }
 
   const existing = await verifyPassword(env.BUCKET, id, password);
@@ -512,8 +552,19 @@ export async function handleSettings(request: Request, env: Env): Promise<Respon
   }
   const isPublic = wantPublic ?? existing.public;
   const ttlDays = wantTtl ?? existing.ttlDays;
-  const createdAt = wantTtl !== undefined ? new Date().toISOString() : existing.createdAt;
-  if (wantTtl !== undefined || isPublic !== existing.public) {
+  const renew = wantRenew ?? existing.renew;
+  let createdAt = wantTtl !== undefined ? new Date().toISOString() : existing.createdAt;
+  // Turning renew off keeps the date the page was showing: the window that
+  // visits had moved forward (or that the one-year cap cut short) becomes the
+  // fixed one.
+  if (wantTtl === undefined && existing.renew && !renew) {
+    const shown = expiresAtMs(existing);
+    const start = shown === null
+      ? windowStartOf(existing)
+      : shown - (existing.ttlDays ?? DEFAULT_TTL_DAYS) * DAY_MS;
+    createdAt = new Date(start).toISOString();
+  }
+  if (wantTtl !== undefined || isPublic !== existing.public || renew !== existing.renew) {
     try {
       await storePage(
         env.BUCKET,
@@ -526,6 +577,7 @@ export async function handleSettings(request: Request, env: Env): Promise<Respon
           ...(existing.pinned ? { pinned: true } : {}),
           ...(ttlDays !== undefined ? { ttlDays } : {}),
           ...(isPublic ? { public: true } : {}),
+          ...(renew ? { renew: true } : {}),
         },
         existing.filename,
         await existing.body(),
@@ -542,7 +594,7 @@ export async function handleSettings(request: Request, env: Env): Promise<Respon
     url: `${publicOrigin(request)}/${id}?p=${password}`,
     id,
     password,
-    expiresAt: existing.pinned ? null : expiresAtOf(createdAt, ttlDays),
+    ...expiryFields({ createdAt, ttlDays, pinned: existing.pinned, renew, lastSeen: existing.lastSeen }),
     public: isPublic,
     ...(isPublic ? { publicUrl: `${publicOrigin(request)}/${id}` } : {}),
   }, {

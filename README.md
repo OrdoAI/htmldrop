@@ -115,13 +115,26 @@ Anonymous readers of a public page get no comment widget; the password link
 (the "edit link") still does.
 
 Production HTTP requests are redirected to HTTPS. HTTPS responses include HSTS.
-Links expire after seven days by default, or after `expiresInDays` (1 to 30;
-CLI `--expires`, or the selector on the home page). An expired page is purged on its next read, and
-a daily cron (`[triggers]` in `wrangler.toml`, `src/cleanup.ts`) sweeps the
-ones nobody opens again, along with comments whose page is gone. An operator who has been given a page's link
+New links are deleted after 14 days without a visit by default, or after
+`expiresInDays` (1 to 30; CLI `--expires`, or the selector on the home page).
+Each visit that opens the page restarts that window (`renewOnView`, on by
+default), up to one year after the upload or last settings change that set the
+window. `renewOnView: false` (CLI `--no-renew`, or the switch on the home
+page) deletes the page on its date, opened or not. Turning renew off on an
+existing page keeps the date it was showing: the window start moves to the
+last visit, so turning renew back on later counts the one-year cap from that
+visit (never later than a new `expiresInDays` would put it). Pages stored before renew
+existed keep their fixed date, and one stored without a window still means
+seven days. The last visit lives in a small plaintext `seen:<id>` object
+beside the page, written at most about once a day, so someone with bucket
+access can keep a renewing page alive up to its authenticated one-year cap, or
+let it lapse early; fixed-date pages are unaffected. An expired page is purged
+on its next read, and a daily cron (`[triggers]` in `wrangler.toml`,
+`src/cleanup.ts`) sweeps the ones nobody opens again, along with comments and
+visit records whose page is gone. An operator who has been given a page's link
 can change it with `node scripts/pin-page.mjs "<url>" --pin|--unpin|--renew|
---public|--private|--expires <days>`; the link is required because the metadata
-lives inside the ciphertext. A pinned page never expires and keeps its pin
+--public|--private|--expires <days>|--renew-on-view|--no-renew-on-view`; the
+link is required because the metadata lives inside the ciphertext. A pinned page never expires and keeps its pin
 across in-place updates; `--unpin` restarts the expiry window from that moment.
 
 `scripts/migrate-encrypt.mjs` is the one-shot migration that sealed the

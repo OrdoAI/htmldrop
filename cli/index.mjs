@@ -5,6 +5,7 @@ import { execSync } from "child_process";
 import { parseArgs } from "node:util";
 import { buildMarkdownPage, injectToolbarIntoHtml } from "./markdown-page.mjs";
 import { NodeHtmlMarkdown } from "node-html-markdown";
+import { formatStatusLine } from "./status-line.mjs";
 
 const ENDPOINT = process.env.HTMLDROP_URL || "https://baseurl.ai";
 let compressorPromise;
@@ -17,7 +18,7 @@ function die(msg) {
 function usage() {
   console.log(`Usage: htmldrop [create] <file>
        htmldrop update <url> <file>
-       htmldrop settings <url> [--public | --private] [--expires <days>]
+       htmldrop settings <url> [--public | --private] [--expires <days>] [--renew | --no-renew]
        htmldrop comments <url>
 
 Upload an HTML or Markdown file and get a shareable link.
@@ -37,8 +38,13 @@ Options:
                             (default: private). Prints the public URL first,
                             then the edit link.
   --private                 (update, settings) Make a public preview private again
-  --expires <days>          Days until expiry, 1-30 (default 7). With update
-                            or settings, counts from now.
+  --expires <days>          Days the preview is kept, 1-30 (default 14). With
+                            update or settings, counts from now. Each visit
+                            restarts the window unless --no-renew is set
+  --no-renew                Delete on the date even if the preview is opened
+                            (default: each visit restarts the window, kept at
+                            most a year)
+  --renew                   (update, settings) Turn renew-on-visit back on
   --no-inline               Skip asset inlining, upload HTML as-is
   --comment-anchors <file>  (update) JSON array of {cid, anchor} remaps applied
                             to existing comments after the document changes
@@ -260,6 +266,8 @@ try {
       public: { type: "boolean", default: false },
       private: { type: "boolean", default: false },
       expires: { type: "string" },
+      "no-renew": { type: "boolean", default: false },
+      renew: { type: "boolean", default: false },
       version: { type: "boolean", short: "V" },
       help: { type: "boolean", short: "h" },
     },
@@ -299,6 +307,10 @@ if (values.private && mode !== "update" && mode !== "settings") {
   die("--private is only valid with 'update' or 'settings' (new previews are private by default)");
 }
 if (values["no-inline"] && mode === "settings") die("--no-inline is not valid with 'settings'");
+if (values.renew && values["no-renew"]) die("--renew and --no-renew are mutually exclusive");
+if (values.renew && mode !== "update" && mode !== "settings") {
+  die("--renew is only valid with 'update' or 'settings' (new previews renew on visit by default)");
+}
 let expiresInDays;
 if (values.expires !== undefined) {
   expiresInDays = Number(values.expires);
@@ -325,16 +337,18 @@ if (mode === "comments") {
 // settings: change who can open a live preview and when it expires, without
 // uploading it again. Same credential as update: the password-bearing link.
 if (mode === "settings") {
-  const usageLine = "usage: htmldrop settings <url> [--public | --private] [--expires <days>]";
+  const usageLine = "usage: htmldrop settings <url> [--public | --private] [--expires <days>] [--renew | --no-renew]";
   if (operands.length < 1) die(usageLine);
   if (operands.length > 1) die(`unexpected argument: ${operands[1]}`);
-  if (!values.public && !values.private && expiresInDays === undefined) {
-    die(`nothing to change: pass --public, --private and/or --expires <days>\n       ${usageLine}`);
+  if (!values.public && !values.private && expiresInDays === undefined && !values.renew && !values["no-renew"]) {
+    die(`nothing to change: pass --public, --private, --expires <days>, --renew and/or --no-renew\n       ${usageLine}`);
   }
   const body = { ...parsePreviewUrl(operands[0]) };
   if (values.public) body.public = true;
   if (values.private) body.public = false;
   if (expiresInDays !== undefined) body.expiresInDays = expiresInDays;
+  if (values["no-renew"]) body.renewOnView = false;
+  if (values.renew) body.renewOnView = true;
   const res = await fetch(`${ENDPOINT}/api/settings`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -422,6 +436,10 @@ if (commentAnchors) meta.commentAnchors = commentAnchors;
 if (values.public) meta.public = true;
 if (values.private) meta.public = false;
 if (expiresInDays !== undefined) meta.expiresInDays = expiresInDays;
+// Sent only when a flag asks: absent, the service default applies (a new
+// preview renews on visit; an update keeps the page's current setting).
+if (values["no-renew"]) meta.renewOnView = false;
+if (values.renew) meta.renewOnView = true;
 const payload = Buffer.concat([Buffer.from(`${JSON.stringify(meta)}\n`, "utf-8"), page]);
 
 const res = await fetch(`${endpoint}/api/upload`, {
@@ -446,10 +464,7 @@ function report(data, note) {
   console.log(shareUrl);
   if (shareUrl !== data.url) console.log(data.url);
   if (!process.stdout.isTTY) return;
-  if (data.public) note += " | public";
-  // `expiresAt` is null for an operator-pinned page, which never expires.
-  const expires = data.expiresAt ? data.expiresAt.split("T")[0] : "never";
-  process.stderr.write(`  id: ${data.id} | expires: ${expires}${note}\n`);
+  process.stderr.write(`${formatStatusLine(data, { note })}\n`);
   if (shareUrl !== data.url) process.stderr.write("  (second line is the edit link; keep it private)\n");
   try {
     execSync("pbcopy", { input: shareUrl });
