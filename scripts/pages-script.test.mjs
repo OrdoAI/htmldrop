@@ -50,7 +50,12 @@ for (const [entry, fn, args] of pages) {
     for (const [i, code] of scripts.entries()) {
       assert.doesNotThrow(() => new Script(code, { filename: `${entry}#script${i}` }), `${entry} inline script ${i}`);
     }
+    assert.ok(scripts.some((s) => s.includes('localStorage.getItem("theme")')), "a saved theme is applied from <head>");
+    assert.ok(html.indexOf('localStorage.getItem("theme")') < html.indexOf("<body"), "the theme boot script runs before the body");
+    assert.ok(html.includes(":root[data-theme=dark]{"), "a picked dark theme overrides the system");
+    assert.ok(html.includes("@media(prefers-color-scheme:dark){:root:not([data-theme=light]){"), "a picked light theme overrides the system");
     if (fn === "homePage") {
+      assert.ok(html.includes('id="theme" role="radiogroup"'), "home page has the theme switch");
       assert.ok(scripts.length >= 1, "home page has an inline script");
       const upload = scripts.find((s) => s.includes("/api/upload"));
       assert.ok(upload, "home page script uploads");
