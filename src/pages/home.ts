@@ -13,6 +13,7 @@ const I = {
   down: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v12M7 12.5l5 5 5-5"/></svg>',
   term: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 8 4 4-4 4M12 16h7"/></svg>',
   refresh: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19.5 10.5A7.5 7.5 0 0 0 6 6.6L4.5 8M4.5 4v4h4M4.5 13.5A7.5 7.5 0 0 0 18 17.4l1.5-1.4M19.5 20v-4h-4"/></svg>',
+  comment: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12.5a7.5 7.5 0 0 1-11.2 6.53L4 20l1.05-4.4A7.5 7.5 0 1 1 20 12.5Z"/></svg>',
   gh: '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .3a12 12 0 00-3.79 23.4c.6.1.82-.26.82-.58v-2.17c-3.34.73-4.04-1.61-4.04-1.61-.55-1.39-1.34-1.76-1.34-1.76-1.09-.75.08-.73.08-.73 1.2.08 1.84 1.24 1.84 1.24 1.07 1.84 2.81 1.31 3.5 1 .1-.78.42-1.31.76-1.61-2.67-.3-5.47-1.33-5.47-5.93 0-1.31.47-2.38 1.24-3.22-.13-.3-.54-1.52.12-3.18 0 0 1-.32 3.3 1.23a11.5 11.5 0 016.02 0c2.28-1.55 3.29-1.23 3.29-1.23.66 1.66.25 2.88.12 3.18.77.84 1.24 1.91 1.24 3.22 0 4.61-2.81 5.63-5.48 5.92.43.37.81 1.1.81 2.22v3.29c0 .32.22.7.82.58A12 12 0 0012 .3"/></svg>',
 };
 
@@ -279,11 +280,14 @@ input[type=file]{display:none}
 
 /* what happens to the file */
 .facts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1rem;margin-top:7rem}
-.fact{padding:1.375rem 1.375rem 1.5rem;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow-sm)}
-.fact .ft{display:grid;place-items:center;width:2.25rem;height:2.25rem;border-radius:10px;background:var(--sunken);color:var(--ink)}
-.fact .ft svg{width:1.0625rem;height:1.0625rem;stroke:currentColor;stroke-width:1.9;fill:none;stroke-linecap:round;stroke-linejoin:round}
-.fact h3{margin-top:1rem;font-size:1rem;font-weight:620;letter-spacing:-.02em}
-.fact p{margin-top:.35rem;font-size:.875rem;line-height:1.55;color:var(--ink-3);text-wrap:pretty}
+.fact{display:grid;grid-template-columns:auto minmax(0,1fr);align-items:center;align-content:start;column-gap:.6rem;padding:1.375rem 1.375rem 1.5rem;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow-sm)}
+.fact .ft{display:grid;place-items:center;width:1.75rem;height:1.75rem;border-radius:8px;background:var(--sunken);color:var(--ink)}
+.fact .ft svg{width:.9375rem;height:.9375rem;stroke:currentColor;stroke-width:1.9;fill:none;stroke-linecap:round;stroke-linejoin:round}
+.fact h3{font-size:1rem;font-weight:620;letter-spacing:-.02em}
+/* --ink-3 is too faint for body text on a card (3.4:1); this clears 4.5:1 */
+.fact p{grid-column:1/-1;margin-top:.6rem;font-size:.875rem;line-height:1.55;color:#70706a;text-wrap:pretty}
+.vh{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+@media(prefers-color-scheme:dark){.fact .ft{box-shadow:inset 0 0 0 1px var(--line-2)}.fact p{color:#8f8f88}}
 .foot{display:flex;flex-wrap:wrap;justify-content:space-between;gap:.75rem 1.5rem;max-width:54rem;margin:5rem auto 0;padding:1.75rem 1.5rem 3rem;border-top:1px solid var(--line);font-size:.8125rem;color:var(--ink-3)}
 .foot nav{display:flex;gap:1.25rem}
 .foot a{transition:color var(--t1) var(--ease)}
@@ -317,10 +321,7 @@ input[type=file]{display:none}
   .term-foot .btn{width:100%;margin-left:0}
   .foot{padding:1.5rem 1rem 2.5rem;margin-top:3.5rem}
   .facts{gap:.625rem}
-  .fact{display:grid;grid-template-columns:2.25rem minmax(0,1fr);column-gap:.875rem;padding:1rem}
-  .fact .ft{grid-row:span 2}
-  .fact h3{margin-top:.1rem}
-  .fact p{grid-column:2}
+  .fact{padding:1rem}
 }
 </style>
 </head>
@@ -415,10 +416,11 @@ input[type=file]{display:none}
   </section>
 
 
-  <section class="sec facts" aria-label="How it works">
-    <div class="fact"><span class="ft">${I.lock}</span><h3>Private by default</h3><p>The password lives in the link, and the page is encrypted with it. Nothing readable sits on the server.</p></div>
-    <div class="fact"><span class="ft">${I.clock}</span><h3>Gone when unused</h3><p>A page is deleted once nobody opens it for 7, 14 or 30 days, or on a fixed date if you prefer. You can change that while the link is live.</p></div>
-    <div class="fact"><span class="ft">${I.refresh}</span><h3>Update in place</h3><p>Upload a new version to the same link. Anyone with it open is offered a refresh.</p></div>
+  <section class="sec facts" aria-labelledby="facts-h">
+    <h2 class="vh" id="facts-h">Why HTMLDrop</h2>
+    <div class="fact"><span class="ft">${I.lock}</span><h3>Private, then gone</h3><p>Encrypted with the password in its link. Deleted after 14 days unopened, or on a date you pick.</p></div>
+    <div class="fact"><span class="ft">${I.refresh}</span><h3>Update in place</h3><p>Upload a new version to the same link. Anyone with the page open is offered a refresh.</p></div>
+    <div class="fact"><span class="ft">${I.comment}</span><h3>Comment in place</h3><p>Readers select text to comment. Copy the page and comments for your LLM in one click.</p></div>
   </section>
 </main>
 
