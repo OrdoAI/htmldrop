@@ -59,14 +59,17 @@ body{overflow-x:clip}
 .nav .gh svg{width:1.25rem;height:1.25rem}
 
 /* hero: the last word of the promise fades out, the way the link will */
-.hero{max-width:52rem;margin:0 auto;padding:clamp(2.75rem,9vh,5.5rem) 1.5rem 0;text-align:center}
-.hero h1{font-size:clamp(2.625rem,1.4rem + 4.6vw,4.75rem);font-weight:680;line-height:1;letter-spacing:-.052em}
+/* The hero, the gap and the window's page area all give way to a short
+   viewport, so the whole window, buttons and bottom edge, fits the first
+   screen of a laptop (1280x720, 1440x800) and keeps its full size when tall. */
+.hero{max-width:52rem;margin:0 auto;padding:clamp(1.25rem,10vh - 3rem,5rem) 1.5rem 0;text-align:center}
+.hero h1{font-size:clamp(2.625rem,min(1.4rem + 4.6vw,9vh),4.75rem);font-weight:680;line-height:1;letter-spacing:-.052em}
 .hero h1 span{display:block;text-wrap:balance}
 .fade{font-style:normal;background:linear-gradient(90deg,var(--ink) 0%,var(--ink) 16%,color-mix(in srgb,var(--ink) 9%,transparent) 97%);-webkit-background-clip:text;background-clip:text;color:transparent;padding-right:.04em}
-.lede{max-width:31rem;margin:1.5rem auto 0;font-size:1.125rem;line-height:1.55;color:var(--ink-2);text-wrap:balance}
+.lede{max-width:31rem;margin:clamp(1rem,3vh,1.5rem) auto 0;font-size:1.125rem;line-height:1.55;color:var(--ink-2);text-wrap:balance}
 
 /* the stage: a browser window. Drop a file into it and it becomes a page. */
-.stage{position:relative;max-width:54rem;margin:3.25rem auto 0;padding:0 1.5rem}
+.stage{position:relative;max-width:54rem;margin:clamp(2rem,6vh - 1rem,3.25rem) auto 0;padding:0 1.5rem}
 .stage::before{content:"";position:absolute;left:50%;top:-6rem;bottom:-5rem;width:100vw;transform:translateX(-50%);z-index:-1;pointer-events:none;
   background:radial-gradient(ellipse 38% 46% at 50% 42%,var(--glow),transparent 72%),radial-gradient(circle,var(--dot) 1px,transparent 1.3px) 0 0/22px 22px;
   -webkit-mask-image:radial-gradient(ellipse 58% 62% at 50% 45%,#000 35%,transparent 78%);mask-image:radial-gradient(ellipse 58% 62% at 50% 45%,#000 35%,transparent 78%)}
@@ -82,7 +85,9 @@ body{overflow-x:clip}
 @keyframes nudge{20%{transform:translateX(-4px)}45%{transform:translateX(4px)}70%{transform:translateX(-2px)}}
 .chrome{display:flex;align-items:center;gap:.875rem;height:3.25rem;padding:0 .75rem 0 1.125rem;border-bottom:1px solid var(--line);border-radius:var(--r-lg) var(--r-lg) 0 0;background:linear-gradient(var(--surface),var(--sunken))}
 .dots{display:flex;gap:.45rem;flex:none}
-.dots i{width:.6875rem;height:.6875rem;border-radius:50%;background:var(--line-2)}
+.dots i{width:.75rem;height:.75rem;border-radius:50%;background:#ff5f57;box-shadow:inset 0 0 0 .5px rgba(0,0,0,.14)}
+.dots i:nth-child(2){background:#febc2e}
+.dots i:nth-child(3){background:#28c840}
 .addr{flex:1;min-width:0;display:flex;align-items:center;gap:.5rem;height:2.125rem;padding:0 .3rem 0 .8rem;background:var(--surface);border:1px solid var(--line);border-radius:999px;box-shadow:inset 0 1px 2px rgba(18,18,17,.04);font-family:var(--mono);font-size:.8125rem;color:var(--ink);transition:border-color var(--t2) var(--ease)}
 .addr>svg{flex:none;width:.8125rem;height:.8125rem;stroke:var(--ink-3);stroke-width:2;fill:none;stroke-linecap:round;stroke-linejoin:round}
 .win.public .addr>.i-lock{display:none}
@@ -104,7 +109,7 @@ body{overflow-x:clip}
 .addr-copy.copied{color:var(--ok)}
 .win.done .addr-copy{display:grid}
 .tools{display:flex;gap:.375rem;flex:none}
-.view{position:relative;height:25rem;border-radius:0 0 var(--r-lg) var(--r-lg);overflow:hidden;transition:opacity var(--t2) var(--ease)}
+.view{position:relative;height:clamp(19rem,100vh - 28rem,25rem);border-radius:0 0 var(--r-lg) var(--r-lg);overflow:hidden;transition:opacity var(--t2) var(--ease)}
 
 /* empty page: a sheet waiting to drop in */
 .field{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:1.5rem;text-align:center;cursor:pointer;transition:background-color var(--t2) var(--ease)}
@@ -241,16 +246,6 @@ input[type=file]{display:none}
 .ask.open .ask-inner{opacity:1}
 .ask.settled .ask-inner{overflow:visible}
 .ask .term{margin-top:1rem}
-.ask-inner .cli{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:.5rem .75rem;margin:1.25rem 0 .5rem;font-size:.8125rem;color:var(--ink-3)}
-.cli-row{display:flex;align-items:center;gap:.25rem;padding:.25rem .25rem .25rem .75rem;background:var(--surface);border:1px solid var(--line);border-radius:var(--r-s);box-shadow:var(--shadow-sm)}
-.cli-row code{font-family:var(--mono);font-size:.8125rem;color:var(--ink);white-space:nowrap}
-.cli-row code::before{content:"$ ";color:var(--ink-4)}
-.icon-btn{display:grid;place-items:center;width:1.875rem;height:1.875rem;border:0;border-radius:7px;background:none;color:var(--ink-3);cursor:pointer;transition:background-color var(--t1) var(--ease),color var(--t1) var(--ease)}
-.icon-btn:hover{background:var(--sunken);color:var(--ink)}
-.icon-btn svg{width:.875rem;height:.875rem;stroke:currentColor;stroke-width:2;fill:none;stroke-linecap:round;stroke-linejoin:round}
-.icon-btn .i-ok,.icon-btn.copied .i-copy{display:none}
-.icon-btn.copied .i-ok{display:block}
-.icon-btn.copied{color:var(--ok)}
 /* the terminal follows the theme, a sibling of the browser window above */
 .term{color:var(--ink);background:var(--surface);border-radius:var(--r-lg);box-shadow:var(--win-shadow)}
 .term-bar{display:flex;align-items:center;gap:.875rem;height:2.75rem;padding:0 1rem;border-bottom:1px solid var(--line);border-radius:var(--r-lg) var(--r-lg) 0 0;background:linear-gradient(var(--surface),var(--sunken))}
@@ -402,7 +397,6 @@ input[type=file]{display:none}
               <button type="button" class="btn" id="agCopy">${I.copy}<span class="lbl"></span></button>
             </div>
           </div>
-          <p class="cli">Prefer the terminal?<span class="cli-row"><code>npx -y htmldrop-cli ./report.html</code><button type="button" class="icon-btn" id="cliCopy" title="Copy" aria-label="Copy command">${I.copy}</button></span></p>
         </div>
       </div>
     </div>
@@ -682,6 +676,8 @@ input[type=file]{display:none}
     }
     if(fresh)typeLink(document.getElementById('lkId'),pw,d.id,isPub?'':'?p='+d.password);
     dz.classList.add('done');res.classList.add('show');
+    // On a laptop screen Copy link and Open sit just under the fold; bring them up.
+    if(fresh)res.scrollIntoView({behavior:'smooth',block:'nearest'});
     renderTray();
   }
   function saveSettings(change,revert){
@@ -719,8 +715,6 @@ input[type=file]{display:none}
   askBtn.addEventListener('click',function(){setAsk(!ask.classList.contains('open'),true);});
   // Old links to #agents land on the prompt, open.
   if(location.hash==='#agents')setAsk(true,false);
-  var cliCopy=document.getElementById('cliCopy');
-  cliCopy.addEventListener('click',function(){copyText('npx -y htmldrop-cli ./report.html',cliCopy,null);});
 
   var ecb=document.getElementById('editCopyBtn');
   ecb.addEventListener('click',function(){if(link)copyText(link.url,ecb,null);});
