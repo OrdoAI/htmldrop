@@ -13,6 +13,19 @@ export const FAVICON_LINK =
   '<link rel="icon" href="/favicon.svg" type="image/svg+xml">' +
   '<link rel="apple-touch-icon" href="/apple-touch-icon.png">';
 
+// The visitor's theme choice lives in localStorage under "theme" ("light" or
+// "dark"; nothing means follow the system). THEME_BOOT sits in every page's
+// <head> so the choice lands on <html data-theme> before the first paint.
+export const THEME_BOOT =
+  '<script>try{var t=localStorage.getItem("theme");if(t==="light"||t==="dark")document.documentElement.dataset.theme=t}catch(e){}</script>';
+
+// Dark-mode rules: under the system preference unless the visitor picked
+// light, and always once they picked dark. `rule` gets the root selector to
+// put in front of each of its selectors.
+export function dark(rule: (root: string) => string): string {
+  return `@media(prefers-color-scheme:dark){${rule(":root:not([data-theme=light])")}}${rule(":root[data-theme=dark]")}`;
+}
+
 export const THEME_CSS = `
 @font-face{font-family:"Geist";src:url(/_fonts/geist-1.7.2.woff2) format("woff2");font-weight:100 900;font-style:normal;font-display:swap}
 @font-face{font-family:"Geist Mono";src:url(/_fonts/geist-mono-1.7.2.woff2) format("woff2");font-weight:100 900;font-style:normal;font-display:swap}
@@ -32,7 +45,8 @@ export const THEME_CSS = `
   --r-lg:18px;--r:14px;--r-s:10px;
   color-scheme:light dark;
 }
-@media(prefers-color-scheme:dark){:root{
+${dark((r) => `${r}{
+  color-scheme:dark;
   --bg:#0c0c0b;--surface:#151514;--sunken:#1c1c1a;--hover:#242422;
   --ink:#f2f2ee;--ink-2:#abaaa3;--ink-3:#7a7a73;--ink-4:#4c4c47;
   --line:#262624;--line-2:#34342f;
@@ -42,7 +56,8 @@ export const THEME_CSS = `
   --shadow-sm:0 1px 2px rgba(0,0,0,.4);
   --shadow:0 1px 2px rgba(0,0,0,.4),0 12px 32px -12px rgba(0,0,0,.7);
   --shadow-lg:0 2px 6px rgba(0,0,0,.5),0 24px 56px -16px rgba(0,0,0,.85);
-}}
+}`)}
+:root[data-theme=light]{color-scheme:light}
 *,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
 html{background:var(--bg);-webkit-text-size-adjust:100%}
 body{font-family:var(--sans);font-size:15px;line-height:1.55;color:var(--ink);background:var(--bg);-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;text-rendering:optimizeLegibility}

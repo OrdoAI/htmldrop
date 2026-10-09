@@ -1,4 +1,4 @@
-import { FAVICON_LINK, FONT_PRELOAD, MARK_SVG, THEME_CSS } from "./theme";
+import { FAVICON_LINK, FONT_PRELOAD, MARK_SVG, THEME_BOOT, THEME_CSS, dark } from "./theme";
 
 const I = {
   lock: '<svg class="i-lock" viewBox="0 0 24 24" aria-hidden="true"><rect x="4.5" y="10.5" width="15" height="10" rx="2.5"/><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3"/></svg>',
@@ -14,7 +14,9 @@ const I = {
   term: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 8 4 4-4 4M12 16h7"/></svg>',
   refresh: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19.5 10.5A7.5 7.5 0 0 0 6 6.6L4.5 8M4.5 4v4h4M4.5 13.5A7.5 7.5 0 0 0 18 17.4l1.5-1.4M19.5 20v-4h-4"/></svg>',
   comment: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12.5a7.5 7.5 0 0 1-11.2 6.53L4 20l1.05-4.4A7.5 7.5 0 1 1 20 12.5Z"/></svg>',
-  gh: '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .3a12 12 0 00-3.79 23.4c.6.1.82-.26.82-.58v-2.17c-3.34.73-4.04-1.61-4.04-1.61-.55-1.39-1.34-1.76-1.34-1.76-1.09-.75.08-.73.08-.73 1.2.08 1.84 1.24 1.84 1.24 1.07 1.84 2.81 1.31 3.5 1 .1-.78.42-1.31.76-1.61-2.67-.3-5.47-1.33-5.47-5.93 0-1.31.47-2.38 1.24-3.22-.13-.3-.54-1.52.12-3.18 0 0 1-.32 3.3 1.23a11.5 11.5 0 016.02 0c2.28-1.55 3.29-1.23 3.29-1.23.66 1.66.25 2.88.12 3.18.77.84 1.24 1.91 1.24 3.22 0 4.61-2.81 5.63-5.48 5.92.43.37.81 1.1.81 2.22v3.29c0 .32.22.7.82.58A12 12 0 0012 .3"/></svg>',
+  system: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect width="20" height="14" x="2" y="3" rx="2"/><path d="M8 21h8M12 17v4"/></svg>',
+  sun: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>',
+  moon: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>',
 };
 
 // A chip that opens a short menu: who can open the link.
@@ -47,20 +49,22 @@ export function homePage(): string {
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="light dark">
+${THEME_BOOT}
 <title>HTMLDrop: share a page with a link that expires</title>
 ${FAVICON_LINK}
 ${FONT_PRELOAD}
 <style>${THEME_CSS}
 :root{--dot:rgba(18,18,17,.14);--glow:rgba(44,83,232,.16);--win-shadow:0 0 0 1px rgba(18,18,17,.07),0 1px 2px rgba(18,18,17,.05),0 12px 24px -12px rgba(18,18,17,.12),0 40px 80px -32px rgba(18,18,17,.22),0 80px 140px -60px rgba(44,83,232,.28)}
-@media(prefers-color-scheme:dark){:root{--dot:rgba(255,255,255,.075);--glow:rgba(127,151,255,.13);--win-shadow:0 0 0 1px rgba(255,255,255,.07),inset 0 1px 0 rgba(255,255,255,.05),0 12px 24px -12px rgba(0,0,0,.6),0 40px 90px -30px rgba(0,0,0,.85),0 80px 160px -60px rgba(127,151,255,.22)}}
+${dark((r) => `${r}{--dot:rgba(255,255,255,.075);--glow:rgba(127,151,255,.13);--win-shadow:0 0 0 1px rgba(255,255,255,.07),inset 0 1px 0 rgba(255,255,255,.05),0 12px 24px -12px rgba(0,0,0,.6),0 40px 90px -30px rgba(0,0,0,.85),0 80px 160px -60px rgba(127,151,255,.22)}`)}
 body{overflow-x:clip}
 .top{display:flex;align-items:center;justify-content:space-between;max-width:68rem;margin:0 auto;padding:1.375rem 1.5rem}
 .brand{display:inline-flex;align-items:center;gap:.6rem;font-size:.9375rem;font-weight:650;letter-spacing:-.02em}
-.nav{display:flex;align-items:center;gap:1.5rem;font-size:.875rem;color:var(--ink-2)}
-.nav a{transition:color var(--t1) var(--ease)}
-.nav a:hover{color:var(--ink)}
-.nav .gh{display:flex}
-.nav .gh svg{width:1.25rem;height:1.25rem}
+.seg{display:inline-flex;gap:2px;padding:3px;border-radius:999px;background:var(--sunken);box-shadow:inset 0 0 0 1px var(--line)}
+.seg button{display:grid;place-items:center;width:1.75rem;height:1.75rem;padding:0;border:0;border-radius:999px;background:none;color:var(--ink-3);cursor:pointer;transition:color var(--t1) var(--ease),background-color var(--t1) var(--ease),box-shadow var(--t1) var(--ease)}
+.seg button:hover{color:var(--ink)}
+.seg button[aria-checked="true"]{background:var(--surface);color:var(--ink);box-shadow:0 0 0 1px var(--line-2),0 1px 2px rgba(0,0,0,.08)}
+.seg button:focus-visible{border-radius:999px}
+.seg svg{width:.9375rem;height:.9375rem;stroke:currentColor;stroke-width:1.75;fill:none;stroke-linecap:round;stroke-linejoin:round}
 
 /* hero: the last word of the promise fades out, the way the link will */
 /* The hero, the gap and the window's page area all give way to a short
@@ -287,7 +291,7 @@ input[type=file]{display:none}
 /* --ink-3 is too faint for body text on a card (3.4:1); this clears 4.5:1 */
 .fact p{grid-column:1/-1;margin-top:.6rem;font-size:.875rem;line-height:1.55;color:#70706a;text-wrap:pretty}
 .vh{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
-@media(prefers-color-scheme:dark){.fact .ft{box-shadow:inset 0 0 0 1px var(--line-2)}.fact p{color:#8f8f88}}
+${dark((r) => `${r} .fact .ft{box-shadow:inset 0 0 0 1px var(--line-2)}${r} .fact p{color:#8f8f88}`)}
 .foot{display:flex;flex-wrap:wrap;justify-content:space-between;gap:.75rem 1.5rem;max-width:54rem;margin:5rem auto 0;padding:1.75rem 1.5rem 3rem;border-top:1px solid var(--line);font-size:.8125rem;color:var(--ink-3)}
 .foot nav{display:flex;gap:1.25rem}
 .foot a{transition:color var(--t1) var(--ease)}
@@ -299,7 +303,6 @@ input[type=file]{display:none}
 @media(max-width:560px){
   body{font-size:14.5px}
   .top{padding:1.125rem 1rem}
-  .nav{gap:1.1rem}
   .hero{padding:2.25rem 1rem 0}
   .lede{font-size:1rem;margin-top:1.125rem}
   .stage{margin-top:2.25rem;padding:0 .875rem}
@@ -328,8 +331,35 @@ input[type=file]{display:none}
 <body>
 <header class="top">
   <a class="brand" href="/">${MARK_SVG}HTMLDrop</a>
-  <nav class="nav"><a class="gh" href="https://github.com/OrdoAI/htmldrop" title="Source on GitHub" aria-label="Source on GitHub">${I.gh}</a></nav>
+  <div class="seg" id="theme" role="radiogroup" aria-label="Theme"><button type="button" role="radio" data-t="system" title="System" aria-label="System">${I.system}</button><button type="button" role="radio" data-t="light" title="Light" aria-label="Light">${I.sun}</button><button type="button" role="radio" data-t="dark" title="Dark" aria-label="Dark">${I.moon}</button></div>
 </header>
+<script>
+// System, Light or Dark. THEME_BOOT applied any saved choice already; another
+// tab's choice follows through the storage event. Arrow keys move the choice,
+// as in any radio group.
+(function(){
+  var g=document.getElementById('theme'),root=document.documentElement,bs=[].slice.call(g.querySelectorAll('button'));
+  function apply(t){
+    if(t==='light'||t==='dark')root.dataset.theme=t;else{delete root.dataset.theme;t='system';}
+    bs.forEach(function(b){var on=b.dataset.t===t;b.setAttribute('aria-checked',on);b.tabIndex=on?0:-1;});
+  }
+  function pick(t){
+    apply(t);
+    try{if(t==='system')localStorage.removeItem('theme');else localStorage.setItem('theme',t);}catch(e){}
+  }
+  apply(root.dataset.theme);
+  bs.forEach(function(b,i){
+    b.addEventListener('click',function(){pick(b.dataset.t);});
+    b.addEventListener('keydown',function(e){
+      var d=e.key==='ArrowRight'||e.key==='ArrowDown'?1:e.key==='ArrowLeft'||e.key==='ArrowUp'?-1:0;
+      if(!d)return;
+      e.preventDefault();
+      var n=bs[(i+d+bs.length)%bs.length];pick(n.dataset.t);n.focus();
+    });
+  });
+  window.addEventListener('storage',function(e){if(e.key==='theme')apply(e.newValue);});
+})();
+</script>
 
 <main>
   <section class="hero">
