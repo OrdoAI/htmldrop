@@ -56,8 +56,9 @@ npx -y htmldrop-cli create "<file>"
 The CLI accepts relative paths, absolute paths, `~/...`, and `file://` URIs.
 Quote the path so spaces are handled correctly.
 
-If a local file is literally named `create` or `update`, use the explicit
-create form with a path, for example `npx -y htmldrop-cli create ./update`.
+If a local file is literally named `create`, `update`, `settings`, or
+`comments`, use the explicit create form with a path, for example
+`npx -y htmldrop-cli create ./update`.
 
 To check the installed CLI version:
 
@@ -149,9 +150,6 @@ replace that URL.
 `update` is a destructive overwrite: anyone with the full URL can view the
 page, and anyone using that same full URL to update can replace its content.
 
-Old `--update <url> <file>` instructions are obsolete. Use
-`update <url> <file>` instead.
-
 ## Migrating Comments on Update
 
 A preview can carry reviewer comments anchored to quoted text. When you
@@ -219,7 +217,7 @@ relies on text-quote fallback, orphaning anchors it can no longer locate).
   upload. With `--no-renew` it is deleted on the date, opened or not.
 - With `--public` the CLI prints two stdout lines: first the bare
   `https://baseurl.ai/<id>` that anyone can open, then the password link, which
-  is the edit link (needed for `update` and `comments`).
+  is the edit link (needed for `update`, `settings`, and `comments`).
 - `update <url> <file>` sends the `id` and password from that URL with the new
   content, returns the same URL, restarts the expiry window, and keeps the
   preview's visibility, lifetime, and renew setting unless `--public`,
@@ -271,19 +269,13 @@ Read both stdout and stderr from the command.
   still be created, but unresolved local references can make the remote preview
   incomplete.
 
-Suggested final response:
+Example reply for a default private upload (illustrative; adapt it to the
+flags you used and to what the CLI printed):
 
 ```text
 Uploaded: <url>
 The link includes the access password and can be forwarded as-is. It is
 deleted after 14 days without a visit; each visit restarts that.
-```
-
-Add a short warning line when relevant:
-
-```text
-Warning: 2 local assets were not found during upload, so the remote preview may
-be missing those images or styles.
 ```
 
 ## Troubleshooting
@@ -302,7 +294,7 @@ be missing those images or styles.
   recover the password from a clean preview URL.
 - `settings failed (409)`: the page was re-uploaded while its settings were
   being saved. Run the same `settings` command again.
-- Old `--update <url> <file>` examples fail on the 0.2 CLI. Rewrite them as
+- `Unknown option '--update'`: `update` is a subcommand, not a flag. Run
   `update <url> <file>`.
 - If the CLI says the installed htmldrop skill is outdated, run
   `npx skills update htmldrop`, then retry.

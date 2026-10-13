@@ -15,8 +15,11 @@ Run the published CLI with `npx`:
 npx -y htmldrop-cli ./report.html
 npx -y htmldrop-cli create ./report.html
 npx -y htmldrop-cli ./notes.md
+npx -y htmldrop-cli --public --expires 30 ./report.html
+npx -y htmldrop-cli --expires 3 --no-renew ./report.html
 npx -y htmldrop-cli update "https://baseurl.ai/<id>?p=<password>" ./report.html
 npx -y htmldrop-cli settings "https://baseurl.ai/<id>?p=<password>" --public --expires 30
+npx -y htmldrop-cli comments "https://baseurl.ai/<id>?p=<password>"
 ```
 
 The CLI accepts relative paths, absolute paths, `~/...`, and `file://` URIs.
@@ -26,8 +29,16 @@ same-dimension WebP when that reduces the upload payload.
 
 The bare form and `create` make a new preview. `update <url> <file>` overwrites
 an existing preview while keeping the same password-bearing URL. `settings <url>`
-changes a live preview's visibility (`--public` / `--private`) and expiry
-(`--expires <days>`, counted from now) without uploading it again.
+changes a live preview's visibility (`--public` / `--private`), expiry
+(`--expires <days>`, counted from now), and renew-on-visit (`--renew` /
+`--no-renew`) without uploading it again. `comments <url>` prints the preview's
+comments as JSON; `update --comment-anchors <file>` re-anchors them after the
+document changed (see `skills/htmldrop/SKILL.md`).
+
+`--public` also opens the preview at its bare URL, `--expires <days>` (1 to 30,
+default 14) sets the expiry window, and `--no-renew` deletes the preview on its
+date instead of restarting the window on each visit. See Security Notes for the
+exact semantics.
 
 Useful options:
 
@@ -66,6 +77,7 @@ Run checks:
 npm run typecheck
 npm test
 npm run test:cli
+npm run test:pages
 npm run build
 ```
 
@@ -83,11 +95,14 @@ npm run test:browser-compression
 - `src/index.ts` is the Worker entrypoint and route dispatcher.
 - `src/upload.ts` handles uploads, in-place updates, and preview URL generation.
 - `src/serve.ts` serves password-protected previews and update notices.
-- `src/auth.ts` and `src/security.ts` contain auth, version, and transport security logic.
+- `src/auth.ts` and `src/security.ts` contain auth, expiry, version, and transport security logic.
+- `src/envelope.ts` is the encryption-at-rest layer; `src/cleanup.ts` is the daily expiry sweep.
+- `src/comments.ts`, `src/widget.ts`, and `src/anchor.ts` implement reviewer comments and quote anchoring.
 - `src/pages/` contains server-rendered HTML pages.
 - `src/__tests__/` contains Vitest tests using the Cloudflare Workers test pool.
 - `cli/` contains the npm CLI package and CLI-specific tests.
-- `scripts/` contains local regression scripts that do not run in CI.
+- `scripts/` contains the operator scripts (`pin-page.mjs`, `migrate-encrypt.mjs`) and
+  regression scripts; `pages-script.test.mjs` runs in CI, `browser-compression.test.mjs` is local-only.
 - `skills/htmldrop/SKILL.md` documents agent-facing CLI usage.
 
 ## Security Notes
@@ -170,9 +185,16 @@ Pushes to `main` run the Deploy workflow:
 3. `npm run typecheck`
 4. `npm test`
 5. `npm run test:cli`
-6. `npx wrangler deploy`
+6. `npm run test:pages`
+7. `npx wrangler deploy`
 
 CLI publishing is handled separately by `.github/workflows/publish-cli.yml`
-when files under `cli/` change. The publish workflow installs root and CLI
-dependencies, runs Worker and CLI tests, checks the package contents, confirms
+when files under `cli/` or `skills/htmldrop/` change. The publish workflow
+installs root and CLI dependencies, runs the same checks, bakes the current
+skill's hashes into `cli/skill-tree.json`, checks the package contents, confirms
 the `htmldrop-cli` version is unpublished, then publishes to npm.
+
+The CLI refuses to run when the installed skill's hash differs from the baked
+one, so a skill edit must ship with a CLI release: bump `cli/package.json` and
+`cli/package-lock.json` in the same change, or the publish job fails on the
+already-published version and fresh skill installs are reported as outdated.

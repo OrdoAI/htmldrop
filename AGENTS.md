@@ -52,8 +52,9 @@ behavior, add focused tests under `cli/__tests__/` and expose them through
 
 For auth, transport, upload, or asset inlining changes, cover both success and
 rejection or fallback paths, including headers, status codes, payload size, and
-package contents when relevant. Run `npm run typecheck`, `npm test`, and
-`npm run test:cli` before handing off changes that touch runtime behavior.
+package contents when relevant. Run `npm run typecheck`, `npm test`,
+`npm run test:cli`, and `npm run test:pages` before handing off changes that
+touch runtime behavior.
 
 ## Commit & Pull Request Guidelines
 
@@ -71,5 +72,7 @@ Preview URLs include access passwords as query parameters; treat returned links
 as secrets. Do not commit `.dev.vars`, API keys, generated `dist/`, or local
 `.claude/` state. Production deploys are triggered by pushes to `main` and
 require Cloudflare secrets configured in GitHub Actions. CLI publishes are
-triggered by changes under `cli/`; bump `cli/package.json` and
-`cli/package-lock.json` together before publishing a new npm version.
+triggered by changes under `cli/` or `skills/htmldrop/`; the CLI rejects an
+installed skill whose hash differs from the one baked at publish, so bump
+`cli/package.json` and `cli/package-lock.json` in the same change as any
+skill edit.
