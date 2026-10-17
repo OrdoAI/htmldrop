@@ -249,16 +249,16 @@ input[type=file]{display:none}
 .picker-label{width:100%;font-size:.875rem;color:var(--ink-2);text-align:center}
 #fileSelect{flex:1;min-width:12rem;height:2.5rem;padding:0 .75rem;background:var(--sunken);border:1px solid var(--line);border-radius:var(--r-s);font-family:var(--mono);font-size:.8125rem}
 
-/* for agents: a segmented control under the window switches it between the
-   browser and a terminal holding the prompt, which takes its access and expiry
-   from the window's own chips. */
+/* for agents: a segmented control in the title bar, after the traffic lights,
+   switches the window between the browser and a terminal holding the prompt,
+   which takes its access and expiry from the window's own chips. */
 .sec{max-width:54rem;margin:0 auto;padding:0 1.5rem}
-.mode{display:flex;width:max-content;margin:1.75rem auto 0;padding:.1875rem;gap:.125rem;background:var(--sunken);border:1px solid var(--line);border-radius:.75rem}
-.win.done~.mode{display:none}
-.mode button{display:inline-flex;align-items:center;gap:.45rem;height:2.125rem;padding:0 .875rem;border:0;border-radius:.5625rem;background:none;color:var(--ink-3);font-size:.875rem;font-weight:550;cursor:pointer;transition:background-color var(--t1) var(--ease),color var(--t1) var(--ease),box-shadow var(--t1) var(--ease)}
+.mode{display:flex;flex:none;gap:.125rem;padding:.125rem;background:var(--sunken);border:1px solid var(--line);border-radius:.625rem}
+.win.done .mode{display:none}
+.mode button{display:grid;place-items:center;width:2.125rem;height:1.75rem;padding:0;border:0;border-radius:.5rem;background:none;color:var(--ink-3);cursor:pointer;transition:background-color var(--t1) var(--ease),color var(--t1) var(--ease),box-shadow var(--t1) var(--ease)}
 .mode button:hover{color:var(--ink)}
 .mode button[aria-pressed="true"]{background:var(--surface);color:var(--ink);box-shadow:0 0 0 1px var(--line),var(--shadow-sm)}
-.mode svg{width:.9375rem;height:.9375rem;flex:none;stroke:currentColor;stroke-width:1.9;fill:none;stroke-linecap:round;stroke-linejoin:round}
+.mode svg{width:.9375rem;height:.9375rem;stroke:currentColor;stroke-width:1.9;fill:none;stroke-linecap:round;stroke-linejoin:round}
 .prompt-view{position:absolute;inset:0;display:flex;flex-direction:column;justify-content:space-between;gap:1rem;padding:1.125rem 1.5rem 1rem;opacity:0;pointer-events:none;transition:opacity var(--t2) var(--ease)}
 .win.agent .prompt-view{opacity:1;pointer-events:auto}
 .win.agent .field{opacity:0;pointer-events:none}
@@ -304,12 +304,19 @@ ${dark((r) => `${r} .fact .ft{box-shadow:inset 0 0 0 1px var(--line-2)}${r} .fac
   .hero{padding:2.25rem 1rem 0}
   .lede{font-size:1rem;margin-top:1.125rem}
   .stage{margin-top:2.25rem;padding:0 .875rem}
-  .chrome{flex-wrap:wrap;height:auto;gap:.5rem;padding:.625rem}
-  .dots{height:2.125rem;align-items:center;padding:0 .25rem 0 .375rem}
-  .addr{flex:1}
-  .tools{position:relative;width:100%}
-  .tools .menu-wrap{position:static}
-  .tools .menu{left:0;right:auto;transform-origin:top left}
+  /* two rows: the lights and the address (or title) over the switch and the
+     chips, which share what is left of the row; the menus open from the bar */
+  .chrome{display:grid;grid-template-columns:auto minmax(0,1fr);gap:.5rem;height:auto;padding:.625rem}
+  .dots{grid-area:1/1;height:2.125rem;align-items:center;padding:0 .375rem}
+  .addr{grid-area:1/2}
+  .mode{grid-area:2/1}
+  .tools{grid-area:2/2}
+  .win.done .tools{grid-column:1/-1}
+  .win.agent .tools{margin-left:0}
+  .tools .menu-wrap{flex:1;position:static}
+  .tools .chip{width:100%;justify-content:center}
+  .tools .menu{left:.625rem;right:auto;transform-origin:top left}
+  .tools .menu-wrap:last-child .menu{left:auto;right:.625rem;transform-origin:top right}
   .view{height:21rem}
   .art{transform:scale(.88);margin-bottom:1rem}
   .acts{width:100%}
@@ -368,6 +375,10 @@ ${dark((r) => `${r} .fact .ft{box-shadow:inset 0 0 0 1px var(--line-2)}${r} .fac
     <div class="win" id="dropZone">
       <div class="chrome">
         <span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>
+        <div class="mode" role="group" aria-label="How to publish">
+          <button type="button" id="modeFile" aria-pressed="true" aria-controls="dropField" title="Drop a file" aria-label="Drop a file">${I.win}</button>
+          <button type="button" id="modeAgent" aria-pressed="false" aria-controls="agentView" title="Ask an agent: Claude Code, Cursor, Codex" aria-label="Ask an agent">${I.term}</button>
+        </div>
         <span class="ttl" aria-hidden="true">~/your-project</span>
         <div class="addr">
           ${I.lock}${I.globe}
@@ -430,10 +441,6 @@ ${dark((r) => `${r} .fact .ft{box-shadow:inset 0 0 0 1px var(--line-2)}${r} .fac
       <div class="warn-info" id="warnInfo"></div>
     </div>
 
-    <div class="mode" role="group" aria-label="How to publish">
-      <button type="button" id="modeFile" aria-pressed="true" aria-controls="dropField">${I.win}Drop a file</button>
-      <button type="button" id="modeAgent" aria-pressed="false" aria-controls="agentView" title="Claude Code, Cursor, Codex">${I.term}Ask an agent</button>
-    </div>
   </section>
 
 
