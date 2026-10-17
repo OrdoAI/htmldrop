@@ -26,18 +26,6 @@ export function dark(rule: (root: string) => string): string {
   return `@media(prefers-color-scheme:dark){${rule(":root:not([data-theme=light])")}}${rule(":root[data-theme=dark]")}`;
 }
 
-// The dark palette, also used to turn a light-page element dark.
-export const DARK_VARS = `  --bg:#0c0c0b;--surface:#151514;--sunken:#1c1c1a;--hover:#242422;
-  --ink:#f2f2ee;--ink-2:#abaaa3;--ink-3:#7a7a73;--ink-4:#4c4c47;
-  --line:#262624;--line-2:#34342f;
-  --accent:#7f97ff;--accent-soft:#191f3d;--accent-line:#2e3a78;
-  --pub:#f0a45c;--pub-soft:#2b1d0f;--pub-line:#5b3c1c;
-  --ok:#4cc38a;--err:#ff7b72;--err-soft:#3a1d1a;--warn:#e2b25c;
-  --shadow-sm:0 1px 2px rgba(0,0,0,.4);
-  --shadow:0 1px 2px rgba(0,0,0,.4),0 12px 32px -12px rgba(0,0,0,.7);
-  --shadow-lg:0 2px 6px rgba(0,0,0,.5),0 24px 56px -16px rgba(0,0,0,.85);
-`;
-
 export const THEME_CSS = `
 @font-face{font-family:"Geist";src:url(/_fonts/geist-1.7.2.woff2) format("woff2");font-weight:100 900;font-style:normal;font-display:swap}
 @font-face{font-family:"Geist Mono";src:url(/_fonts/geist-mono-1.7.2.woff2) format("woff2");font-weight:100 900;font-style:normal;font-display:swap}
@@ -59,7 +47,16 @@ export const THEME_CSS = `
 }
 ${dark((r) => `${r}{
   color-scheme:dark;
-${DARK_VARS}}`)}
+  --bg:#0c0c0b;--surface:#151514;--sunken:#1c1c1a;--hover:#242422;
+  --ink:#f2f2ee;--ink-2:#abaaa3;--ink-3:#7a7a73;--ink-4:#4c4c47;
+  --line:#262624;--line-2:#34342f;
+  --accent:#7f97ff;--accent-soft:#191f3d;--accent-line:#2e3a78;
+  --pub:#f0a45c;--pub-soft:#2b1d0f;--pub-line:#5b3c1c;
+  --ok:#4cc38a;--err:#ff7b72;--err-soft:#3a1d1a;--warn:#e2b25c;
+  --shadow-sm:0 1px 2px rgba(0,0,0,.4);
+  --shadow:0 1px 2px rgba(0,0,0,.4),0 12px 32px -12px rgba(0,0,0,.7);
+  --shadow-lg:0 2px 6px rgba(0,0,0,.5),0 24px 56px -16px rgba(0,0,0,.85);
+}`)}
 :root[data-theme=light]{color-scheme:light}
 *,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
 html{background:var(--bg);-webkit-text-size-adjust:100%}

@@ -1,4 +1,4 @@
-import { DARK_VARS, FAVICON_LINK, FONT_PRELOAD, MARK_SVG, THEME_BOOT, THEME_CSS, dark } from "./theme";
+import { FAVICON_LINK, FONT_PRELOAD, MARK_SVG, THEME_BOOT, THEME_CSS, dark } from "./theme";
 
 const I = {
   lock: '<svg class="i-lock" viewBox="0 0 24 24" aria-hidden="true"><rect x="4.5" y="10.5" width="15" height="10" rx="2.5"/><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3"/></svg>',
@@ -265,8 +265,7 @@ input[type=file]{display:none}
 .prompt{font-family:var(--mono);font-size:.875rem;line-height:1.75}
 .tcur{display:inline-block;width:.6em;height:1.2em;margin-left:.2em;vertical-align:-.25em;background:var(--ink-2);animation:blink 1.1s steps(1) infinite}
 .prompt-view .btn{align-self:flex-end}
-/* with the prompt showing, the window is a dark terminal: a centered title, no address bar */
-.win.agent{${DARK_VARS}color-scheme:dark;color:var(--ink)}
+/* with the prompt showing, the window is a terminal in the page's theme: a centered title, no address bar */
 .ttl{display:none}
 .win.agent .addr{display:none}
 .win.agent .ttl{display:block;position:absolute;left:0;right:0;font-size:.8125rem;font-weight:600;color:var(--ink-3);text-align:center;pointer-events:none}
