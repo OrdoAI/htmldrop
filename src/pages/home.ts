@@ -1,4 +1,4 @@
-import { FAVICON_LINK, FONT_PRELOAD, MARK_SVG, THEME_BOOT, THEME_CSS, dark } from "./theme";
+import { DARK_VARS, FAVICON_LINK, FONT_PRELOAD, MARK_SVG, THEME_BOOT, THEME_CSS, dark } from "./theme";
 
 const I = {
   lock: '<svg class="i-lock" viewBox="0 0 24 24" aria-hidden="true"><rect x="4.5" y="10.5" width="15" height="10" rx="2.5"/><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3"/></svg>',
@@ -11,6 +11,7 @@ const I = {
   plus: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>',
   key: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="8" cy="15" r="4"/><path d="m11 12 8.5-8.5M16 6.5l2.5 2.5M18.5 4l2 2"/></svg>',
   down: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v12M7 12.5l5 5 5-5"/></svg>',
+  win: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="5" width="17" height="14" rx="2.5"/><path d="M3.5 9.5h17"/></svg>',
   term: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 8 4 4-4 4M12 16h7"/></svg>',
   refresh: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19.5 10.5A7.5 7.5 0 0 0 6 6.6L4.5 8M4.5 4v4h4M4.5 13.5A7.5 7.5 0 0 0 18 17.4l1.5-1.4M19.5 20v-4h-4"/></svg>',
   comment: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12.5a7.5 7.5 0 0 1-11.2 6.53L4 20l1.05-4.4A7.5 7.5 0 1 1 20 12.5Z"/></svg>',
@@ -120,7 +121,7 @@ body{overflow-x:clip}
 .view{position:relative;height:clamp(19rem,100vh - 28rem,25rem);border-radius:0 0 var(--r-lg) var(--r-lg);overflow:hidden;transition:opacity var(--t2) var(--ease)}
 
 /* empty page: a sheet waiting to drop in */
-.field{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:1.5rem;text-align:center;cursor:pointer;transition:background-color var(--t2) var(--ease)}
+.field{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:1.5rem;text-align:center;cursor:pointer;transition:background-color var(--t2) var(--ease),opacity var(--t2) var(--ease)}
 .field::before{content:"";position:absolute;inset:.75rem;border:1.5px dashed var(--accent);border-radius:calc(var(--r-lg) - .5rem);opacity:0;pointer-events:none;transition:opacity var(--t2) var(--ease)}
 body.dragging .field::before{opacity:.4}
 .art{position:relative;width:7.5rem;height:6.75rem;margin-bottom:1.5rem}
@@ -248,39 +249,35 @@ input[type=file]{display:none}
 .picker-label{width:100%;font-size:.875rem;color:var(--ink-2);text-align:center}
 #fileSelect{flex:1;min-width:12rem;height:2.5rem;padding:0 .75rem;background:var(--sunken);border:1px solid var(--line);border-radius:var(--r-s);font-family:var(--mono);font-size:.8125rem}
 
-/* for agents: one line under the window opens the prompt in place. It takes
-   its access and expiry from the window's chips, so there is one set. */
+/* for agents: a segmented control under the window switches it between the
+   browser and a terminal holding the prompt, which takes its access and expiry
+   from the window's own chips. */
 .sec{max-width:54rem;margin:0 auto;padding:0 1.5rem}
-.ask{display:flex;flex-direction:column;align-items:center;margin-top:1.75rem;scroll-margin-top:2rem}
-.ask-btn{display:inline-flex;align-items:center;gap:.5rem;height:2.375rem;padding:0 .8rem 0 .85rem;border:1px solid var(--line);border-radius:999px;background:var(--surface);box-shadow:var(--shadow-sm);color:var(--ink-2);font-size:.875rem;cursor:pointer;transition:border-color var(--t1) var(--ease),background-color var(--t1) var(--ease)}
-.ask-btn:hover{border-color:var(--line-2);background:var(--sunken)}
-.ask-btn b{font-weight:600;color:var(--ink);white-space:nowrap}
-.ask-btn .q-short{display:none}
-.ask-btn svg{width:.9rem;height:.9rem;flex:none;stroke:currentColor;stroke-width:2;fill:none;stroke-linecap:round;stroke-linejoin:round}
-.ask-btn .chev{color:var(--ink-3);transition:transform var(--t2) var(--ease)}
-.ask.open .ask-btn .chev{transform:rotate(180deg)}
-.ask-panel{display:grid;grid-template-rows:0fr;width:100%;transition:grid-template-rows var(--t3) var(--ease)}
-.ask.open .ask-panel{grid-template-rows:1fr}
-.ask-inner{min-height:0;overflow:hidden;margin:0 -1.5rem;padding:0 1.5rem;opacity:0;transition:opacity var(--t2) var(--ease)}
-.ask.open .ask-inner{opacity:1}
-.ask.settled .ask-inner{overflow:visible}
-.ask .term{margin-top:1rem;transition:box-shadow var(--t2) var(--ease)}
-/* .ask-inner clips while the panel grows; the wide shadow fades in once it stops clipping */
-.ask:not(.settled) .term{box-shadow:var(--shadow-sm)}
-/* the terminal follows the theme, a sibling of the browser window above */
-.term{color:var(--ink);background:var(--surface);border-radius:var(--r-lg);box-shadow:var(--win-shadow)}
-.term-bar{display:flex;align-items:center;gap:.875rem;height:2.75rem;padding:0 1rem;border-bottom:1px solid var(--line);border-radius:var(--r-lg) var(--r-lg) 0 0;background:linear-gradient(var(--surface),var(--sunken))}
-.term-title{font-family:var(--mono);font-size:.75rem;color:var(--ink-3)}
-.term-body{padding:1.25rem 1.375rem .5rem;font-family:var(--mono);font-size:.875rem;line-height:1.75}
-.term-body .t::before{content:"\\203A";margin-right:.6rem;color:var(--accent);font-weight:600}
+.mode{display:flex;width:max-content;margin:1.75rem auto 0;padding:.1875rem;gap:.125rem;background:var(--sunken);border:1px solid var(--line);border-radius:.75rem}
+.win.done~.mode{display:none}
+.mode button{display:inline-flex;align-items:center;gap:.45rem;height:2.125rem;padding:0 .875rem;border:0;border-radius:.5625rem;background:none;color:var(--ink-3);font-size:.875rem;font-weight:550;cursor:pointer;transition:background-color var(--t1) var(--ease),color var(--t1) var(--ease),box-shadow var(--t1) var(--ease)}
+.mode button:hover{color:var(--ink)}
+.mode button[aria-pressed="true"]{background:var(--surface);color:var(--ink);box-shadow:0 0 0 1px var(--line),var(--shadow-sm)}
+.mode svg{width:.9375rem;height:.9375rem;flex:none;stroke:currentColor;stroke-width:1.9;fill:none;stroke-linecap:round;stroke-linejoin:round}
+.prompt-view{position:absolute;inset:0;display:flex;flex-direction:column;justify-content:space-between;gap:1rem;padding:1.125rem 1.5rem 1rem;opacity:0;pointer-events:none;transition:opacity var(--t2) var(--ease)}
+.win.agent .prompt-view{opacity:1;pointer-events:auto}
+.win.agent .field{opacity:0;pointer-events:none}
+.prompt{font-family:var(--mono);font-size:.875rem;line-height:1.75}
+.tcur{display:inline-block;width:.6em;height:1.2em;margin-left:.2em;vertical-align:-.25em;background:var(--ink-2);animation:blink 1.1s steps(1) infinite}
+.prompt-view .btn{align-self:flex-end}
+/* with the prompt showing, the window is a dark terminal: a centered title, no address bar */
+.win.agent{${DARK_VARS}color-scheme:dark;color:var(--ink)}
+.ttl{display:none}
+.win.agent .addr{display:none}
+.win.agent .ttl{display:block;position:absolute;left:0;right:0;font-size:.8125rem;font-weight:600;color:var(--ink-3);text-align:center;pointer-events:none}
+.win.agent .tools{margin-left:auto}
+.prompt .t::before{content:"\\203A";margin-right:.6rem;color:var(--accent);font-weight:600}
+.prompt p{text-wrap:pretty}
 #agOpts{color:var(--pub)}
-.term-note{font-size:.8125rem;color:var(--ink-3)}
-.term-body .dim{margin-top:.75rem;padding-left:1.15rem;color:var(--ink-3);font-size:.8125rem}
-.term-body .dim code{display:block;margin-top:.15rem;color:var(--ink-2)}
+.prompt .dim{margin-top:.75rem;padding-left:1.15rem;color:var(--ink-3);font-size:.8125rem}
+.prompt .dim code{display:block;margin-top:.15rem;color:var(--ink-2)}
 .nw{white-space:nowrap}
-.term-foot{display:flex;flex-wrap:wrap;align-items:center;gap:.75rem;padding:.75rem .75rem .75rem 1.375rem}
-.term-foot .btn{margin-left:auto;height:2.375rem}
-.term-foot .btn.copied{background:var(--ok);border-color:var(--ok);color:#fff}
+#agCopy.copied{background:var(--ok);border-color:var(--ok);color:#fff}
 #agCopy .lbl::after{content:"Copy prompt"}
 #agCopy.copied .lbl::after{content:"Copied"}
 
@@ -309,8 +306,8 @@ ${dark((r) => `${r} .fact .ft{box-shadow:inset 0 0 0 1px var(--line-2)}${r} .fac
   .lede{font-size:1rem;margin-top:1.125rem}
   .stage{margin-top:2.25rem;padding:0 .875rem}
   .chrome{flex-wrap:wrap;height:auto;gap:.5rem;padding:.625rem}
-  .dots{display:none}
-  .addr{flex-basis:100%}
+  .dots{height:2.125rem;align-items:center;padding:0 .25rem 0 .375rem}
+  .addr{flex:1}
   .tools{position:relative;width:100%}
   .tools .menu-wrap{position:static}
   .tools .menu{left:0;right:auto;transform-origin:top left}
@@ -319,11 +316,10 @@ ${dark((r) => `${r} .fact .ft{box-shadow:inset 0 0 0 1px var(--line-2)}${r} .fac
   .acts{width:100%}
   .acts .btn{flex:1}
   .sec{padding:0 1rem}
-  .term-body{padding:1rem 1rem .25rem;font-size:.8125rem}
-  .term-foot{padding:.875rem}
-  .ask-btn .q-long{display:none}
-  .ask-btn .q-short{display:inline}
-  .term-foot .btn{width:100%;margin-left:0}
+  .prompt-view{padding:.875rem 1rem 1rem}
+  .prompt{font-size:.8125rem}
+  .prompt-view .btn{width:100%}
+  .win.agent .ttl{top:.625rem;line-height:2.125rem}
   .foot{padding:1.5rem 1rem 2.5rem;margin-top:3.5rem}
   .facts{gap:.625rem}
   .fact{padding:1rem}
@@ -369,10 +365,11 @@ ${dark((r) => `${r} .fact .ft{box-shadow:inset 0 0 0 1px var(--line-2)}${r} .fac
     <p class="lede" id="lede">Private and encrypted. Gone after 14 days without a visit.</p>
   </section>
 
-  <section class="stage" aria-label="Upload">
+  <section class="stage" id="agents" aria-label="Upload">
     <div class="win" id="dropZone">
       <div class="chrome">
         <span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span class="ttl" aria-hidden="true">~/your-project</span>
         <div class="addr">
           ${I.lock}${I.globe}
           <p class="lk-url" id="lkUrl" aria-label="Link"><span class="host" id="lkHost">baseurl.ai/</span><span id="lkId"></span><span class="pw" id="lkPw" title="The password. It travels in the link."></span><span class="ghost">your-page</span><i class="caret" aria-hidden="true"></i></p>
@@ -397,6 +394,13 @@ ${dark((r) => `${r} .fact .ft{box-shadow:inset 0 0 0 1px var(--line-2)}${r} .fac
             <button type="button" class="btn" id="pickFile">Choose file</button>
             <button type="button" class="btn secondary" id="pickFolder">Choose folder</button>
           </div>
+        </div>
+        <div class="prompt-view" id="agentView" inert>
+          <div class="prompt">
+            <p class="t">Use the HTMLDrop skill to publish this and send me the link.<span id="agOpts"></span></p>
+            <p class="dim">If the skill is missing, install it first:<code>npx -y skills add OrdoAI/htmldrop <span class="nw">--skill htmldrop</span> -g -y<i class="tcur" aria-hidden="true"></i></code></p>
+          </div>
+          <button type="button" class="btn" id="agCopy">${I.copy}<span class="lbl"></span></button>
         </div>
         <a class="thumb" id="thumb" href="#" target="_blank" rel="noopener" aria-label="Open the page"><span class="thumb-load"><i></i>Loading your page&hellip;</span><span class="thumb-cap">Open page${I.out}</span></a>
         <div class="thumb plain" id="thumbPlain">Too large to preview here. Open it to see it.</div>
@@ -427,23 +431,9 @@ ${dark((r) => `${r} .fact .ft{box-shadow:inset 0 0 0 1px var(--line-2)}${r} .fac
       <div class="warn-info" id="warnInfo"></div>
     </div>
 
-    <div class="ask" id="agents">
-      <button type="button" class="ask-btn" id="askBtn" aria-expanded="false" aria-controls="askPanel">${I.term}<span class="q-long">Using Claude Code, Cursor or Codex?</span><span class="q-short">Using an agent?</span><b>Copy a prompt</b>${I.chev}</button>
-      <div class="ask-panel" id="askPanel" inert>
-        <div class="ask-inner">
-          <div class="term">
-            <div class="term-bar"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span><span class="term-title">your agent</span></div>
-            <div class="term-body">
-              <p class="t">Use the HTMLDrop skill to publish this and send me the link.<span id="agOpts"></span></p>
-              <p class="dim">If the skill is missing, install it first:<code>npx -y skills add OrdoAI/htmldrop <span class="nw">--skill htmldrop</span> -g -y</code></p>
-            </div>
-            <div class="term-foot">
-              <span class="term-note">Uses the access and expiry set above.</span>
-              <button type="button" class="btn" id="agCopy">${I.copy}<span class="lbl"></span></button>
-            </div>
-          </div>
-        </div>
-      </div>
+    <div class="mode" role="group" aria-label="How to publish">
+      <button type="button" id="modeFile" aria-pressed="true" aria-controls="dropField">${I.win}Drop a file</button>
+      <button type="button" id="modeAgent" aria-pressed="false" aria-controls="agentView" title="Claude Code, Cursor, Codex">${I.term}Ask an agent</button>
     </div>
   </section>
 
@@ -485,7 +475,7 @@ ${dark((r) => `${r} .fact .ft{box-shadow:inset 0 0 0 1px var(--line-2)}${r} .fac
   // a release right after crossing an element would open the file in a new tab.
   function hasFiles(e){var t=e.dataTransfer&&e.dataTransfer.types;return !!t&&Array.prototype.indexOf.call(t,'Files')!==-1;}
   var dragDepth=0;
-  document.addEventListener('dragenter',function(e){if(!hasFiles(e))return;e.preventDefault();dragDepth++;document.body.classList.add('dragging');});
+  document.addEventListener('dragenter',function(e){if(!hasFiles(e))return;e.preventDefault();dragDepth++;document.body.classList.add('dragging');if(dz.classList.contains('agent'))setAgent(false);});
   document.addEventListener('dragleave',function(e){if(!hasFiles(e))return;if(--dragDepth<=0){dragDepth=0;document.body.classList.remove('dragging');}});
   document.addEventListener('dragover',function(e){if(hasFiles(e))e.preventDefault();});
   document.addEventListener('drop',function(e){if(hasFiles(e))e.preventDefault();dragDepth=0;document.body.classList.remove('dragging');});
@@ -733,7 +723,7 @@ ${dark((r) => `${r} .fact .ft{box-shadow:inset 0 0 0 1px var(--line-2)}${r} .fac
       pw.textContent='?p='+d.password;void pw.offsetWidth;dz.classList.remove('public');res.classList.remove('public');
     }
     if(fresh)typeLink(document.getElementById('lkId'),pw,d.id,isPub?'':'?p='+d.password);
-    dz.classList.add('done');res.classList.add('show');
+    setAgent(false);dz.classList.add('done');res.classList.add('show');
     // On a laptop screen Copy link and Open sit just under the fold; bring them up.
     if(fresh)res.scrollIntoView({behavior:'smooth',block:'nearest'});
     renderTray();
@@ -754,38 +744,25 @@ ${dark((r) => `${r} .fact .ft{box-shadow:inset 0 0 0 1px var(--line-2)}${r} .fac
     dz.scrollIntoView({behavior:'smooth',block:'center'});
   });
 
-  // For agents: the prompt the window's chips would produce, opened in place.
+  // For agents: the prompt the window's chips would produce, shown in the window
+  // in place of the drop field. A file dragged onto the page brings the field back.
   var INSTALL='npx -y skills add OrdoAI/htmldrop --skill htmldrop -g -y';
   var agCopy=document.getElementById('agCopy');
   function agSentences(){return (opts.public?' Make it public.':'')+(opts.days!==14?' Keep it for '+opts.days+' days.':'')+(opts.renew?'':" Don't renew it on visits.");}
   function agText(){return 'Use the HTMLDrop skill to publish this and send me the link.'+agSentences()+' If the skill is missing, install it first: '+INSTALL;}
   function renderPrompt(){var el=document.getElementById('agOpts');if(el)el.textContent=agSentences();}
   agCopy.addEventListener('click',function(){copyText(agText(),agCopy,null);});
-  var ask=document.getElementById('agents'),askBtn=document.getElementById('askBtn'),askPanel=document.getElementById('askPanel'),askTimer=0,askScroll=0;
-  // The panel grows below the button, often past the fold. Scroll with it,
-  // on the same 400ms curve as the panel (--t3, --ease), so the prompt rises
-  // into view instead of the page jumping when focus lands on Copy prompt.
-  function ease(t){var lo=0,hi=1,u;for(var i=0;i<18;i++){u=(lo+hi)/2;if(3*.2*u*(1-u)*(1-u)+3*.2*u*u*(1-u)+u*u*u<t)lo=u;else hi=u;}u=(lo+hi)/2;return 3*.7*u*(1-u)*(1-u)+3*u*u*(1-u)+u*u*u;}
-  function stopScroll(){cancelAnimationFrame(askScroll);askScroll=0;}
-  ['wheel','touchstart','keydown'].forEach(function(t){addEventListener(t,stopScroll,{passive:true});});
-  function revealAsk(){
-    var b=askBtn.getBoundingClientRect(),inner=askPanel.firstElementChild;
-    var by=Math.min(b.bottom+inner.scrollHeight+24-innerHeight,b.top-16);
-    if(by<=0)return;
-    var from=scrollY;
-    if(matchMedia('(prefers-reduced-motion: reduce)').matches){scrollTo(0,from+by);return;}
-    var t0=performance.now();stopScroll();
-    (function step(now){var t=Math.min(1,(now-t0)/400);scrollTo(0,from+by*ease(t));askScroll=t<1?requestAnimationFrame(step):0;})(t0);
+  var modeFile=document.getElementById('modeFile'),modeAgent=document.getElementById('modeAgent');
+  var agentView=document.getElementById('agentView'),dropField=document.getElementById('dropField');
+  function setAgent(on){
+    dz.classList.toggle('agent',on);modeFile.setAttribute('aria-pressed',String(!on));modeAgent.setAttribute('aria-pressed',String(on));
+    if(on){agentView.removeAttribute('inert');dropField.setAttribute('inert','');}
+    else{agentView.setAttribute('inert','');dropField.removeAttribute('inert');}
   }
-  function setAsk(open,focus){
-    clearTimeout(askTimer);stopScroll();ask.classList.remove('settled');
-    ask.classList.toggle('open',open);askBtn.setAttribute('aria-expanded',String(open));
-    if(open){askPanel.removeAttribute('inert');if(focus)revealAsk();askTimer=setTimeout(function(){ask.classList.add('settled');if(focus)agCopy.focus({preventScroll:true});},420);}
-    else askPanel.setAttribute('inert','');
-  }
-  askBtn.addEventListener('click',function(){setAsk(!ask.classList.contains('open'),true);});
-  // Old links to #agents land on the prompt, open.
-  if(location.hash==='#agents')setAsk(true,false);
+  modeFile.addEventListener('click',function(){setAgent(false);});
+  modeAgent.addEventListener('click',function(){setAgent(true);});
+  // Old links to #agents land on the prompt.
+  if(location.hash==='#agents')setAgent(true);
 
   var ecb=document.getElementById('editCopyBtn');
   ecb.addEventListener('click',function(){if(link)copyText(link.url,ecb,null);});
