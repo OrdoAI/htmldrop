@@ -170,7 +170,10 @@ input[type=file]{display:none}
 .thumb::after{content:"";position:absolute;left:0;right:0;bottom:0;height:5rem;background:linear-gradient(transparent,rgba(255,255,255,.9));pointer-events:none}
 .thumb-cap{position:absolute;left:50%;bottom:1.25rem;z-index:1;display:inline-flex;align-items:center;gap:.4rem;padding:.5rem .9rem;border-radius:999px;background:rgba(18,18,17,.88);color:#fff;font-size:.8125rem;font-weight:550;transform:translate(-50%,.4rem);opacity:0;transition:opacity var(--t2) var(--ease),transform var(--t2) var(--ease);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px)}
 .thumb-cap svg{width:.8125rem;height:.8125rem;stroke:currentColor;stroke-width:2;fill:none;stroke-linecap:round;stroke-linejoin:round}
-.thumb:hover .thumb-cap,.thumb:focus-visible .thumb-cap{opacity:1;transform:translate(-50%,0)}
+/* the preview is the way to open the page: hovering it says so, and where there is
+   no hover (a phone), or the page is too large to preview, it says so all along */
+.thumb:hover .thumb-cap,.thumb:focus-visible .thumb-cap,.thumb.plain .thumb-cap{opacity:1;transform:translate(-50%,0)}
+@media(hover:none){.thumb-cap{opacity:1;transform:translate(-50%,0)}}
 .thumb-load{position:absolute;inset:0;z-index:2;display:none;align-items:center;justify-content:center;gap:.6rem;background:var(--sunken);color:var(--ink-3);font-size:.875rem}
 .thumb-load i{width:1rem;height:1rem;border:1.5px solid var(--line-2);border-top-color:var(--ink-2);border-radius:50%;animation:spin .7s linear infinite}
 .thumb.loading .thumb-load{display:flex}
@@ -183,7 +186,9 @@ input[type=file]{display:none}
 /* under the window, once there is a link */
 .after{display:none;flex-direction:column;align-items:center;gap:1rem;margin-top:1.75rem;text-align:center}
 .after.show{display:flex;animation:rise var(--t3) var(--ease)}
-.acts{display:flex;flex-wrap:wrap;justify-content:center;gap:.625rem}
+/* the links are peers, so they share one width (the widest label's) and lead with their icon;
+   the fill alone says which one comes first */
+.acts{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:.625rem}
 .acts .btn{height:2.875rem;padding:0 1.375rem;font-size:.9375rem;border-radius:12px}
 #copyBtn{min-width:10rem}
 #copyBtn .lbl::after{content:"Copy link"}
@@ -347,7 +352,7 @@ ${dark((r) => `${r} .fact .ft{box-shadow:inset 0 0 0 1px var(--line-2)}${r} .fac
   .tools .menu-wrap:last-child .menu{left:auto;right:.625rem;transform-origin:top right}
   .view{height:23rem}
   .art{transform:scale(.88);margin-bottom:1rem}
-  .acts{width:100%}
+  .acts{display:flex;flex-wrap:wrap;width:100%}
   .acts .btn{flex:1}
   .sec{padding:0 1rem}
   .prompt-view{padding:.875rem 1rem 1rem}
@@ -442,7 +447,7 @@ ${dark((r) => `${r} .fact .ft{box-shadow:inset 0 0 0 1px var(--line-2)}${r} .fac
           <button type="button" class="btn" id="agCopy">${I.copy}<span class="lbl"></span></button>
         </div>
         <a class="thumb" id="thumb" href="#" target="_blank" rel="noopener" aria-label="Open the page"><span class="thumb-load"><i></i>Loading your page&hellip;</span><span class="thumb-cap">Open page${I.out}</span></a>
-        <div class="thumb plain" id="thumbPlain">Too large to preview here. Open it to see it.</div>
+        <a class="thumb plain" id="thumbPlain" href="#" target="_blank" rel="noopener">Too large to preview here.<span class="thumb-cap">Open page${I.out}</span></a>
         <div class="veil" aria-hidden="true">Release to make a new link</div>
       </div>
     </div>
@@ -452,7 +457,6 @@ ${dark((r) => `${r} .fact .ft{box-shadow:inset 0 0 0 1px var(--line-2)}${r} .fac
     <div class="after" id="result" aria-live="polite">
       <div class="acts">
         <button type="button" class="btn" id="copyBtn">${I.copy}<span class="lbl"></span></button>
-        <a class="btn secondary" id="openBtn" href="#" target="_blank" rel="noopener">Open${I.out}</a>
         <button type="button" class="btn secondary" id="editCopyBtn" title="It keeps the password, so only you can update this page. Keep it to yourself.">${I.key}<span class="lbl"></span></button>
       </div>
       <p class="rcpt"><span class="f">${I.doc}<b id="resName"></b></span><span class="live">${I.check}Live</span><span class="status" id="settingStatus"></span><i class="rule" aria-hidden="true"></i><button type="button" class="again" id="againBtn">${I.plus}New upload</button></p>
@@ -744,7 +748,7 @@ ${dark((r) => `${r} .fact .ft{box-shadow:inset 0 0 0 1px var(--line-2)}${r} .fac
     document.getElementById('lkHost').textContent=u.host+'/';
     var fresh=html!==undefined;
     if(!fresh)document.getElementById('lkId').textContent=d.id;
-    document.getElementById('openBtn').href=link.share;thumb.href=link.share;
+    thumb.href=thumbPlain.href=link.share;
     // The password collapses out of the shared link when it goes public, and
     // its text is then removed, so selecting the visible link never copies it.
     var pw=document.getElementById('lkPw');clearTimeout(pwTimer);
