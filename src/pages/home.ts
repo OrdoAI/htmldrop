@@ -121,7 +121,7 @@ body{overflow-x:clip}
 .view{position:relative;height:clamp(22.5rem,100vh - 28rem,25rem);border-radius:0 0 var(--r-lg) var(--r-lg);overflow:hidden;transition:opacity var(--t2) var(--ease)}
 
 /* empty page: a sheet waiting to drop in */
-.field{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:1.5rem;text-align:center;cursor:pointer;transition:background-color var(--t2) var(--ease),opacity var(--t2) var(--ease)}
+.field{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:1.5rem;text-align:center;cursor:pointer;transition:background-color var(--t2) var(--ease),opacity var(--t2) var(--ease),transform var(--t-switch) var(--ease)}
 .field::before{content:"";position:absolute;inset:.75rem;border:1.5px dashed var(--accent);border-radius:calc(var(--r-lg) - .5rem);opacity:0;pointer-events:none;transition:opacity var(--t2) var(--ease)}
 body.dragging .field::before{opacity:.4}
 .art{position:relative;width:7.5rem;height:6.75rem;margin-bottom:1.5rem}
@@ -142,8 +142,11 @@ body.dragging .field::before{opacity:.4}
 .field-sub{margin-top:.4rem;font-size:.9375rem;color:var(--ink-3);text-wrap:balance}
 .pick-btns{display:flex;flex-wrap:wrap;justify-content:center;gap:.5rem;margin-top:1.625rem}
 /* a second way in, for people who publish from a coding agent: opens the prompt */
-.to-agent{display:inline-flex;align-items:center;gap:.5rem;height:2rem;margin-top:1.5rem;padding:0 .75rem 0 .3125rem;border:1px solid var(--line);border-radius:999px;background:var(--sunken);font:inherit;font-size:.8125rem;color:var(--ink-2);cursor:pointer;transition:color var(--t1) var(--ease),border-color var(--t1) var(--ease)}
+.to-agent{display:inline-flex;align-items:center;gap:.5rem;height:2rem;margin-top:1.5rem;padding:0 .75rem 0 .3125rem;border:1px solid var(--line);border-radius:999px;background:var(--sunken);font:inherit;font-size:.8125rem;color:var(--ink-2);cursor:pointer;transition:color var(--t1) var(--ease),border-color var(--t1) var(--ease),transform var(--t1) var(--ease)}
 .to-agent:hover{color:var(--ink);border-color:var(--line-2)}
+.to-agent:active{transform:scale(.97)}
+.to-agent .ar{transition:transform var(--t1) var(--ease)}
+.to-agent:hover .ar{transform:translateX(2px)}
 .to-agent .ic{display:grid;place-items:center;width:1.375rem;height:1.375rem;border-radius:999px;background:var(--surface);box-shadow:0 0 0 1px var(--line);color:var(--ink)}
 .to-agent svg{width:.8125rem;height:.8125rem;stroke:currentColor;stroke-width:2;fill:none;stroke-linecap:round;stroke-linejoin:round}
 .to-agent .ar{width:.75rem;height:.75rem;opacity:.6}
@@ -259,24 +262,35 @@ input[type=file]{display:none}
    switches the window between the browser and a terminal holding the prompt,
    which takes its access and expiry from the window's own chips. */
 .sec{max-width:54rem;margin:0 auto;padding:0 1.5rem}
+:root{--t-switch:.34s;--spring:cubic-bezier(.34,1.3,.64,1)}
 /* equal segments: every column takes the widest label's width */
-.mode{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;flex:none;gap:.125rem;padding:.125rem;background:var(--sunken);border:1px solid var(--line);border-radius:.625rem}
+.mode{position:relative;display:grid;grid-auto-flow:column;grid-auto-columns:1fr;flex:none;gap:.125rem;padding:.125rem;background:var(--sunken);border:1px solid var(--line);border-radius:.625rem}
 .win.done .mode{display:none}
-.mode button{display:flex;align-items:center;justify-content:center;gap:.375rem;height:1.75rem;padding:0 .625rem;border:0;border-radius:.5rem;background:none;font:inherit;font-size:.8125rem;font-weight:550;color:var(--ink-3);cursor:pointer;transition:background-color var(--t1) var(--ease),color var(--t1) var(--ease),box-shadow var(--t1) var(--ease)}
-.mode button:hover{color:var(--ink)}
-.mode button[aria-pressed="true"]{background:var(--surface);color:var(--ink);box-shadow:0 0 0 1px var(--line),var(--shadow-sm)}
+/* one thumb slides between the two segments, settling with a little give;
+   the switch is a move, so the window's content moves the same way below */
+.mode::before{content:"";position:absolute;top:.125rem;bottom:.125rem;left:.125rem;width:calc(50% - .1875rem);border-radius:.5rem;background:var(--surface);box-shadow:0 0 0 1px var(--line),var(--shadow-sm);transition:transform var(--t-switch) var(--spring)}
+.win.agent .mode::before{transform:translateX(calc(100% + .125rem))}
+.mode button{position:relative;display:flex;align-items:center;justify-content:center;gap:.375rem;height:1.75rem;padding:0 .625rem;border:0;border-radius:.5rem;background:none;font:inherit;font-size:.8125rem;font-weight:550;color:var(--ink-3);cursor:pointer;transition:color var(--t2) var(--ease)}
+.mode button:hover,.mode button[aria-pressed="true"]{color:var(--ink)}
 .mode svg{width:.9375rem;height:.9375rem;stroke:currentColor;stroke-width:1.9;fill:none;stroke-linecap:round;stroke-linejoin:round}
-.prompt-view{position:absolute;inset:0;display:flex;flex-direction:column;justify-content:space-between;gap:1rem;padding:1.125rem 1.5rem 1rem;opacity:0;pointer-events:none;transition:opacity var(--t2) var(--ease)}
-.win.agent .prompt-view{opacity:1;pointer-events:auto}
-.win.agent .field{opacity:0;pointer-events:none}
+.prompt-view{position:absolute;inset:0;display:flex;flex-direction:column;justify-content:space-between;gap:1rem;padding:1.125rem 1.5rem 1rem;opacity:0;pointer-events:none;transform:translateX(1.5rem);transition:opacity var(--t2) var(--ease),transform var(--t-switch) var(--ease)}
+.win.agent .prompt-view{opacity:1;pointer-events:auto;transform:none}
+/* the browser slides out the way the thumb went; the terminal prints its lines in turn */
+.win.agent .field{opacity:0;pointer-events:none;transform:translateX(-1.5rem)}
+.prompt-view .t,.prompt-view .dim,.prompt-view .btn{opacity:0;transform:translateY(.375rem);transition:opacity var(--t2) var(--ease),transform var(--t-switch) var(--ease)}
+.win.agent .prompt-view .t,.win.agent .prompt-view .dim,.win.agent .prompt-view .btn{opacity:1;transform:none}
+.win.agent .prompt-view .t{transition-delay:.06s}
+.win.agent .prompt-view .dim{transition-delay:.12s}
+.win.agent .prompt-view .btn{transition-delay:.18s}
 .prompt{font-family:var(--mono);font-size:.875rem;line-height:1.75}
 .tcur{display:inline-block;width:.6em;height:1.2em;margin-left:.2em;vertical-align:-.25em;background:var(--ink-2);animation:blink 1.1s steps(1) infinite}
 .prompt-view .btn{align-self:flex-end}
-/* with the prompt showing, the window is a terminal in the page's theme: a centered title, no address bar */
-.ttl{display:none}
-.win.agent .addr{display:none}
-.win.agent .ttl{display:block;position:absolute;left:0;right:0;font-size:.8125rem;font-weight:600;color:var(--ink-3);text-align:center;pointer-events:none}
-.win.agent .tools{margin-left:auto}
+/* with the prompt showing, the window is a terminal in the page's theme: a centered title, no address bar.
+   The bar keeps its place (so the chips don't move) and fades as the title rises in after it. */
+.ttl{position:absolute;left:0;right:0;font-size:.8125rem;font-weight:600;color:var(--ink-3);text-align:center;pointer-events:none;opacity:0;transform:translateY(.25rem);transition:opacity var(--t2) var(--ease),transform var(--t2) var(--ease)}
+.win.agent .ttl{opacity:1;transform:none;transition-delay:.08s}
+.addr{transition:border-color var(--t2) var(--ease),opacity var(--t2) var(--ease),transform var(--t2) var(--ease),visibility 0s}
+.win.agent .addr{opacity:0;transform:scale(.98);visibility:hidden;transition:border-color var(--t2) var(--ease),opacity var(--t1) var(--ease),transform var(--t2) var(--ease),visibility 0s linear var(--t2)}
 .prompt .t::before{content:"\\203A";margin-right:.6rem;color:var(--accent);font-weight:600}
 .prompt p{text-wrap:pretty}
 #agOpts{color:var(--pub)}
@@ -335,7 +349,7 @@ ${dark((r) => `${r} .fact .ft{box-shadow:inset 0 0 0 1px var(--line-2)}${r} .fac
   .prompt-view{padding:.875rem 1rem 1rem}
   .prompt{font-size:.8125rem}
   .prompt-view .btn{width:100%}
-  .win.agent .ttl{top:.625rem;line-height:2.125rem}
+  .ttl{top:.625rem;line-height:2.125rem}
   .foot{padding:1.5rem 1rem 2.5rem;margin-top:3.5rem}
   .facts{gap:.625rem}
   .fact{padding:1rem}
