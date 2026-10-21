@@ -184,8 +184,10 @@ input[type=file]{display:none}
 .win.done.over .veil{display:flex}
 
 /* under the window, once there is a link */
-.after{display:none;flex-direction:column;align-items:center;gap:1rem;margin-top:1.75rem;text-align:center}
-.after.show{display:flex;animation:rise var(--t3) var(--ease)}
+/* the frequent action and the quiet facts stay apart, one above the other, but share
+   one width (the wider one's) so they read as a pair rather than two strays */
+.after{display:none;justify-content:center;gap:.625rem;margin-top:1.75rem;text-align:center}
+.after.show{display:grid;animation:rise var(--t3) var(--ease)}
 /* the links are peers, so they share one width (the widest label's) and lead with their icon;
    the fill alone says which one comes first */
 .acts{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:.625rem}
@@ -195,7 +197,7 @@ input[type=file]{display:none}
 #copyBtn.copied .lbl::after{content:"Copied"}
 #copyBtn.copied{background:var(--ok);border-color:var(--ok);color:#fff}
 /* a receipt for the upload: the file and its state, then a hairline, then the way out */
-.rcpt{display:inline-flex;align-items:center;gap:.75rem;max-width:100%;height:2.25rem;padding:0 .3125rem 0 .8rem;border:1px solid var(--line);border-radius:999px;background:var(--surface);box-shadow:var(--shadow-sm);font-size:.8125rem;color:var(--ink-3)}
+.rcpt{display:inline-flex;align-items:center;justify-content:center;gap:.75rem;max-width:100%;height:2.25rem;padding:0 .3125rem 0 .8rem;border:1px solid var(--line);border-radius:999px;background:var(--surface);box-shadow:var(--shadow-sm);font-size:.8125rem;color:var(--ink-3)}
 .rcpt svg{flex:none;width:.875rem;height:.875rem;stroke:currentColor;stroke-width:2;fill:none;stroke-linecap:round;stroke-linejoin:round}
 .rcpt .f{display:inline-flex;align-items:center;gap:.45rem;min-width:0}
 .rcpt b{overflow:hidden;font-family:var(--mono);font-weight:500;color:var(--ink-2);text-overflow:ellipsis;white-space:nowrap}
@@ -352,6 +354,7 @@ ${dark((r) => `${r} .fact .ft{box-shadow:inset 0 0 0 1px var(--line-2)}${r} .fac
   .tools .menu-wrap:last-child .menu{left:auto;right:.625rem;transform-origin:top right}
   .view{height:23rem}
   .art{transform:scale(.88);margin-bottom:1rem}
+  .after{grid-template-columns:100%}
   .acts{display:flex;flex-wrap:wrap;width:100%}
   .acts .btn{flex:1}
   .sec{padding:0 1rem}
