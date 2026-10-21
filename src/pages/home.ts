@@ -118,7 +118,7 @@ body{overflow-x:clip}
 .addr-copy.copied{color:var(--ok)}
 .win.done .addr-copy{display:grid}
 .tools{display:flex;gap:.375rem;flex:none}
-.view{position:relative;height:clamp(19rem,100vh - 28rem,25rem);border-radius:0 0 var(--r-lg) var(--r-lg);overflow:hidden;transition:opacity var(--t2) var(--ease)}
+.view{position:relative;height:clamp(22.5rem,100vh - 28rem,25rem);border-radius:0 0 var(--r-lg) var(--r-lg);overflow:hidden;transition:opacity var(--t2) var(--ease)}
 
 /* empty page: a sheet waiting to drop in */
 .field{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:1.5rem;text-align:center;cursor:pointer;transition:background-color var(--t2) var(--ease),opacity var(--t2) var(--ease)}
@@ -141,6 +141,12 @@ body.dragging .field::before{opacity:.4}
 .field-title .t-over{opacity:0;transform:translateY(5px);color:var(--accent)}
 .field-sub{margin-top:.4rem;font-size:.9375rem;color:var(--ink-3);text-wrap:balance}
 .pick-btns{display:flex;flex-wrap:wrap;justify-content:center;gap:.5rem;margin-top:1.625rem}
+/* a second way in, for people who publish from a coding agent: opens the prompt */
+.to-agent{display:inline-flex;align-items:center;gap:.5rem;height:2rem;margin-top:1.5rem;padding:0 .75rem 0 .3125rem;border:1px solid var(--line);border-radius:999px;background:var(--sunken);font:inherit;font-size:.8125rem;color:var(--ink-2);cursor:pointer;transition:color var(--t1) var(--ease),border-color var(--t1) var(--ease)}
+.to-agent:hover{color:var(--ink);border-color:var(--line-2)}
+.to-agent .ic{display:grid;place-items:center;width:1.375rem;height:1.375rem;border-radius:999px;background:var(--surface);box-shadow:0 0 0 1px var(--line);color:var(--ink)}
+.to-agent svg{width:.8125rem;height:.8125rem;stroke:currentColor;stroke-width:2;fill:none;stroke-linecap:round;stroke-linejoin:round}
+.to-agent .ar{width:.75rem;height:.75rem;opacity:.6}
 .win.over>*{pointer-events:none}
 .win.over .field{background:var(--accent-soft)}
 .win.over .field::before{opacity:1}
@@ -253,9 +259,10 @@ input[type=file]{display:none}
    switches the window between the browser and a terminal holding the prompt,
    which takes its access and expiry from the window's own chips. */
 .sec{max-width:54rem;margin:0 auto;padding:0 1.5rem}
-.mode{display:flex;flex:none;gap:.125rem;padding:.125rem;background:var(--sunken);border:1px solid var(--line);border-radius:.625rem}
+/* equal segments: every column takes the widest label's width */
+.mode{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;flex:none;gap:.125rem;padding:.125rem;background:var(--sunken);border:1px solid var(--line);border-radius:.625rem}
 .win.done .mode{display:none}
-.mode button{display:grid;place-items:center;width:2.125rem;height:1.75rem;padding:0;border:0;border-radius:.5rem;background:none;color:var(--ink-3);cursor:pointer;transition:background-color var(--t1) var(--ease),color var(--t1) var(--ease),box-shadow var(--t1) var(--ease)}
+.mode button{display:flex;align-items:center;justify-content:center;gap:.375rem;height:1.75rem;padding:0 .625rem;border:0;border-radius:.5rem;background:none;font:inherit;font-size:.8125rem;font-weight:550;color:var(--ink-3);cursor:pointer;transition:background-color var(--t1) var(--ease),color var(--t1) var(--ease),box-shadow var(--t1) var(--ease)}
 .mode button:hover{color:var(--ink)}
 .mode button[aria-pressed="true"]{background:var(--surface);color:var(--ink);box-shadow:0 0 0 1px var(--line),var(--shadow-sm)}
 .mode svg{width:.9375rem;height:.9375rem;stroke:currentColor;stroke-width:1.9;fill:none;stroke-linecap:round;stroke-linejoin:round}
@@ -310,6 +317,9 @@ ${dark((r) => `${r} .fact .ft{box-shadow:inset 0 0 0 1px var(--line-2)}${r} .fac
   .dots{grid-area:1/1;height:2.125rem;align-items:center;padding:0 .375rem}
   .addr{grid-area:1/2}
   .mode{grid-area:2/1}
+  /* no room for the words on a phone */
+  .mode button{width:2.125rem;padding:0}
+  .mode button span{display:none}
   .tools{grid-area:2/2}
   .win.done .tools{grid-column:1/-1}
   .win.agent .tools{margin-left:0}
@@ -317,7 +327,7 @@ ${dark((r) => `${r} .fact .ft{box-shadow:inset 0 0 0 1px var(--line-2)}${r} .fac
   .tools .chip{width:100%;justify-content:center}
   .tools .menu{left:.625rem;right:auto;transform-origin:top left}
   .tools .menu-wrap:last-child .menu{left:auto;right:.625rem;transform-origin:top right}
-  .view{height:21rem}
+  .view{height:23rem}
   .art{transform:scale(.88);margin-bottom:1rem}
   .acts{width:100%}
   .acts .btn{flex:1}
@@ -376,8 +386,8 @@ ${dark((r) => `${r} .fact .ft{box-shadow:inset 0 0 0 1px var(--line-2)}${r} .fac
       <div class="chrome">
         <span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>
         <div class="mode" role="group" aria-label="How to publish">
-          <button type="button" id="modeFile" aria-pressed="true" aria-controls="dropField" title="Drop a file" aria-label="Drop a file">${I.win}</button>
-          <button type="button" id="modeAgent" aria-pressed="false" aria-controls="agentView" title="Ask an agent: Claude Code, Cursor, Codex" aria-label="Ask an agent">${I.term}</button>
+          <button type="button" id="modeFile" aria-pressed="true" aria-controls="dropField" title="Drop a file" aria-label="Drop a file">${I.win}<span>File</span></button>
+          <button type="button" id="modeAgent" aria-pressed="false" aria-controls="agentView" title="Ask an agent: Claude Code, Cursor, Codex" aria-label="Ask an agent">${I.term}<span>Agent</span></button>
         </div>
         <span class="ttl" aria-hidden="true">~/your-project</span>
         <div class="addr">
@@ -404,6 +414,7 @@ ${dark((r) => `${r} .fact .ft{box-shadow:inset 0 0 0 1px var(--line-2)}${r} .fac
             <button type="button" class="btn" id="pickFile">Choose file</button>
             <button type="button" class="btn secondary" id="pickFolder">Choose folder</button>
           </div>
+          <button type="button" class="to-agent" id="toAgent"><span class="ic">${I.term}</span>Or hand it to your coding agent<svg class="ar" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
         </div>
         <div class="prompt-view" id="agentView" inert>
           <div class="prompt">
@@ -767,6 +778,8 @@ ${dark((r) => `${r} .fact .ft{box-shadow:inset 0 0 0 1px var(--line-2)}${r} .fac
   }
   modeFile.addEventListener('click',function(){setAgent(false);});
   modeAgent.addEventListener('click',function(){setAgent(true);});
+  // the field goes inert under it, so focus lands on the switch it pressed
+  document.getElementById('toAgent').addEventListener('click',function(){setAgent(true);modeAgent.focus();});
   // Old links to #agents land on the prompt.
   if(location.hash==='#agents')setAgent(true);
 
