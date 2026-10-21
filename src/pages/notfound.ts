@@ -1,4 +1,4 @@
-import { FAVICON_LINK, FONT_PRELOAD, MARK_SVG, THEME_BOOT, THEME_CSS } from "./theme";
+import { FAVICON_LINK, FONT_PRELOAD, MASCOT_SCRIPT, THEME_BOOT, THEME_CSS, mascotSlot } from "./theme";
 
 export function notFoundPage(): string {
   return `<!DOCTYPE html>
@@ -33,7 +33,8 @@ p{margin-top:.5rem;font-size:.9375rem;color:var(--ink-2);text-wrap:pretty}
   <p>Or it never existed. Pages on HTMLDrop are deleted once nobody opens them for 7 to 30 days, or on a date the sharer picked. Whoever shared it can upload it again.</p>
   <div class="act"><a class="btn" href="/">Make a new link</a></div>
 </main>
-<a class="brand" href="/">${MARK_SVG}HTMLDrop</a>
+<a class="brand" href="/">${mascotSlot("mark", "mark")}HTMLDrop</a>
+${MASCOT_SCRIPT}
 </body>
 </html>`;
 }

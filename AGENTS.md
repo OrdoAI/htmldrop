@@ -13,6 +13,7 @@ and Markdown previews at `baseurl.ai`.
 - `src/serve.ts` also handles `GET /:id/v` version probes and injects the stale-preview refresh notice; `src/auth.ts` owns the `PageRecord.version` field used for revalidation.
 - Expiry: `src/auth.ts` holds the pure expiry helpers (`windowStartOf`, `expiresAtMs`, `isPageExpired`, `expiryFields`) and the renew-on-view visit record. A renew page's last counted visit lives in a plaintext `seen:<id>` R2 object, read only for renew pages and written by `src/serve.ts` at most about once a day. `DEFAULT_TTL_DAYS` (7) is what a record without `ttlDays` means; new pages write `NEW_PAGE_TTL_DAYS` (14) explicitly.
 - `src/pages/` contains server-rendered HTML pages.
+- `mascot/` is browser code for the animated brand mark: `mascot/bot/` is bloub's engine (MIT, `mascot/LICENSE`), copied unchanged, and `mascot/main.ts` draws it in the drop and has the brand mark react to the upload window. `npm run build:mascot` bundles it into the committed `src/mascot.gen.ts`, which `src/mascot.ts` serves at a hashed `/_assets/` path; `npm run test:pages` fails when the bundle is stale. The static mark in `src/pages/theme.ts` stays as the fallback for reduced motion and no script.
 - `src/__tests__/` contains Vitest tests that run with the Cloudflare Workers test pool.
 - `cli/` contains the published `htmldrop-cli` package and install script.
 - `skills/htmldrop/SKILL.md` documents agent usage of the CLI.
@@ -21,10 +22,11 @@ and Markdown previews at `baseurl.ai`.
 ## Build, Test, and Development Commands
 
 - `npm run dev` starts local Wrangler development.
-- `npm run typecheck` runs `tsc --noEmit` with strict TypeScript settings.
+- `npm run typecheck` runs `tsc --noEmit` with strict TypeScript settings, for the Worker and for `mascot/`.
+- `npm run build:mascot` rebuilds `src/mascot.gen.ts` after a change under `mascot/`.
 - `npm test` runs the Cloudflare Worker Vitest suite.
 - `npm run test:cli` runs the pure Node CLI compression and upload tests.
-- `npm run test:pages` bundles the server-rendered pages and compiles their inline scripts with Node; tsc never parses those template literals.
+- `npm run test:pages` bundles the server-rendered pages and compiles their inline scripts with Node; tsc never parses those template literals. It also checks `src/mascot.gen.ts` against `mascot/`.
 - `npm run test:cli:shell` runs the shell CLI integration tests; it is local-only because it depends on host tools.
 - `npm run test:browser-compression` runs the browser compression regression test; it is local-only because it needs Chrome.
 - `npm run build` performs a Wrangler dry-run deploy into `dist/`.

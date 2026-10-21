@@ -1,4 +1,4 @@
-import { FAVICON_LINK, FONT_PRELOAD, MARK_SVG, THEME_BOOT, THEME_CSS } from "./theme";
+import { FAVICON_LINK, FONT_PRELOAD, MASCOT_SCRIPT, THEME_BOOT, THEME_CSS, mascotSlot } from "./theme";
 
 // Shown when a private page is opened without its password: normally because
 // the link lost its `?p=` part on the way.
@@ -50,7 +50,8 @@ input[type=password]::placeholder{font-family:var(--sans);color:var(--ink-4)}
     <button type="submit" class="btn">Open page</button>
   </form>
 </main>
-<a class="brand" href="/">${MARK_SVG}HTMLDrop</a>
+<a class="brand" href="/">${mascotSlot("mark", "mark")}HTMLDrop</a>
+${MASCOT_SCRIPT}
 </body>
 </html>`;
 }

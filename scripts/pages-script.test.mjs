@@ -10,6 +10,8 @@
 import { build } from "esbuild";
 import { createRequire } from "node:module";
 import { Script } from "node:vm";
+import { readFileSync } from "node:fs";
+import { GEN_PATH, mascotModule } from "./build-mascot.mjs";
 import assert from "node:assert/strict";
 import test from "node:test";
 
@@ -64,3 +66,7 @@ for (const [entry, fn, args] of pages) {
     }
   });
 }
+
+test("src/mascot.gen.ts matches mascot/ (run npm run build:mascot)", async () => {
+  assert.equal(readFileSync(GEN_PATH, "utf8"), await mascotModule());
+});

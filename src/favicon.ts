@@ -1,17 +1,20 @@
 import favicon32 from "./icons/favicon-32.png";
 import appleTouchIcon from "./icons/apple-touch-icon-180.png";
+import { MARK_BODY, MARK_EYES } from "./pages/theme";
 import { withTransportSecurity } from "./security";
 
 // The brand mark from src/pages/theme.ts as a standalone tab icon: the page
 // CSS variables don't reach a favicon, so the colours are spelled out and
-// flipped for dark browser chrome. The PNGs in src/icons/ are this mark
-// rendered in its light colours: a 32px rounded tile, and a 180px full-bleed
-// square that iOS rounds itself.
+// flipped for dark browser chrome; the eyes are holes, so they take the tab's
+// colour either way. The PNGs in src/icons/ can't flip: the 32px one (also
+// what uploaded previews show) draws the eyes white and rings the body in
+// white so it holds on light and dark tab bars, and the 180px one is the mark
+// on a full-bleed light square that iOS rounds itself.
 export const FAVICON_SVG =
-  '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">' +
-  "<style>rect{fill:#121211}path{stroke:#fafaf9}@media(prefers-color-scheme:dark){rect{fill:#f2f2ee}path{stroke:#0c0c0b}}</style>" +
-  '<rect width="24" height="24" rx="7"/>' +
-  '<path d="M12 6.25v7.5M8.75 10.75 12 14l3.25-3.25M7.25 17.25h9.5" fill="none" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  '<svg xmlns="http://www.w3.org/2000/svg" viewBox="3.4 3.4 17.2 17.2">' +
+  "<style>.b{fill:#121211}@media(prefers-color-scheme:dark){.b{fill:#f2f2ee}}</style>" +
+  `<mask id="e"><rect width="24" height="24" fill="#fff"/><path d="${MARK_EYES}" stroke="#000" stroke-width="2.5" stroke-linecap="round"/></mask>` +
+  `<path class="b" d="${MARK_BODY}" mask="url(#e)"/></svg>`;
 
 // /favicon.ico is a PNG: browsers ask for it on their own (uploaded previews
 // without an icon of their own included) and sniff the format, not the name.
