@@ -1,4 +1,4 @@
-import { FAVICON_LINK, FONT_PRELOAD, MARK_SVG, THEME_BOOT, THEME_CSS, dark } from "./theme";
+import { FAVICON_LINK, FONT_PRELOAD, MASCOT_SCRIPT, THEME_BOOT, THEME_CSS, dark, mascotSlot } from "./theme";
 
 const I = {
   lock: '<svg class="i-lock" viewBox="0 0 24 24" aria-hidden="true"><rect x="4.5" y="10.5" width="15" height="10" rx="2.5"/><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3"/></svg>',
@@ -344,7 +344,7 @@ ${dark((r) => `${r} .fact .ft{box-shadow:inset 0 0 0 1px var(--line-2)}${r} .fac
 </head>
 <body>
 <header class="top">
-  <a class="brand" href="/">${MARK_SVG}HTMLDrop</a>
+  <a class="brand" href="/">${mascotSlot("mark", "mark")}HTMLDrop</a>
   <div class="seg" id="theme" role="radiogroup" aria-label="Theme"><button type="button" role="radio" data-t="system" title="System" aria-label="System">${I.system}</button><button type="button" role="radio" data-t="light" title="Light" aria-label="Light">${I.sun}</button><button type="button" role="radio" data-t="dark" title="Dark" aria-label="Dark">${I.moon}</button></div>
 </header>
 <script>
@@ -798,6 +798,7 @@ ${dark((r) => `${r} .fact .ft{box-shadow:inset 0 0 0 1px var(--line-2)}${r} .fac
   }
 })();
 </script>
+${MASCOT_SCRIPT}
 </body>
 </html>`;
 }

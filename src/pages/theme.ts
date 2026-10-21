@@ -3,6 +3,8 @@
 // for text and Geist Mono for links and code. The fonts are served by the
 // Worker itself (src/fonts.ts); keep these paths in step with FONT_PATHS.
 // Inlined into each page's <style>; keep it free of backticks and "${".
+import { MASCOT_PATH } from "../mascot";
+
 export const FONT_PRELOAD =
   '<link rel="preload" href="/_fonts/geist-1.7.2.woff2" as="font" type="font/woff2" crossorigin>';
 
@@ -66,6 +68,8 @@ button,input,select{font:inherit;color:inherit}
 a{color:inherit;text-decoration:none}
 ::selection{background:var(--accent-soft)}
 .mark{display:inline-block;width:1.375rem;height:1.375rem;flex:none}
+/* the mascot draws past its box: an orbit, the comet's tail */
+[data-mascot] svg{display:block;width:100%;height:100%;overflow:visible}
 .btn{display:inline-flex;align-items:center;justify-content:center;gap:.5rem;height:2.5rem;padding:0 1.05rem;border-radius:var(--r-s);border:1px solid var(--ink);background:var(--ink);color:var(--bg);font-size:.875rem;font-weight:550;letter-spacing:-.005em;white-space:nowrap;cursor:pointer;transition:background-color var(--t1) var(--ease),border-color var(--t1) var(--ease),transform var(--t1) var(--ease)}
 .btn:hover{background:var(--ink-2);border-color:var(--ink-2)}
 .btn:active{transform:scale(.98)}
@@ -81,7 +85,22 @@ a{color:inherit;text-decoration:none}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{transition-duration:0s!important;transition-delay:0s!important;animation-duration:0s!important}}
 `;
 
-// The brand mark: a rounded tile with a page dropping into a tray.
-export const MARK_SVG =
-  '<svg class="mark" viewBox="0 0 24 24" aria-hidden="true"><rect width="24" height="24" rx="7" fill="currentColor"/>' +
-  '<path d="M12 6.25v7.5M8.75 10.75 12 14l3.25-3.25M7.25 17.25h9.5" fill="none" stroke="var(--bg)" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+// The brand mark: a drop with a face. The body is a square with three full
+// corner radii and one nearly sharp corner (a drop falling up and right, or a
+// page's corner); the two eyes are capsules cut out of it, leaning 22 degrees. The
+// viewBox is cropped to the body so it fills the slot the old tile did.
+// src/favicon.ts and the mascot (mascot/main.ts) draw the same shape.
+export const MARK_BODY = "M17.74 3.8a2.46 2.46 0 0 1 2.46 2.46V12a8.2 8.2 0 1 1-8.2-8.2z";
+export const MARK_EYES = "M10.39 10.35l1.02 2.5M14.39 9.95l1.02 2.5";
+function markSvg(maskId: string): string {
+  return `<svg viewBox="3.4 3.4 17.2 17.2" aria-hidden="true"><mask id="${maskId}"><rect width="24" height="24" fill="#fff"/>` +
+    `<path d="${MARK_EYES}" stroke="#000" stroke-width="2.5" stroke-linecap="round"/></mask>` +
+    `<path d="${MARK_BODY}" fill="currentColor" mask="url(#${maskId})"/></svg>`;
+}
+
+// A slot the animated mascot takes over: the static mark until its script runs,
+// and for good when the visitor asked for reduced motion or has no script.
+export function mascotSlot(name: "mark", className: string): string {
+  return `<span class="${className}" data-mascot="${name}" aria-hidden="true">${markSvg(`${name}-eyes`)}</span>`;
+}
+export const MASCOT_SCRIPT = `<script src="${MASCOT_PATH}" defer></script>`;
