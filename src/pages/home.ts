@@ -9,6 +9,7 @@ const I = {
   copy: '<svg class="i-copy" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2.5"/><path d="M15 9V6.5A2.5 2.5 0 0 0 12.5 4h-6A2.5 2.5 0 0 0 4 6.5v6A2.5 2.5 0 0 0 6.5 15H9"/></svg><svg class="i-ok" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>',
   out: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 17 17 7M9 7h8v8"/></svg>',
   plus: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>',
+  doc: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/></svg>',
   key: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="8" cy="15" r="4"/><path d="m11 12 8.5-8.5M16 6.5l2.5 2.5M18.5 4l2 2"/></svg>',
   down: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v12M7 12.5l5 5 5-5"/></svg>',
   win: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="5" width="17" height="14" rx="2.5"/><path d="M3.5 9.5h17"/></svg>',
@@ -188,28 +189,31 @@ input[type=file]{display:none}
 #copyBtn .lbl::after{content:"Copy link"}
 #copyBtn.copied .lbl::after{content:"Copied"}
 #copyBtn.copied{background:var(--ok);border-color:var(--ok);color:#fff}
-.meta{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:.35rem .7rem;font-size:.875rem;color:var(--ink-3)}
-.meta b{max-width:16rem;overflow:hidden;font-weight:600;color:var(--ink-2);text-overflow:ellipsis;white-space:nowrap}
-.live{width:.5rem;height:.5rem;border-radius:50%;background:var(--ok);box-shadow:0 0 0 3px color-mix(in srgb,var(--ok) 22%,transparent);animation:pulse 2.4s var(--ease) infinite}
-@keyframes pulse{50%{box-shadow:0 0 0 6px color-mix(in srgb,var(--ok) 0%,transparent)}}
-.meta .sep{color:var(--ink-4)}
-.again{display:inline-flex;align-items:center;gap:.3rem;border:0;background:none;color:var(--ink-2);font-weight:550;cursor:pointer;transition:color var(--t1) var(--ease)}
-.again:hover{color:var(--ink)}
-.again svg{width:.8125rem;height:.8125rem;stroke:currentColor;stroke-width:2.2;fill:none;stroke-linecap:round}
-.status{display:inline-flex;align-items:center;gap:.4rem}
+/* a receipt for the upload: the file and its state, then a hairline, then the way out */
+.rcpt{display:inline-flex;align-items:center;gap:.75rem;max-width:100%;height:2.25rem;padding:0 .3125rem 0 .8rem;border:1px solid var(--line);border-radius:999px;background:var(--surface);box-shadow:var(--shadow-sm);font-size:.8125rem;color:var(--ink-3)}
+.rcpt svg{flex:none;width:.875rem;height:.875rem;stroke:currentColor;stroke-width:2;fill:none;stroke-linecap:round;stroke-linejoin:round}
+.rcpt .f{display:inline-flex;align-items:center;gap:.45rem;min-width:0}
+.rcpt b{overflow:hidden;font-family:var(--mono);font-weight:500;color:var(--ink-2);text-overflow:ellipsis;white-space:nowrap}
+.rcpt .live{display:inline-flex;align-items:center;gap:.3rem;flex:none;color:var(--ok);font-weight:550}
+/* while a setting saves, its status takes the place of "Live" */
+.rcpt:has(.status:not(:empty)) .live{display:none}
+.rcpt .rule{flex:none;width:1px;height:1rem;background:var(--line)}
+.again{display:inline-flex;align-items:center;gap:.35rem;flex:none;height:1.625rem;padding:0 .7rem;border:0;border-radius:999px;background:var(--sunken);font:inherit;font-weight:550;color:var(--ink-2);cursor:pointer;transition:color var(--t1) var(--ease),background-color var(--t1) var(--ease)}
+.again:hover{color:var(--ink);background:var(--line)}
+.status{display:inline-flex;align-items:center;gap:.4rem;flex:none}
 .status:empty{display:none}
 .status.saving::before{content:"";width:.75rem;height:.75rem;border:1.5px solid var(--line-2);border-top-color:var(--ink-2);border-radius:50%;animation:spin .7s linear infinite}
 .status.ok{color:var(--ok)}
 @keyframes spin{to{transform:rotate(360deg)}}
-.lk-edit{display:none;max-width:30rem;font-size:.8125rem;line-height:1.55;color:var(--ink-3);text-wrap:balance}
-.after.public .lk-edit{display:block}
-.lk-edit svg{width:.8125rem;height:.8125rem;margin-right:.4rem;vertical-align:-.12em;stroke:currentColor;stroke-width:2;fill:none;stroke-linecap:round;stroke-linejoin:round}
-.lk-edit span{margin-right:.4rem}
-.lk-edit button{border:0;background:none;color:var(--ink);font-weight:600;cursor:pointer;text-decoration:underline;text-decoration-color:var(--line-2);text-underline-offset:3px}
-.lk-edit button:hover{text-decoration-color:var(--ink)}
-.lk-edit button::after{content:"Copy edit link"}
-.lk-edit button.copied{color:var(--ok)}
-.lk-edit button.copied::after{content:"Copied"}
+/* a public page also has a private way back in: the edit link sits with the other
+   links, told apart by its key, and only shows for public pages */
+#editCopyBtn{display:none}
+.after.public #editCopyBtn{display:inline-flex}
+#editCopyBtn svg{color:var(--pub)}
+#editCopyBtn .lbl::after{content:"Copy edit link"}
+#editCopyBtn.copied .lbl::after{content:"Copied"}
+#editCopyBtn.copied{background:var(--ok);border-color:var(--ok);color:#fff}
+#editCopyBtn.copied svg{color:#fff}
 
 /* chips and their menus */
 .menu-wrap{position:relative}
@@ -449,9 +453,9 @@ ${dark((r) => `${r} .fact .ft{box-shadow:inset 0 0 0 1px var(--line-2)}${r} .fac
       <div class="acts">
         <button type="button" class="btn" id="copyBtn">${I.copy}<span class="lbl"></span></button>
         <a class="btn secondary" id="openBtn" href="#" target="_blank" rel="noopener">Open${I.out}</a>
+        <button type="button" class="btn secondary" id="editCopyBtn" title="It keeps the password, so only you can update this page. Keep it to yourself.">${I.key}<span class="lbl"></span></button>
       </div>
-      <p class="meta"><i class="live" aria-hidden="true"></i><b id="resName"></b><span>is live</span><span class="status" id="settingStatus"></span><span class="sep">&middot;</span><button type="button" class="again" id="againBtn">${I.plus}New upload</button></p>
-      <p class="lk-edit" id="editBox">${I.key}<span>Your edit link keeps the password, so only you can update this page.</span><button type="button" id="editCopyBtn"></button></p>
+      <p class="rcpt"><span class="f">${I.doc}<b id="resName"></b></span><span class="live">${I.check}Live</span><span class="status" id="settingStatus"></span><i class="rule" aria-hidden="true"></i><button type="button" class="again" id="againBtn">${I.plus}New upload</button></p>
     </div>
     <div class="file-picker" id="filePicker">
       <p class="picker-label">This folder has several pages. Which one should the link open?</p>
