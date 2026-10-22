@@ -61,9 +61,18 @@ ${dark((r) => `${r}{--dot:rgba(255,255,255,.075);--glow:rgba(127,151,255,.13);--
 body{overflow-x:clip}
 .top{display:flex;align-items:center;justify-content:space-between;max-width:68rem;margin:0 auto;padding:1.375rem 1.5rem}
 .brand{display:inline-flex;align-items:center;gap:.6rem;font-size:.9375rem;font-weight:650;letter-spacing:-.02em}
-.seg{position:relative;display:inline-flex;gap:2px;padding:3px;border-radius:999px;background:var(--sunken);box-shadow:inset 0 0 0 1px var(--line)}
+/* a new theme spreads out from the switch over the old one (the script grows
+   the circle). Not a crossfade: dark text on light and light text on dark
+   meet at the same grey halfway, and the page goes blank. Opaque over opaque,
+   so the default plus-lighter blend would wash the overlap out to white.
+   The switch sits out of it: its old picture would leave a second thumb
+   where the first one was, so it stays live and fades its own colors */
+::view-transition-old(root),::view-transition-new(root){animation:none;mix-blend-mode:normal}
+::view-transition-old(theme-seg){display:none}
+::view-transition-new(theme-seg){animation:none}
+.seg{position:relative;display:inline-flex;gap:2px;padding:3px;border-radius:999px;background:var(--sunken);box-shadow:inset 0 0 0 1px var(--line);view-transition-name:theme-seg;transition:background-color var(--t2) var(--ease),box-shadow var(--t2) var(--ease)}
 /* one thumb slides to the choice, as in the file/agent switch */
-.seg::before{content:"";position:absolute;top:3px;left:3px;width:1.75rem;height:1.75rem;border-radius:999px;background:var(--surface);box-shadow:0 0 0 1px var(--line-2),0 1px 2px rgba(0,0,0,.08);transform:translateX(calc(var(--i,0) * (1.75rem + 2px)));transition:transform var(--t-switch) var(--spring)}
+.seg::before{content:"";position:absolute;top:3px;left:3px;width:1.75rem;height:1.75rem;border-radius:999px;background:var(--surface);box-shadow:0 0 0 1px var(--line-2),0 1px 2px rgba(0,0,0,.08);transform:translateX(calc(var(--i,0) * (1.75rem + 2px)));transition:transform var(--t-switch) var(--spring),background-color var(--t2) var(--ease),box-shadow var(--t2) var(--ease)}
 .seg[data-on=light]{--i:1}
 .seg[data-on=dark]{--i:2}
 .seg button{position:relative;display:grid;place-items:center;width:1.75rem;height:1.75rem;padding:0;border:0;border-radius:999px;background:none;color:var(--ink-3);cursor:pointer;transition:color var(--t1) var(--ease)}
@@ -391,8 +400,18 @@ ${dark((r) => `${r} .fact .ft{box-shadow:inset 0 0 0 1px var(--line-2)}${r} .fac
     g.dataset.on=t;
     bs.forEach(function(b){var on=b.dataset.t===t;b.setAttribute('aria-checked',on);b.tabIndex=on?0:-1;});
   }
+  // a click spreads the new theme out from the switch until it covers the
+  // window; another tab's choice and a visitor who asked for less motion get
+  // it at once. Arrow keys come here too, so the circle starts at the switch,
+  // not at a pointer.
   function pick(t){
-    apply(t);
+    if(document.startViewTransition&&!matchMedia('(prefers-reduced-motion:reduce)').matches){
+      var b=g.getBoundingClientRect(),x=b.left+b.width/2,y=b.top+b.height/2,
+        r=Math.hypot(Math.max(x,innerWidth-x),Math.max(y,innerHeight-y)),at=' at '+x+'px '+y+'px)';
+      document.startViewTransition(function(){apply(t);}).ready.then(function(){
+        root.animate({clipPath:['circle(0'+at,'circle('+r+'px'+at]},{duration:550,easing:'ease-in-out',pseudoElement:'::view-transition-new(root)'});
+      },function(){});
+    }else apply(t);
     try{if(t==='system')localStorage.removeItem('theme');else localStorage.setItem('theme',t);}catch(e){}
   }
   apply(root.dataset.theme);
