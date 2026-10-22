@@ -6,11 +6,13 @@
 // It takes over the brand mark ([data-mascot="mark"]) and replaces the static
 // one inside, unless the visitor asked for reduced motion: then that one stays.
 
+import { COMET_RIBBONS, SWOOSH, arcRender, type ArcSeed } from './bot/decor'
 import { BotEngine, type BotFrame } from './bot/engine'
-import type { BotExpression } from './bot/expressions'
+import { EXPRESSION_BY_ID, type BotExpression } from './bot/expressions'
 import { clamp, easings } from './bot/math'
 import { PROFILE_SAMPLES } from './bot/profiles'
 import { RAYON as R } from './bot/repere'
+import { SHAPE_BY_ID } from './bot/skins'
 import { STATE_BY_ID, type StateId } from './bot/states'
 
 // The drop: a circle whose top-right quadrant is squared off into a corner,
@@ -81,11 +83,81 @@ document.documentElement.addEventListener('pointerleave', () => {
 
 let uid = 0
 
+// Ribbons drawn round the body: their seeds at time t, how long they last, and
+// a name that keeps each set's gradients apart.
+interface Ribbons {
+  name: string
+  seeds: (t: number) => ArcSeed[]
+  life: number
+}
+
+// What a poke does once the body has changed shape, in any mix: play a bloub
+// state, wear a face, send ribbons round it, move the whole mark. The longest
+// sets how long the new shape is held.
+interface Act {
+  state?: StateId
+  face?: BotExpression
+  ribbons?: Ribbons
+  /** keyframes, in ms, about a transform-origin */
+  move?: { frames: Keyframe[]; ms: number; origin: string }
+}
+
+// bloub's comet shrinks the body to a dot for its ribbons to circle. This keeps
+// the body whole, so the ribbons' orbit is drawn wider to clear it (0.85 -> 1.36,
+// about the size of the orbit rings), and the face stays on.
+const COMET_WIDE = COMET_RIBBONS.map((s) => ({ ...s, a: s.a * 1.6 }))
+const COMET: Ribbons = { name: 'cm', seeds: () => COMET_WIDE, life: 1.8 }
+// bloub's `play` fan of arcs, crossing the body from right to left as it does there
+const SWEEP: Ribbons = { name: 'sw', seeds: (t) => SWOOSH.map((s) => ({ ...s, cx: 0.45 - t * 0.42 })), life: 2 }
+
+// Moves of the whole mark. They are CSS transforms on the svg, so the engine's
+// drawing inside it, shape and face, is left as it is.
+const SPIN: Act['move'] = {
+  frames: [{ transform: 'rotate(0)', easing: 'cubic-bezier(.6,-.3,.3,1.3)' }, { transform: 'rotate(360deg)' }],
+  ms: 900,
+  origin: '50% 50%',
+}
+// crouch, jump, land squashed, settle
+const HOP: Act['move'] = {
+  frames: [
+    { transform: 'none', easing: 'ease-out' },
+    { offset: 0.15, transform: 'scale(1.15,.85)', easing: 'cubic-bezier(.2,.7,.3,1)' },
+    { offset: 0.45, transform: 'translateY(-45%) scale(.92,1.1)', easing: 'cubic-bezier(.6,0,.9,.5)' },
+    { offset: 0.7, transform: 'scale(1.18,.82)', easing: 'ease-out' },
+    { offset: 0.85, transform: 'scale(.96,1.05)' },
+    { transform: 'none' },
+  ],
+  ms: 850,
+  origin: '50% 100%',
+}
+// a wobble that dies down
+const JELLY: Act['move'] = {
+  frames: [
+    { transform: 'none' },
+    { offset: 0.18, transform: 'scale(1.2,.8)' },
+    { offset: 0.36, transform: 'scale(.86,1.14)' },
+    { offset: 0.54, transform: 'scale(1.08,.92)' },
+    { offset: 0.72, transform: 'scale(.96,1.04)' },
+    { offset: 0.86, transform: 'scale(1.02,.98)' },
+    { transform: 'none' },
+  ],
+  ms: 950,
+  origin: '50% 75%',
+}
+// how long a face is worn when nothing longer holds the shape
+const FACE_HOLD = 1.6
+
+// how long a new shape gets to settle before the act starts; SHAPE_MORPH is
+// 0.45s, but its ease-out has it there well before
+const SETTLE = 0.35
+
 interface Mascot {
   /** the state it rests in until told otherwise */
   rest(id: StateId): void
   /** play a state once, then go back to the resting one */
   play(id: StateId): void
+  /** turn into another shape, act in it, then turn back into the drop */
+  poke(shape: number[], act: Act): void
 }
 
 function mount(host: HTMLElement): Mascot {
@@ -117,6 +189,10 @@ function mount(host: HTMLElement): Mascot {
   let until = Infinity
   let aiming = false
   let aimSince = 0
+  // a poke's later steps, on the mascot's own clock
+  let cues: Array<[number, () => void]> = []
+  let ribbons: Ribbons | null = null
+  let ribbonsFrom = 0
 
   const go = (next: StateId) => {
     if (next === state) return
@@ -210,23 +286,67 @@ function mount(host: HTMLElement): Mascot {
       until = Infinity
       go(resting)
     }
+    while (cues.length > 0 && clock >= cues[0]![0]) cues.shift()![1]()
     // nothing to draw while the window hides it (after an upload, say)
     if (host.getClientRects().length > 0) {
       aim()
-      draw(engine.sample(clock))
+      const f = engine.sample(clock)
+      const t = clock - ribbonsFrom
+      if (ribbons && t < ribbons.life) {
+        // fades in over a quarter second and out over the last 0.3s, as bloub's comet does
+        const { name, seeds, life } = ribbons
+        const fade = clamp(t / 0.25) * clamp((life - t) / 0.3)
+        f.arcs = [...f.arcs, ...seeds(t).map((s, i) => arcRender(s, t, R, `${name}${i}`, fade))]
+      }
+      draw(f)
     }
     requestAnimationFrame(tick)
   }
   requestAnimationFrame(tick)
+
+  function play(id: StateId) {
+    go(id)
+    until = clock + (STATE_BY_ID.get(id)?.duration ?? 2)
+  }
 
   return {
     rest(id) {
       resting = id
       if (until === Infinity) go(id)
     },
-    play(id) {
-      go(id)
-      until = clock + (STATE_BY_ID.get(id)?.duration ?? 2)
+    play,
+    // The shape only shows on states that wear the resting body (idle, wink,
+    // wide, notify, swirl); the others draw their own and start from this one.
+    poke(shape, act) {
+      engine.setShape(shape, clock)
+      engine.setExpression(FACE, clock)
+      ribbons = null
+      for (const a of svg.getAnimations()) a.cancel()
+      const start = clock + SETTLE
+      const length = Math.max(
+        act.state ? (STATE_BY_ID.get(act.state)?.duration ?? 2) : 0,
+        act.face ? FACE_HOLD : 0,
+        act.ribbons?.life ?? 0,
+        (act.move?.ms ?? 0) / 1000,
+      )
+      cues = [
+        [start, () => {
+          if (act.state) play(act.state)
+          if (act.face) engine.setExpression(act.face, clock)
+          if (act.ribbons) {
+            ribbons = act.ribbons
+            ribbonsFrom = clock
+          }
+          if (act.move) {
+            svg.style.transformOrigin = act.move.origin
+            svg.animate(act.move.frames, act.move.ms)
+          }
+        }],
+        [start + length, () => {
+          engine.setShape(DROP, clock)
+          engine.setExpression(FACE, clock)
+        }],
+      ]
     },
   }
 }
@@ -240,6 +360,28 @@ if (host && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
   // own drop animation; the mark only reacts alongside it.
   const win = document.getElementById('dropZone')
   if (win) {
+    // Poking the mark: on the home page the brand is not a link, and clicking it
+    // turns the mark into another of bloub's shapes to do one thing in it, a
+    // different pair each time.
+    const shape = (id: string) => SHAPE_BY_ID.get(id)!.radii
+    const face = (id: string) => EXPRESSION_BY_ID.get(id)!
+    const pokes: Array<[number[], Act]> = [
+      [shape('hexagone'), { move: SPIN, state: 'wink' }],
+      [shape('triangle'), { ribbons: COMET }],
+      [shape('nuage'), { move: HOP, face: face('heureux') }],
+      [shape('squircle'), { move: JELLY, state: 'wide' }],
+      [shape('capsule'), { state: 'swirl' }],
+      [shape('cercle'), { state: 'orbit' }],
+      [shape('galet'), { ribbons: SWEEP, face: face('excite') }],
+    ]
+    let poke = 0
+    const brand = host.closest<HTMLElement>('.brand')
+    if (brand) {
+      // only once there is something to see: with reduced motion this never runs
+      brand.style.cursor = 'pointer'
+      brand.addEventListener('click', () => mark.poke(...pokes[poke++ % pokes.length]!))
+    }
+
     let done = win.classList.contains('done')
     new MutationObserver(() => {
       const c = win.classList
