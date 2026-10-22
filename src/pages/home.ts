@@ -637,6 +637,9 @@ ${dark((r) => `${r} .fact .ft{box-shadow:inset 0 0 0 1px var(--line-2)}${r} .fac
   addrCopy.addEventListener('click',function(){if(link)copyText(link.share,addrCopy,document.getElementById('lkUrl'));});
   fpc.addEventListener('click',function(){if(!pending)return;fp.classList.remove('show');processMain(pending.candidates[parseInt(fsel.value)],pending.all);pending=null;});
 
+  // The Worker's own errors are one short line of plain text. Anything else answered for it
+  // (an edge error page, a proxy's HTML) is named by its status instead of shown as markup.
+  function failed(r,what){return r.text().then(function(t){var plain=/^text\\/plain/i.test(r.headers.get('content-type')||'');throw new Error(plain&&t&&t.length<=300?t:what+' failed (HTTP '+r.status+')');});}
   function showErr(m){err.textContent=m;err.classList.add('show');dz.classList.add('error');setTimeout(function(){dz.classList.remove('error');},2000);}
 
   async function handleFiles(files){
@@ -794,7 +797,7 @@ ${dark((r) => `${r} .fact .ft{box-shadow:inset 0 0 0 1px var(--line-2)}${r} .fac
     var body={id:link.id,password:link.password};for(var k in change)body[k]=change[k];
     err.classList.remove('show');status('Saving\\u2026','saving');
     fetch('/api/settings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})
-    .then(function(r){if(!r.ok)return r.text().then(function(t){throw new Error(t);});return r.json();})
+    .then(function(r){if(!r.ok)return failed(r,'Saving');return r.json();})
     .then(function(d){showLink(d,'');status('Saved','ok');statusTimer=setTimeout(function(){status('');},2200);})
     .catch(function(e){revert();renderTray();status('');showErr(e.message||'Saving failed');});
   }
@@ -836,7 +839,7 @@ ${dark((r) => `${r} .fact .ft{box-shadow:inset 0 0 0 1px var(--line-2)}${r} .fac
     var page=new Blob([html]);
     var meta={filename:fn,bytes:page.size,expiresInDays:opts.days,renewOnView:opts.renew};if(opts.public)meta.public=true;
     fetch('/api/upload',{method:'POST',headers:{'Content-Type':'application/x-htmldrop-upload'},body:new Blob([JSON.stringify(meta)+'\\n',page])})
-    .then(function(r){if(!r.ok)return r.text().then(function(t){throw new Error(t);});return r.json();})
+    .then(function(r){if(!r.ok)return failed(r,'Upload');return r.json();})
     .then(function(d){showLink(d,fn,html);status('');})
     .catch(function(e){showErr(e.message||'Upload failed');})
     .finally(function(){prog.classList.remove('show');dz.classList.remove('busy');});

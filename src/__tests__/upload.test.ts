@@ -132,6 +132,8 @@ describe("POST /api/upload", () => {
       body: "hello",
     });
     expect(res.status).toBe(415);
+    // the home page shows an error's text only when it is plain text
+    expect(res.headers.get("Content-Type")).toMatch(/^text\/plain/);
   });
 
   it("cannot squat a chosen id: id+password for an unknown page is rejected and creates nothing", async () => {

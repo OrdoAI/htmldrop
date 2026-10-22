@@ -67,6 +67,20 @@ for (const [entry, fn, args] of pages) {
   });
 }
 
+test("src/pages/home.ts: a failed request shows the Worker's text, or its status for anything else", async () => {
+  const mod = await load("src/pages/home.ts");
+  const src = inlineScripts(mod.homePage()).join("\n").match(/function failed\(r,what\)\{.*\}/)?.[0];
+  assert.ok(src, "home page script defines failed()");
+  const failed = new Script(`(${src})`).runInThisContext();
+  const message = (res) => failed(res, "Upload").then(() => assert.fail("failed() resolved"), (e) => e.message);
+
+  assert.equal(await message(new Response("Invalid metadata", { status: 400 })), "Invalid metadata");
+  const edgePage = "<!DOCTYPE html><html><body><h1>Error 524</h1></body></html>";
+  assert.equal(await message(new Response(edgePage, { status: 524, headers: { "Content-Type": "text/html" } })), "Upload failed (HTTP 524)");
+  assert.equal(await message(new Response("x".repeat(301), { status: 500 })), "Upload failed (HTTP 500)");
+  assert.equal(await message(new Response(null, { status: 502 })), "Upload failed (HTTP 502)");
+});
+
 test("src/mascot.gen.ts matches mascot/ (run npm run build:mascot)", async () => {
   assert.equal(readFileSync(GEN_PATH, "utf8"), await mascotModule());
 });
