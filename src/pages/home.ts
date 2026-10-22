@@ -60,7 +60,9 @@ ${FONT_PRELOAD}
 ${dark((r) => `${r}{--dot:rgba(255,255,255,.075);--glow:rgba(127,151,255,.13);--win-shadow:0 0 0 1px rgba(255,255,255,.07),inset 0 1px 0 rgba(255,255,255,.05),0 12px 24px -12px rgba(0,0,0,.6),0 40px 90px -30px rgba(0,0,0,.85),0 80px 160px -60px rgba(127,151,255,.22)}`)}
 body{overflow-x:clip}
 .top{display:flex;align-items:center;justify-content:space-between;max-width:68rem;margin:0 auto;padding:1.375rem 1.5rem}
-.brand{display:inline-flex;align-items:center;gap:.6rem;font-size:.9375rem;font-weight:650;letter-spacing:-.02em}
+/* not a link here: it would only reload this page, and after an upload take the new link off
+   the screen. The mascot plays when it is clicked instead, so quick clicks shouldn't select it. */
+.brand{display:inline-flex;align-items:center;gap:.6rem;font-size:.9375rem;font-weight:650;letter-spacing:-.02em;-webkit-user-select:none;user-select:none}
 /* a new theme spreads out from the switch over the old one (the script grows
    the circle). Not a crossfade: dark text on light and light text on dark
    meet at the same grey halfway, and the page goes blank. Opaque over opaque,
@@ -386,7 +388,7 @@ ${dark((r) => `${r} .fact .ft{box-shadow:inset 0 0 0 1px var(--line-2)}${r} .fac
 </head>
 <body>
 <header class="top">
-  <a class="brand" href="/">${mascotSlot("mark", "mark")}HTMLDrop</a>
+  <span class="brand">${mascotSlot("mark", "mark")}HTMLDrop</span>
   <div class="seg" id="theme" role="radiogroup" aria-label="Theme"><button type="button" role="radio" data-t="system" title="System" aria-label="System">${I.system}</button><button type="button" role="radio" data-t="light" title="Light" aria-label="Light">${I.sun}</button><button type="button" role="radio" data-t="dark" title="Dark" aria-label="Dark">${I.moon}</button></div>
 </header>
 <script>
