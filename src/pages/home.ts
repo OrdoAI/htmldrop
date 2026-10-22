@@ -6,7 +6,7 @@ const I = {
   clock: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg>',
   chev: '<svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>',
   check: '<svg class="ck" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>',
-  copy: '<svg class="i-copy" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2.5"/><path d="M15 9V6.5A2.5 2.5 0 0 0 12.5 4h-6A2.5 2.5 0 0 0 4 6.5v6A2.5 2.5 0 0 0 6.5 15H9"/></svg><svg class="i-ok" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>',
+  copy: '<svg class="i-copy" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2.5"/><path d="M15 9V6.5A2.5 2.5 0 0 0 12.5 4h-6A2.5 2.5 0 0 0 4 6.5v6A2.5 2.5 0 0 0 6.5 15H9"/></svg><svg class="i-ok" viewBox="0 0 24 24" aria-hidden="true"><path pathLength="1" d="M5 12.5l4.5 4.5L19 7.5"/></svg>',
   out: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 17 17 7M9 7h8v8"/></svg>',
   plus: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>',
   doc: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/></svg>',
@@ -61,10 +61,14 @@ ${dark((r) => `${r}{--dot:rgba(255,255,255,.075);--glow:rgba(127,151,255,.13);--
 body{overflow-x:clip}
 .top{display:flex;align-items:center;justify-content:space-between;max-width:68rem;margin:0 auto;padding:1.375rem 1.5rem}
 .brand{display:inline-flex;align-items:center;gap:.6rem;font-size:.9375rem;font-weight:650;letter-spacing:-.02em}
-.seg{display:inline-flex;gap:2px;padding:3px;border-radius:999px;background:var(--sunken);box-shadow:inset 0 0 0 1px var(--line)}
-.seg button{display:grid;place-items:center;width:1.75rem;height:1.75rem;padding:0;border:0;border-radius:999px;background:none;color:var(--ink-3);cursor:pointer;transition:color var(--t1) var(--ease),background-color var(--t1) var(--ease),box-shadow var(--t1) var(--ease)}
+.seg{position:relative;display:inline-flex;gap:2px;padding:3px;border-radius:999px;background:var(--sunken);box-shadow:inset 0 0 0 1px var(--line)}
+/* one thumb slides to the choice, as in the file/agent switch */
+.seg::before{content:"";position:absolute;top:3px;left:3px;width:1.75rem;height:1.75rem;border-radius:999px;background:var(--surface);box-shadow:0 0 0 1px var(--line-2),0 1px 2px rgba(0,0,0,.08);transform:translateX(calc(var(--i,0) * (1.75rem + 2px)));transition:transform var(--t-switch) var(--spring)}
+.seg[data-on=light]{--i:1}
+.seg[data-on=dark]{--i:2}
+.seg button{position:relative;display:grid;place-items:center;width:1.75rem;height:1.75rem;padding:0;border:0;border-radius:999px;background:none;color:var(--ink-3);cursor:pointer;transition:color var(--t1) var(--ease)}
 .seg button:hover{color:var(--ink)}
-.seg button[aria-checked="true"]{background:var(--surface);color:var(--ink);box-shadow:0 0 0 1px var(--line-2),0 1px 2px rgba(0,0,0,.08)}
+.seg button[aria-checked="true"]{color:var(--ink)}
 .seg button:focus-visible{border-radius:999px}
 .seg svg{width:.9375rem;height:.9375rem;stroke:currentColor;stroke-width:1.75;fill:none;stroke-linecap:round;stroke-linejoin:round}
 
@@ -195,7 +199,7 @@ input[type=file]{display:none}
 #copyBtn{min-width:10rem}
 #copyBtn .lbl::after{content:"Copy link"}
 #copyBtn.copied .lbl::after{content:"Copied"}
-#copyBtn.copied{background:var(--ok);border-color:var(--ok);color:#fff}
+#copyBtn.copied{background:var(--ok);border-color:var(--ok);color:var(--bg)}
 /* a receipt for the upload: the file and its state, then a hairline, then the way out */
 .rcpt{display:inline-flex;align-items:center;justify-content:center;gap:.75rem;max-width:100%;height:2.25rem;padding:0 .3125rem 0 .8rem;border:1px solid var(--line);border-radius:999px;background:var(--surface);box-shadow:var(--shadow-sm);font-size:.8125rem;color:var(--ink-3)}
 .rcpt svg{flex:none;width:.875rem;height:.875rem;stroke:currentColor;stroke-width:2;fill:none;stroke-linecap:round;stroke-linejoin:round}
@@ -219,8 +223,8 @@ input[type=file]{display:none}
 #editCopyBtn svg{color:var(--pub)}
 #editCopyBtn .lbl::after{content:"Copy edit link"}
 #editCopyBtn.copied .lbl::after{content:"Copied"}
-#editCopyBtn.copied{background:var(--ok);border-color:var(--ok);color:#fff}
-#editCopyBtn.copied svg{color:#fff}
+#editCopyBtn.copied{background:var(--ok);border-color:var(--ok);color:var(--bg)}
+#editCopyBtn.copied svg{color:var(--bg)}
 
 /* chips and their menus */
 .menu-wrap{position:relative}
@@ -288,11 +292,14 @@ input[type=file]{display:none}
 .win.agent .prompt-view{opacity:1;pointer-events:auto;transform:none}
 /* the browser slides out the way the thumb went; the terminal prints its lines in turn */
 .win.agent .field{opacity:0;pointer-events:none;transform:translateX(-1.5rem)}
-.prompt-view .t,.prompt-view .dim,.prompt-view .btn{opacity:0;transform:translateY(.375rem);transition:opacity var(--t2) var(--ease),transform var(--t-switch) var(--ease)}
-.win.agent .prompt-view .t,.win.agent .prompt-view .dim,.win.agent .prompt-view .btn{opacity:1;transform:none}
+.prompt-view .t,.prompt-view .dim{opacity:0;transform:translateY(.375rem);transition:opacity var(--t2) var(--ease),transform var(--t-switch) var(--ease)}
+.win.agent .prompt-view .t,.win.agent .prompt-view .dim{opacity:1;transform:none}
 .win.agent .prompt-view .t{transition-delay:.06s}
 .win.agent .prompt-view .dim{transition-delay:.12s}
-.win.agent .prompt-view .btn{transition-delay:.18s}
+/* the button comes in on translate, leaving transform to its press, and repeats .btn's
+   own transitions so its fill and press stay as quick as on any other button */
+.prompt-view .btn{opacity:0;translate:0 .375rem;transition:background-color var(--t1) var(--ease),border-color var(--t1) var(--ease),color var(--t1) var(--ease),transform var(--t1) var(--ease),opacity var(--t2) var(--ease),translate var(--t-switch) var(--ease)}
+.win.agent .prompt-view .btn{opacity:1;translate:none;transition-delay:0s,0s,0s,0s,.18s,.18s}
 .prompt{font-family:var(--mono);font-size:.875rem;line-height:1.75}
 .tcur{display:inline-block;width:.6em;height:1.2em;margin-left:.2em;vertical-align:-.25em;background:var(--ink-2);animation:blink 1.1s steps(1) infinite}
 .prompt-view .btn{align-self:flex-end}
@@ -308,7 +315,7 @@ input[type=file]{display:none}
 .prompt .dim{margin-top:.75rem;padding-left:1.15rem;color:var(--ink-3);font-size:.8125rem}
 .prompt .dim code{display:block;margin-top:.15rem;color:var(--ink-2)}
 .nw{white-space:nowrap}
-#agCopy.copied{background:var(--ok);border-color:var(--ok);color:#fff}
+#agCopy.copied{background:var(--ok);border-color:var(--ok);color:var(--bg)}
 #agCopy .lbl::after{content:"Copy prompt"}
 #agCopy.copied .lbl::after{content:"Copied"}
 
@@ -381,6 +388,7 @@ ${dark((r) => `${r} .fact .ft{box-shadow:inset 0 0 0 1px var(--line-2)}${r} .fac
   var g=document.getElementById('theme'),root=document.documentElement,bs=[].slice.call(g.querySelectorAll('button'));
   function apply(t){
     if(t==='light'||t==='dark')root.dataset.theme=t;else{delete root.dataset.theme;t='system';}
+    g.dataset.on=t;
     bs.forEach(function(b){var on=b.dataset.t===t;b.setAttribute('aria-checked',on);b.tabIndex=on?0:-1;});
   }
   function pick(t){
@@ -521,7 +529,19 @@ ${dark((r) => `${r} .fact .ft{box-shadow:inset 0 0 0 1px var(--line-2)}${r} .fac
   document.addEventListener('dragleave',function(e){if(!hasFiles(e))return;if(--dragDepth<=0){dragDepth=0;document.body.classList.remove('dragging');}});
   document.addEventListener('dragover',function(e){if(hasFiles(e))e.preventDefault();});
   document.addEventListener('drop',function(e){if(hasFiles(e))e.preventDefault();dragDepth=0;document.body.classList.remove('dragging');});
-  function flash(btn){btn.classList.add('copied');clearTimeout(btn._t);btn._t=setTimeout(function(){btn.classList.remove('copied');},1500);}
+  // The button keeps its width while it says "Copied", so it doesn't shrink under the pointer.
+  // Copying again replays the check, so a second copy is confirmed too. "uncopied" only lives
+  // as long as its animation: left on, it would replay whenever the button is shown again.
+  function flash(btn){
+    clearTimeout(btn._t);
+    if(btn.classList.contains('copied')){btn.classList.remove('copied');void btn.offsetWidth;}
+    else btn.style.minWidth=btn.getBoundingClientRect().width+'px';
+    btn.classList.remove('uncopied');btn.classList.add('copied');
+    btn._t=setTimeout(function(){
+      btn.classList.replace('copied','uncopied');btn.style.minWidth='';
+      btn._t=setTimeout(function(){btn.classList.remove('uncopied');},400);
+    },1500);
+  }
 
   function isRel(src){return src&&!src.startsWith('data:')&&!src.startsWith('http://')&&!src.startsWith('https://')&&!src.startsWith('//')&&!src.startsWith('#')&&!src.startsWith('javascript:');}
   function norm(p){var parts=p.split('/'),o=[];for(var i=0;i<parts.length;i++){if(parts[i]==='.'||parts[i]==='')continue;if(parts[i]==='..'&&o.length){o.pop();continue;}o.push(parts[i]);}return o.join('/');}

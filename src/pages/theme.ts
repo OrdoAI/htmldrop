@@ -70,7 +70,7 @@ a{color:inherit;text-decoration:none}
 .mark{display:inline-block;width:1.375rem;height:1.375rem;flex:none}
 /* the mascot draws past its box: an orbit, the comet's tail */
 [data-mascot] svg{display:block;width:100%;height:100%;overflow:visible}
-.btn{display:inline-flex;align-items:center;justify-content:center;gap:.5rem;height:2.5rem;padding:0 1.05rem;border-radius:var(--r-s);border:1px solid var(--ink);background:var(--ink);color:var(--bg);font-size:.875rem;font-weight:550;letter-spacing:-.005em;white-space:nowrap;cursor:pointer;transition:background-color var(--t1) var(--ease),border-color var(--t1) var(--ease),transform var(--t1) var(--ease)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:.5rem;height:2.5rem;padding:0 1.05rem;border-radius:var(--r-s);border:1px solid var(--ink);background:var(--ink);color:var(--bg);font-size:.875rem;font-weight:550;letter-spacing:-.005em;white-space:nowrap;cursor:pointer;transition:background-color var(--t1) var(--ease),border-color var(--t1) var(--ease),color var(--t1) var(--ease),transform var(--t1) var(--ease)}
 .btn:hover{background:var(--ink-2);border-color:var(--ink-2)}
 .btn:active{transform:scale(.98)}
 .btn.secondary{background:var(--surface);color:var(--ink);border-color:var(--line-2);box-shadow:var(--shadow-sm)}
@@ -81,6 +81,12 @@ a{color:inherit;text-decoration:none}
 .btn .i-ok{display:none}
 .btn.copied .i-ok{display:inline}
 .btn.copied .i-copy{display:none}
+/* the icon and label swap outright, so the new ones come in rather than appear:
+   the check draws itself (its path has pathLength=1) and the label rises a little */
+@keyframes swap-in{from{opacity:0;transform:translateY(.1875rem)}}
+@keyframes draw{from{stroke-dashoffset:1}}
+.copied .i-ok path{stroke-dasharray:1;animation:draw var(--t2) var(--ease)}
+.copied .lbl,.uncopied .lbl,.uncopied .i-copy{animation:swap-in var(--t2) var(--ease)}
 @keyframes rise{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{transition-duration:0s!important;transition-delay:0s!important;animation-duration:0s!important}}
 `;
