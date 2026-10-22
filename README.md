@@ -71,6 +71,11 @@ Run the Worker locally:
 npm run dev
 ```
 
+It serves http://localhost:8787 against a local R2 bucket. The `baseurl.ai`
+route would otherwise make wrangler hand the Worker `baseurl.ai` URLs, which it
+redirects to HTTPS, so the script points requests back at localhost; it also
+passes a throwaway `AUTH_SECRET` so uploaded pages open.
+
 Run checks:
 
 ```bash

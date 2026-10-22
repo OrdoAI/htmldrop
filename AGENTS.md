@@ -21,7 +21,7 @@ and Markdown previews at `baseurl.ai`.
 
 ## Build, Test, and Development Commands
 
-- `npm run dev` starts local Wrangler development.
+- `npm run dev` serves the Worker at http://localhost:8787 with a local R2 bucket and a throwaway `AUTH_SECRET`; its `--local-upstream` keeps the `baseurl.ai` route from turning every request into an HTTPS redirect.
 - `npm run typecheck` runs `tsc --noEmit` with strict TypeScript settings, for the Worker and for `mascot/`.
 - `npm run build:mascot` rebuilds `src/mascot.gen.ts` after a change under `mascot/`.
 - `npm test` runs the Cloudflare Worker Vitest suite.
