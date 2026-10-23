@@ -91,7 +91,11 @@ body{overflow-x:clip}
 .hero h1{font-size:clamp(2.625rem,min(1.4rem + 4.6vw,9vh),4.75rem);font-weight:680;line-height:1;letter-spacing:-.052em}
 .hero h1 span{display:block;text-wrap:balance}
 .fade{font-style:normal;background:linear-gradient(90deg,var(--ink) 0%,var(--ink) 16%,color-mix(in srgb,var(--ink) 9%,transparent) 97%);-webkit-background-clip:text;background-clip:text;color:transparent;padding-right:.04em}
-.lede{max-width:31rem;margin:clamp(1rem,3vh,1.5rem) auto 0;font-size:1.125rem;line-height:1.55;color:var(--ink-2);text-wrap:balance}
+.lede{max-width:34rem;margin:clamp(1rem,3vh,1.5rem) auto 0;font-size:1.125rem;line-height:1.55;color:var(--ink-2);text-wrap:balance;display:grid;align-items:center}
+/* the lede changes with the chips; its hidden twin holds the longest wording,
+   so the window below stays put whichever line count the live text needs */
+.lede>span{grid-area:1/1}
+.lede .twin{visibility:hidden}
 
 /* the stage: a browser window. Drop a file into it and it becomes a page. */
 .stage{position:relative;max-width:54rem;margin:clamp(2rem,6vh - 1rem,3.25rem) auto 0;padding:0 1.5rem}
@@ -433,7 +437,7 @@ ${dark((r) => `${r} .fact .ft{box-shadow:inset 0 0 0 1px var(--line-2)}${r} .fac
 <main>
   <section class="hero">
     <h1><span>Drop a file.</span><span>Get a link that <em class="fade">expires.</em></span></h1>
-    <p class="lede" id="lede">Private and encrypted. Gone after 14 days without a visit.</p>
+    <p class="lede"><span id="lede">Private and encrypted. Gone after 14 days without a visit.</span><span class="twin" aria-hidden="true">Open to anyone with the link. Gone after 30 days without a visit.</span></p>
   </section>
 
   <section class="stage" id="agents" aria-label="Upload">
