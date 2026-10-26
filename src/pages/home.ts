@@ -72,7 +72,7 @@ body{overflow-x:clip}
 ::view-transition-old(root),::view-transition-new(root){animation:none;mix-blend-mode:normal}
 ::view-transition-old(theme-seg){display:none}
 ::view-transition-new(theme-seg){animation:none}
-.seg{position:relative;display:inline-flex;gap:2px;padding:3px;border-radius:999px;background:var(--sunken);box-shadow:inset 0 0 0 1px var(--line);view-transition-name:theme-seg;transition:background-color var(--t2) var(--ease),box-shadow var(--t2) var(--ease)}
+.seg{position:relative;display:inline-flex;gap:2px;padding:3px;border-radius:999px;background:var(--sunken);box-shadow:inset 0 0 0 1px var(--line);cursor:pointer;view-transition-name:theme-seg;transition:background-color var(--t2) var(--ease),box-shadow var(--t2) var(--ease)}
 /* one thumb slides to the choice, as in the file/agent switch */
 .seg::before{content:"";position:absolute;top:3px;left:3px;width:1.75rem;height:1.75rem;border-radius:999px;background:var(--surface);box-shadow:0 0 0 1px var(--line-2),0 1px 2px rgba(0,0,0,.08);transform:translateX(calc(var(--i,0) * (1.75rem + 2px)));transition:transform var(--t-switch) var(--spring),background-color var(--t2) var(--ease),box-shadow var(--t2) var(--ease)}
 .seg[data-on=light]{--i:1}
@@ -410,19 +410,22 @@ ${dark((r) => `${r} .fact .ft{box-shadow:inset 0 0 0 1px var(--line-2)}${r} .fac
   // window; another tab's choice and a visitor who asked for less motion get
   // it at once. Arrow keys come here too, so the circle starts at the switch,
   // not at a pointer.
-  function pick(t){
+  var vt;
+  function pick(t,hand){
     if(document.startViewTransition&&!matchMedia('(prefers-reduced-motion:reduce)').matches){
       var b=g.getBoundingClientRect(),x=b.left+b.width/2,y=b.top+b.height/2,
         r=Math.hypot(Math.max(x,innerWidth-x),Math.max(y,innerHeight-y)),at=' at '+x+'px '+y+'px)';
-      document.startViewTransition(function(){apply(t);}).ready.then(function(){
+      var v=vt=document.startViewTransition(function(){apply(t);});
+      if(hand)root.style.cursor='pointer';
+      v.ready.then(function(){
         root.animate({clipPath:['circle(0'+at,'circle('+r+'px'+at]},{duration:550,easing:'ease-in-out',pseudoElement:'::view-transition-new(root)'});
       },function(){});
+      v.finished.then(function(){if(vt===v){vt=null;root.style.cursor='';}},function(){});
     }else apply(t);
     try{if(t==='system')localStorage.removeItem('theme');else localStorage.setItem('theme',t);}catch(e){}
   }
   apply(root.dataset.theme);
   bs.forEach(function(b,i){
-    b.addEventListener('click',function(){pick(b.dataset.t);});
     b.addEventListener('keydown',function(e){
       var d=e.key==='ArrowRight'||e.key==='ArrowDown'?1:e.key==='ArrowLeft'||e.key==='ArrowUp'?-1:0;
       if(!d)return;
@@ -430,6 +433,24 @@ ${dark((r) => `${r} .fact .ft{box-shadow:inset 0 0 0 1px var(--line-2)}${r} .fac
       var n=bs[(i+d+bs.length)%bs.length];pick(n.dataset.t);n.focus();
     });
   });
+  // a click anywhere on the switch picks the button nearest where it was let
+  // go: the gaps and the rim show the hand too, and a press that slid onto
+  // another button lands on the switch itself. While the circle grows the
+  // page takes no pointer and every hit lands on <html>, so the hand there
+  // and a click on the switch, even one pressed then and let go after, are
+  // found the same way.
+  function over(e){var r=g.getBoundingClientRect();return e.clientX>=r.left&&e.clientX<r.right&&e.clientY>=r.top&&e.clientY<r.bottom;}
+  function nearest(e){
+    var n,d=Infinity;
+    bs.forEach(function(b){var r=b.getBoundingClientRect(),k=Math.abs(e.clientX-(r.left+r.width/2));if(k<d){d=k;n=b;}});
+    return n;
+  }
+  g.addEventListener('click',function(e){
+    var b=e.detail?nearest(e):e.target.closest('button');
+    if(b)pick(b.dataset.t,e.detail>0);
+  });
+  document.addEventListener('pointermove',function(e){if(vt)root.style.cursor=over(e)?'pointer':'';});
+  document.addEventListener('click',function(e){if(e.target===root&&over(e))pick(nearest(e).dataset.t,true);});
   window.addEventListener('storage',function(e){if(e.key==='theme')apply(e.newValue);});
 })();
 </script>
